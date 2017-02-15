@@ -2,6 +2,11 @@
 
 use serde::de;
 
+use std::collections::{
+    HashMap,
+};
+use std::borrow::Cow;
+
 #[doc(inline)]
 pub use serde::de::value::Error;
 use serde::de::value::MapDeserializer;
@@ -25,7 +30,7 @@ use url::form_urlencoded::parse;
 ///     Ok(meal));
 /// ```
 pub fn from_bytes<T: de::Deserialize>(input: &[u8]) -> Result<T, Error> {
-    T::deserialize(Deserializer::new(parse(input)))
+    T::deserialize(&mut Deserializer::new(parse(input)))
 }
 
 /// Deserializes a `application/x-wwww-url-encoded` value from a `&str`.
@@ -80,25 +85,25 @@ impl<'a> Deserializer<'a> {
     }
 }
 
-impl<'a> de::Deserializer for Deserializer<'a> {
+impl<'a, 'b> de::Deserializer for &'b mut Deserializer<'a> {
     type Error = Error;
 
     fn deserialize<V>(self, visitor: V) -> Result<V::Value, Self::Error>
         where V: de::Visitor,
     {
-        self.deserialize_map(visitor)
+        self.deserialize_str(visitor)
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
         where V: de::Visitor,
     {
-        visitor.visit_map(self.inner)
+        visitor.visit_map(&mut self.inner)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
         where V: de::Visitor,
     {
-        visitor.visit_seq(self.inner)
+        visitor.visit_seq(&mut self.inner)
     }
 
     fn deserialize_seq_fixed_size<V>(self,
@@ -107,7 +112,18 @@ impl<'a> de::Deserializer for Deserializer<'a> {
                                      -> Result<V::Value, Self::Error>
         where V: de::Visitor,
     {
-        visitor.visit_seq(self.inner)
+        visitor.visit_seq(&mut self.inner)
+    }
+
+    // _serde::Deserializer::deserialize_struct(deserializer,"A", FIELDS, __Visitor)
+    fn deserialize_struct<V>(self,
+                             name: &'static str,
+                             fields: &'static [&'static str],
+                             visitor: V)
+                             -> Result<V::Value, Self::Error>
+        where V: de::Visitor
+    {
+        visitor.visit_map(FlatMapVisitor::new(self))
     }
 
     forward_to_deserialize! {
@@ -132,10 +148,161 @@ impl<'a> de::Deserializer for Deserializer<'a> {
         unit_struct
         newtype_struct
         tuple_struct
-        struct
+        // struct
         struct_field
         tuple
         enum
         ignored_any
+    }
+}
+
+
+use std::marker::PhantomData;
+use serde::de::MapVisitor;
+use std::iter;
+use std::collections::hash_map::{Iter,IntoIter};
+
+#[derive(Debug)]
+enum Level {
+    Flat(String),
+    Nested(String),
+}
+struct FlatMapVisitor<'a, 'b>
+    where 'a: 'b
+{
+    de: &'b mut Deserializer<'a>,
+    iter: iter::Peekable<iter::Fuse<IntoIter<String, Level>>>,
+    // iter: iter::Peekable<iter::Fuse<Iter<'c, String, String>>>,
+
+}
+
+use serde::de::value::CowStrDeserializer;
+
+impl<'a, 'b, 'c> FlatMapVisitor<'a, 'b>
+    where 'a :'b
+{
+    fn new(de: &'b mut Deserializer<'a>) -> Self {
+
+        let mut map = HashMap::<String, Level>::new();
+
+        while let Ok(Some((k,v))) = de.inner.visit::<Cow<String>, Cow<String>>() {
+            let (ldepth, rdepth) = k.chars().fold((0, 0), |(acc0, acc1), x| {
+                match x {
+                    '[' => (acc0+1, acc1),
+                    ']' => (acc0, acc1+1),
+                    _ => (acc0, acc1)
+                }
+            });
+            debug_assert!(ldepth == rdepth);
+
+            // a[b][c][d] = 1 => a, b], c][d]
+            if ldepth > 1 {
+                let ksplit: Vec<&str> = k.splitn(3, '[').collect();
+                let a = ksplit[0];
+                let b = ksplit[1];
+                let c = ksplit[2];
+                let x = match map.get(a.into()) {
+                    Some(&Level::Flat(_)) => {
+                        panic!("Tried adding a nested element to a flat level");
+                    },
+                    Some(&Level::Nested(ref x)) => {
+                        // map.get(a) = x&b[c][d]=v 
+                        format!("{}&{}[{}={}", &x, &b[..b.len()-1], &c, &v).into()
+                    },
+                    None => {
+                        // map.insert(a, b[c][d]=v)
+                        format!("{}[{}={}", &b[..b.len()-1],c, v).into()
+                    }
+                };
+                map.insert(a.into(), Level::Nested(x));
+            } else if ldepth == 1 {
+                let ksplit: Vec<&str> = k.splitn(2, '[').collect();
+                let a = ksplit[0];
+                let b = ksplit[1];
+                // k is of the form a[b]
+                let x = match map.get(a.into()) {
+                    Some(&Level::Flat(_)) => {
+                        panic!("Tried adding a nested element to a flat level");
+                    },
+                    Some(&Level::Nested(ref x)) => {
+                        // map.get(a) = x&b=v 
+                        format!("{}&{}={}", &x, &b[..b.len()-1], &v).into()
+                    },
+                    None => {
+                        // map.insert(a, b=v)
+                        format!("{}={}", &b[..b.len()-1], &v).into()
+                    }
+                };
+                map.insert(a.into(), Level::Nested(x));
+            } else {
+                // k is of the form a
+                let x = match map.get(k.as_ref()) {
+                    Some(_) => {   
+                        panic!("Attempted to set the value of {} twice", k);
+                        // map.get(a) = x&b=v 
+                        // format!("{}&{}={}", &x, &b[..b.len()-1], &v).into()
+                    },
+                    None => {
+                        v
+                        // map.insert(a, b=v)
+                        // format!("{}={}", &b[..b.len()-1], &v).into()
+                    }
+                };
+                map.insert(k.into_owned(), Level::Flat(x.into_owned()));
+            }
+        }
+        println!("Map constructed: {:?}", map);
+        FlatMapVisitor {
+            de: de,
+            iter: map.into_iter().fuse().peekable(),
+        }
+    }
+
+
+}
+
+use serde::de::value::ValueDeserializer;
+
+
+impl<'a, 'b, 'c> de::MapVisitor for FlatMapVisitor<'a, 'b> {
+    type Error = Error;
+
+    // __Visitor::visit_map
+    // visit_map -> visit_key::<__Field> -> 
+    // MapVisitor::visit_key::<__Field>()
+    // -> visit_key_seed(PhantomData<__Field>)
+    // -> __Field::deserialize()
+    // seed.deserialize(key.into_deserializer())
+    // becoes flat(seed).deserialize()
+
+    // Swap for visit_key_seed(FlatDeserializer<__Field>)
+    fn visit_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Error>
+        where K: de::DeserializeSeed,
+    {
+
+        if let Some(&(ref key, _)) = self.iter.peek() {
+            return seed.deserialize(key.clone().into_deserializer()).map(Some)
+        };
+        Ok(None)
+    
+    }
+
+    fn visit_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Error>
+        where V: de::DeserializeSeed,
+    {
+        if let Some((_, value)) = self.iter.next() {
+            // seed.deserialize(value.into_deserializer())
+            match value {
+                Level::Flat(ref x) => {
+                    seed.deserialize(x.clone().into_deserializer())
+                },
+                Level::Nested(ref x) => {
+
+                    seed.deserialize(&mut Deserializer::new(parse(x.as_bytes())))
+                }
+            }
+        } else {
+            panic!("Somehow the list was empty after a non-empty key was returned");
+        }
     }
 }

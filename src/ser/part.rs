@@ -14,8 +14,8 @@ impl<S: Sink> PartSerializer<S> {
     }
 }
 
-pub trait Sink: Sized {
-    type Ok;
+pub trait Sink: Sized + ser::SerializeStruct {
+    // type Ok;
 
     fn serialize_static_str(self,
                             value: &'static str)
@@ -33,7 +33,7 @@ pub trait Sink: Sized {
     fn unsupported(self) -> Error;
 }
 
-impl<S: Sink> ser::Serializer for PartSerializer<S> {
+impl<S: Sink<Error=Error>> ser::Serializer for PartSerializer<S> {
     type Ok = S::Ok;
     type Error = Error;
     type SerializeSeq = ser::Impossible<S::Ok, Error>;
@@ -41,7 +41,7 @@ impl<S: Sink> ser::Serializer for PartSerializer<S> {
     type SerializeTupleStruct = ser::Impossible<S::Ok, Error>;
     type SerializeTupleVariant = ser::Impossible<S::Ok, Error>;
     type SerializeMap = ser::Impossible<S::Ok, Error>;
-    type SerializeStruct = ser::Impossible<S::Ok, Error>;
+    type SerializeStruct = S;
     type SerializeStructVariant = ser::Impossible<S::Ok, Error>;
 
     fn serialize_bool(self, v: bool) -> Result<S::Ok, Error> {
@@ -193,7 +193,9 @@ impl<S: Sink> ser::Serializer for PartSerializer<S> {
                         _name: &'static str,
                         _len: usize)
                         -> Result<Self::SerializeStruct, Error> {
-        Err(self.sink.unsupported())
+        // Err(self.sink.unsupported())
+        Ok(self.sink)
+
     }
 
     fn serialize_struct_variant
@@ -207,7 +209,7 @@ impl<S: Sink> ser::Serializer for PartSerializer<S> {
     }
 }
 
-impl<S: Sink> PartSerializer<S> {
+impl<S: Sink<Error=Error>> PartSerializer<S> {
     fn serialize_integer<I>(self, value: I) -> Result<S::Ok, Error>
         where I: itoa::Integer,
     {

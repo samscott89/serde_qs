@@ -1,4 +1,5 @@
-use ser::Error;
+use ser::{Error};
+use serde::ser::{SerializeStruct};
 use ser::part::Sink;
 use serde::Serialize;
 use std::borrow::Cow;
@@ -44,7 +45,6 @@ impl<End, Ok> KeySink<End>
 impl<End, Ok> Sink for KeySink<End>
     where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
 {
-    type Ok = Ok;
 
     fn serialize_static_str(self,
                             value: &'static str)
@@ -74,3 +74,23 @@ impl<End, Ok> Sink for KeySink<End>
         Error::Custom("unsupported key".into())
     }
 }
+
+impl<End, Ok> SerializeStruct for KeySink<End>
+where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
+{
+    type Ok = Ok;
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + Serialize>(&mut self,
+                                                   _key: &'static str,
+                                                   _value: &T)
+                                                   -> Result<(), Error> {
+        Err(Error::top_level())
+    }
+
+    fn end(self) -> Result<Self::Ok, Error> {
+        Err(self.unsupported())
+    }
+}
+
+

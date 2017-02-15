@@ -1,6 +1,6 @@
 use ser::Error;
 use ser::part::{PartSerializer, Sink};
-use serde::ser::Serialize;
+use serde::ser::{Serialize, SerializeStruct};
 use std::str;
 use url::form_urlencoded::Serializer as UrlEncodedSerializer;
 use url::form_urlencoded::Target as UrlEncodedTarget;
@@ -28,7 +28,7 @@ impl<'key, 'target, Target> ValueSink<'key, 'target, Target>
 impl<'key, 'target, Target> Sink for ValueSink<'key, 'target, Target>
     where Target: 'target + UrlEncodedTarget,
 {
-    type Ok = ();
+    // type Ok = ();
 
     fn serialize_str(self, value: &str) -> Result<(), Error> {
         self.urlencoder.append_pair(self.key, value);
@@ -57,3 +57,25 @@ impl<'key, 'target, Target> Sink for ValueSink<'key, 'target, Target>
         Error::Custom("unsupported value".into())
     }
 }
+
+
+impl<'key, 'target, Target> SerializeStruct for ValueSink<'key, 'target, Target>
+    where Target: 'target + UrlEncodedTarget,
+{
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + Serialize>(&mut self,
+                                                   key: &'static str,
+                                                   value: &T)
+                                                   -> Result<(), Error> {
+        let newk = format!("{}[{}]", self.key, key);
+        let value_sink = ValueSink::new(self.urlencoder, &newk);
+        value.serialize(super::part::PartSerializer::new(value_sink))
+    }
+
+    fn end(self) -> Result<Self::Ok, Error> {
+        Ok(())
+    }
+}
+

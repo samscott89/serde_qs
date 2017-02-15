@@ -19,4 +19,5 @@ test = false
 dtoa = "0.4.0"
 itoa = "0.3.0"
 serde = "0.9.3"
+serde_derive = "*"
 url = "1.0.0"
