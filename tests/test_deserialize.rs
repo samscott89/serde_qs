@@ -46,9 +46,17 @@ fn deserialize_struct() {
         c2: 7
       }
     };
-    let input = urlencode("b[b1]=10&b[b2]=Ten&c[c1]=Seven&c[c2]=7");
+    let input = "b[b1]=10&b[b2]=Ten&c[c1]=Seven&c[c2]=7";
+    let input2 = "c[c1]=Seven&b[b2]=Ten&b[b1]=10&c[c2]=7";
+    let result: A = serde_urlencoded::from_str(&urlencode(input)).unwrap();
+    assert_eq!(result, params);
     let result: A = serde_urlencoded::from_str(&input).unwrap();
     assert_eq!(result, params);
+    let result: A = serde_urlencoded::from_str(&urlencode(input2)).unwrap();
+    assert_eq!(result, params);
+    let result: A = serde_urlencoded::from_str(&input2).unwrap();
+    assert_eq!(result, params);
+
 }
 
 fn urlencode(input: &str) -> String {

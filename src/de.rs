@@ -117,8 +117,8 @@ impl<'a, 'b> de::Deserializer for &'b mut Deserializer<'a> {
 
     // _serde::Deserializer::deserialize_struct(deserializer,"A", FIELDS, __Visitor)
     fn deserialize_struct<V>(self,
-                             name: &'static str,
-                             fields: &'static [&'static str],
+                             _name: &'static str,
+                             _fields: &'static [&'static str],
                              visitor: V)
                              -> Result<V::Value, Self::Error>
         where V: de::Visitor
@@ -157,29 +157,22 @@ impl<'a, 'b> de::Deserializer for &'b mut Deserializer<'a> {
 }
 
 
-use std::marker::PhantomData;
 use serde::de::MapVisitor;
 use std::iter;
-use std::collections::hash_map::{Iter,IntoIter};
+use std::collections::hash_map::IntoIter;
 
 #[derive(Debug)]
 enum Level {
     Flat(String),
     Nested(String),
 }
-struct FlatMapVisitor<'a, 'b>
-    where 'a: 'b
+struct FlatMapVisitor
 {
-    de: &'b mut Deserializer<'a>,
     iter: iter::Peekable<iter::Fuse<IntoIter<String, Level>>>,
-    // iter: iter::Peekable<iter::Fuse<Iter<'c, String, String>>>,
-
 }
 
-use serde::de::value::CowStrDeserializer;
 
-impl<'a, 'b, 'c> FlatMapVisitor<'a, 'b>
-    where 'a :'b
+impl<'a, 'b, 'c> FlatMapVisitor
 {
     fn new(de: &'b mut Deserializer<'a>) -> Self {
 
@@ -195,7 +188,6 @@ impl<'a, 'b, 'c> FlatMapVisitor<'a, 'b>
             });
             debug_assert!(ldepth == rdepth);
 
-            // a[b][c][d] = 1 => a, b], c][d]
             if ldepth > 1 {
                 let ksplit: Vec<&str> = k.splitn(3, '[').collect();
                 let a = ksplit[0];
@@ -206,11 +198,9 @@ impl<'a, 'b, 'c> FlatMapVisitor<'a, 'b>
                         panic!("Tried adding a nested element to a flat level");
                     },
                     Some(&Level::Nested(ref x)) => {
-                        // map.get(a) = x&b[c][d]=v 
                         format!("{}&{}[{}={}", &x, &b[..b.len()-1], &c, &v).into()
                     },
                     None => {
-                        // map.insert(a, b[c][d]=v)
                         format!("{}[{}={}", &b[..b.len()-1],c, v).into()
                     }
                 };
@@ -239,21 +229,16 @@ impl<'a, 'b, 'c> FlatMapVisitor<'a, 'b>
                 let x = match map.get(k.as_ref()) {
                     Some(_) => {   
                         panic!("Attempted to set the value of {} twice", k);
-                        // map.get(a) = x&b=v 
-                        // format!("{}&{}={}", &x, &b[..b.len()-1], &v).into()
                     },
                     None => {
                         v
-                        // map.insert(a, b=v)
-                        // format!("{}={}", &b[..b.len()-1], &v).into()
                     }
                 };
                 map.insert(k.into_owned(), Level::Flat(x.into_owned()));
             }
         }
-        println!("Map constructed: {:?}", map);
+        // println!("Map constructed: {:?}", map);
         FlatMapVisitor {
-            de: de,
             iter: map.into_iter().fuse().peekable(),
         }
     }
@@ -264,18 +249,10 @@ impl<'a, 'b, 'c> FlatMapVisitor<'a, 'b>
 use serde::de::value::ValueDeserializer;
 
 
-impl<'a, 'b, 'c> de::MapVisitor for FlatMapVisitor<'a, 'b> {
+impl de::MapVisitor for FlatMapVisitor {
     type Error = Error;
 
-    // __Visitor::visit_map
-    // visit_map -> visit_key::<__Field> -> 
-    // MapVisitor::visit_key::<__Field>()
-    // -> visit_key_seed(PhantomData<__Field>)
-    // -> __Field::deserialize()
-    // seed.deserialize(key.into_deserializer())
-    // becoes flat(seed).deserialize()
 
-    // Swap for visit_key_seed(FlatDeserializer<__Field>)
     fn visit_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Error>
         where K: de::DeserializeSeed,
     {

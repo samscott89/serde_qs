@@ -36,27 +36,27 @@ fn serialize_map_bool() {
 }
 
 #[derive(Serialize, Deserialize)]
-struct A { b: B, c: C }
+struct Foo { bar: Bar, baz: Baz }
 #[derive(Serialize, Deserialize)]
-struct B { b1: u8, b2: String }
+struct Bar { x: u8, y: String }
 #[derive(Serialize, Deserialize)]
-struct C { c1: String, c2: u8 }
+struct Baz { thing: String, other: u8 }
 
 #[test]
 fn serialize_struct() {
-    let params = A {
-      b: B {
-        b1: 10,
-        b2: "Ten".to_owned()
+    let params = Foo {
+      bar: Bar {
+        x: 10,
+        y: "Ten".to_owned()
       },
-      c: C {
-        c1: "Seven".to_owned(),
-        c2: 7
+      baz: Baz {
+        thing: "Thing".to_owned(),
+        other: 12
       }
     };
 
     assert_eq!(serde_urlencoded::to_string(&params),
-      Ok(urlencode("b[b1]=10&b[b2]=Ten&c[c1]=Seven&c[c2]=7")));
+      Ok(urlencode("bar[x]=10&bar[y]=Ten&baz[thing]=Thing&baz[other]=12")));
 }
 
 fn urlencode(input: &str) -> String {
