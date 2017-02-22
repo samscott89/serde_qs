@@ -182,9 +182,6 @@ impl<'a> Deserializer<'a> {
 
     fn with_map(map: HashMap<Cow<'a, str>, Level<'a>>) -> Self {
         Deserializer {
-            // value: input,
-            // map: map,
-            // parser: None,
             iter: map.into_iter().fuse().peekable(),
         }
     }
@@ -253,12 +250,6 @@ impl<'a, 'b> de::Deserializer for Deserializer<'a> {
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
         where V: de::Visitor
     {
-        // MapDeserializer
-        // visitor.visit_seq(self)
-        // mem::replace(self.iter))
-        // let ref iter = self.iter;
-        // let iter = self.iter;
-        // let *self = &Deserializer::new(&[]);
         visitor.visit_seq(MapDeserializer::new(self.iter))
 
     }
@@ -318,7 +309,7 @@ impl<'a> de::MapVisitor for Deserializer<'a> {
         if let Some((_, value)) = self.iter.next() {
             seed.deserialize(value.into_deserializer())
         } else {
-            panic!("Somehow the list was empty after a non-empty key was returned");
+            Err(de::Error::custom("Somehow the list was empty after a non-empty key was returned"))
         }
     }
 }
@@ -334,7 +325,7 @@ impl<'a> de::Deserializer for LevelDeserializer<'a> {
         if let Level::Flat(x) = self.0 {
             x.into_deserializer().deserialize(visitor)
         } else {
-            panic!("Could not deserialize");
+            Err(de::Error::custom("cannot deserialize value"))
         }
     }
 
@@ -344,7 +335,7 @@ impl<'a> de::Deserializer for LevelDeserializer<'a> {
         if let Level::Nested(x) = self.0 {
             Deserializer::with_map(x).deserialize_map(visitor)
         } else {
-            panic!("Could not deserialize");
+            Err(de::Error::custom("value does not appear to be a map"))
         }
     }
 
@@ -367,7 +358,7 @@ impl<'a> de::Deserializer for LevelDeserializer<'a> {
         if let Level::Sequence(x) = self.0 {
             SeqDeserializer::new(x.into_iter()).deserialize(visitor)
         } else {
-            panic!("Could not deserialize");
+            Err(de::Error::custom("value does not appear to be a sequence"))
         }
     }
     forward_to_deserialize! {
@@ -409,63 +400,3 @@ impl<'a> ValueDeserializer for Level<'a>
         LevelDeserializer(self)
     }
 }
-
-// impl<'a> de::SeqVisitor for Deserializer<'a>
-// {
-//     type Error = Error;
-
-//     fn visit_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
-//         where T: de::DeserializeSeed,
-//     {
-//         if let Some((key, value)) = self.iter.next() {
-//             let k = seed.deserialize(key.into_deserializer());
-//             let v = match value {
-//                 Level::Nested(x) => {
-//                     seed.deserialize(&mut Deserializer::with_map(x))
-
-//                     // seed.deserialize(&mut Deserializer::new(parse(x.as_bytes())))
-//                 },
-//                 Level::Sequence(x) => {
-//                     seed.deserialize(SeqDeserializer::new(x.into_iter()))
-//                 }
-//                 Level::Flat(x) => {
-//                     seed.deserialize(x.into_deserializer())
-//                 },
-//                 Level::Invalid(e) => {
-//                     panic!("Invalid value to deserialize: {}", e);
-//                 }
-//             };
-//             Some((k, v))
-//         } else {
-//             Ok(None)
-//         }
-//     }
-
-//     fn size_hint(&self) -> (usize, Option<usize>) {
-//         self.iter.size_hint()
-//     }
-// }
-
-
-// fn visit_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
-//      where T: de::DeserializeSeed,
-//  {
-//      if let Some(k) = self.0.take() {
-//          seed.deserialize(k.into_deserializer()).map(Some)
-//      } else if let Some(v) = self.1.take() {
-//          seed.deserialize(v.into_deserializer()).map(Some)
-//      } else {
-//          Ok(None)
-//      }
-//  }
-
-//  fn size_hint(&self) -> (usize, Option<usize>) {
-//      let len = if self.0.is_some() {
-//          2
-//      } else if self.1.is_some() {
-//          1
-//      } else {
-//          0
-//      };
-//      (len, Some(len))
-//  }
