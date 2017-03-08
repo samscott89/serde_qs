@@ -1,23 +1,28 @@
 [package]
-name = "serde_urlencoded"
-version = "0.4.2"
-authors = ["Anthony Ramine <n.oxyde@gmail.com>"]
-license = "MIT/Apache-2.0"
-repository = "https://github.com/nox/serde_urlencoded"
-documentation = "https://docs.rs/serde_urlencoded"
-description = "`x-www-form-urlencoded` meets Serde"
-categories = ["encoding", "web-programming"]
-keywords = ["serde", "serialization", "urlencoded"]
+name = "serde_qs"
+version = "0.0.1"
+authors = ["Sam Scott <me@samjs.co.uk>"]
+# license = "MIT/Apache-2.0"
+# repository = "https://github.com/samscott89/serde_urlencoded"
+# documentation = "https://docs.rs/serde_urlencoded"
+# description = "`x-www-form-urlencoded` meets Serde"
+# categories = ["encoding", "web-programming"]
+# keywords = ["serde", "serialization", "urlencoded"]
 
-[badges]
-travis-ci = {repository = "nox/serde_urlencoded"}
+# [badges]
+# travis-ci = {repository = "nox/serde_urlencoded"}
 
-[lib]
-test = false
+# [lib]
+# test = false
 
 [dependencies]
+fnv = "1.0.3"
 dtoa = "0.4.0"
 itoa = "0.3.0"
 serde = "0.9.3"
 serde_derive = "*"
 url = "1.0.0"
+
+[profile.release]
+debug = true
+lto = false

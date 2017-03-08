@@ -2,9 +2,8 @@
 
 use serde::de;
 
-use std::collections::{
-    HashMap,
-};
+use fnv::FnvHashMap;
+
 use std::borrow::Cow;
 
 #[doc(inline)]
@@ -13,40 +12,61 @@ use serde::de::value::MapDeserializer;
 use std::io::Read;
 // use url::form_urlencoded::Parse as UrlEncodedParse;
 use url::form_urlencoded::parse;
+use url::percent_encoding;
 
-/// Deserializes a `application/x-wwww-url-encoded` value from a `&[u8]`.
+/// Deserializes a query-string from a `&[u8]`.
 ///
 /// ```
-/// let meal = vec![
-///     ("bread".to_owned(), "baguette".to_owned()),
-///     ("cheese".to_owned(), "comté".to_owned()),
-///     ("fat".to_owned(), "butter".to_owned()),
-///     ("meat".to_owned(), "ham".to_owned()),
-/// ];
-/// 
-/// let mut res = serde_urlencoded::from_bytes::<Vec<(String, String)>>(
-///         b"bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter").unwrap();
-/// res.sort();
-/// assert_eq!(res, meal);
+/// # #[macro_use]
+/// # extern crate serde_derive;
+/// # extern crate serde_qs;
+/// #[derive(Debug, Deserialize, PartialEq, Serialize)]
+/// struct Query {
+///     name: String,
+///     age: u8,
+///     occupation: String,   
+/// }
+///
+/// # fn main(){
+/// let q =  Query {
+///     name: "Alice".to_owned(),
+///     age: 24,
+///     occupation: "Student".to_owned(),   
+/// };
+///
+/// assert_eq!(
+///     serde_qs::from_bytes::<Query>("name=Alice&age=24&occupation=Student".as_bytes()),
+///     Ok(q));
+/// # }
 /// ```
 pub fn from_bytes<T: de::Deserialize>(input: &[u8]) -> Result<T, Error> {
     T::deserialize(Deserializer::new(input))
 }
 
-/// Deserializes a `application/x-wwww-url-encoded` value from a `&str`.
+/// Deserializes a query-string from a `&str`.
 ///
 /// ```
-/// let meal = vec![
-///     ("bread".to_owned(), "baguette".to_owned()),
-///     ("cheese".to_owned(), "comté".to_owned()),
-///     ("fat".to_owned(), "butter".to_owned()),
-///     ("meat".to_owned(), "ham".to_owned()),
-/// ];
+/// # #[macro_use]
+/// # extern crate serde_derive;
+/// # extern crate serde_qs;
+/// #[derive(Debug, Deserialize, PartialEq, Serialize)]
+/// struct Query {
+///     name: String,
+///     age: u8,
+///     occupation: String,   
+/// }
 ///
-/// let mut res = serde_urlencoded::from_str::<Vec<(String, String)>>(
-///         "bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter").unwrap();
-/// res.sort();
-/// assert_eq!(res, meal);
+/// # fn main(){
+/// let q =  Query {
+///     name: "Alice".to_owned(),
+///     age: 24,
+///     occupation: "Student".to_owned(),   
+/// };
+///
+/// assert_eq!(
+///     serde_qs::from_str::<Query>("name=Alice&age=24&occupation=Student"),
+///     Ok(q));
+/// # }
 /// ```
 pub fn from_str<T: de::Deserialize>(input: &str) -> Result<T, Error> {
     from_bytes(input.as_bytes())
@@ -65,20 +85,11 @@ pub fn from_reader<T, R>(mut reader: R) -> Result<T, Error>
     from_bytes(&buf)
 }
 
-/// A deserializer for the `application/x-www-form-urlencoded` format.
+/// A deserializer for the query-string format.
 ///
-/// * Supported top-level outputs are structs, maps and sequences of pairs,
-///   with or without a given length.
-///
-/// * Main `deserialize` methods defers to `deserialize_map`.
-///
-/// * Everything else but `deserialize_seq` and `deserialize_seq_fixed_size`
-///   defers to `deserialize`.
+/// Supported top-level outputs are structs and maps.
 pub struct Deserializer<'a> {
-    // value: &'a [u8],
-    // map: HashMap<Cow<'a, str>, Level<'a>>,
-    // parser: Option<UrlEncodedParse<'a>>,
-    iter: iter::Peekable<iter::Fuse<IntoIter<Cow<'a, str>, Level<'a>>>>,
+    iter: iter::Peekable<iter::Fuse<IntoIter<String, Level<'a>>>>,
 }
 
 
@@ -88,135 +99,271 @@ use std::collections::hash_map::{Entry, IntoIter};
 
 #[derive(Debug)]
 enum Level<'a> {
-    Nested(HashMap<Cow<'a, str>, Level<'a>>),
-    Sequence(Vec<Cow<'a, str>>),
+    Nested(FnvHashMap<String, Level<'a>>),
+    Sequence(Vec<Level<'a>>),
     Flat(Cow<'a, str>),
     Invalid(&'static str),
 }
 
-impl<'a> Deserializer<'a> {
+macro_rules! tu {
+    ($x:expr) => (
+        match $x {
+            Some(x) => x,
+            // None => return Err(de::Error::custom("query string ended before expected"))
+            None => panic!("None found here"),
+        }
+    )
+}
+
+use std::str;
+use std::iter::Iterator;
+
+struct Parser<I: Iterator<Item=u8>> {
+    inner: I,
+    acc: Vec<u8>,
+    peeked: Option<u8>,
+    array_limit: u8,
+}
+
+impl<I: Iterator<Item=u8>> Iterator for Parser<I>
+{
+    type Item = u8;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
+}
+
+impl<I: Iterator<Item=u8>> Parser<I> {
+    fn new(iter: I) -> Self {
+        Parser {
+            inner: iter,
+            acc: Vec::new(),
+            peeked: None,
+            array_limit: 20,
+        }
+    }
+
+    fn peek(&mut self) -> Option<<Self as Iterator>::Item> {
+        if !self.acc.is_empty() {
+            self.peeked
+        } else {
+            if let Some(x) = self.inner.next() {
+                self.acc.push(x);
+                self.peeked = Some(x);
+                Some(x)
+            } else {
+                None
+            }
+        }
+    }
+
+    fn parse_string_key(&mut self, end_on: u8, consume: bool) -> Result<String, Error> {
+        loop {
+            match tu!(self.next()) {
+                x if x == end_on  => {
+                    let res = String::from_utf8(self.acc.split_off(0));
+                    self.acc.clear();
+
+                    // Add this character back to the buffer for peek.
+                    if !consume {
+                        self.acc.push(x);
+                        self.peeked = Some(x);
+                    }
+                    // println!("Key parsed as: {:?}", res);
+                    return res.map_err(|_| de::Error::custom("blah"))
+                },
+                x @ b'=' => {
+                    let res = String::from_utf8(self.acc.split_off(0));
+                    self.acc.clear();
+
+                    // Add this character back to the buffer for peek.
+                    self.acc.push(x);
+                    self.peeked = Some(x);
+                    // println!("Key parsed as: {:?}", res);
+                    return res.map_err(|_| de::Error::custom("blah"))
+                }
+                x @ b']' | x @ b'[' => {
+                    return Err(de::Error::custom(format!("unexpected character {} in query string, waiting for: {}.", x as char, end_on as char)));
+                }
+                x @ 0x20 ... 0x7e => {
+                    self.acc.push(x);
+                },
+                _ => {
+                    return Err(de::Error::custom("unexpected character in query string."));
+                }
+            }
+        }
+
+    }
+
+    fn parse_int_key(&mut self, end_on: u8) -> Result<Option<u8>, Error> {
+        Ok(None)
+    }
+
+    fn parse_map_value(&mut self, key: String, node: &mut Level) -> Result<(), Error> {
+        match tu!(self.peek()) {
+            b'=' => {
+                self.acc.clear();
+                let vec: Vec<u8> = self.take_while(|b| *b != b'&').collect();
+                self.acc.extend(vec);
+                let value = String::from_utf8(self.acc.split_off(0));
+                // println!("Value parsed as: {:?}", value);
+                let value = value.map_err(|_e| de::Error::custom("blah"))?;
+
+                // Reached the end of the key string
+                if let Level::Nested(ref mut map) = *node {
+                    match map.entry(key) {
+                        Entry::Occupied(mut o) => {
+                            o.insert(Level::Invalid("Multiple values for one key"));
+                        },
+                        Entry::Vacant(vm) => {
+                            vm.insert(Level::Flat(value.into()));
+                        }
+                    }
+                } else {
+                    panic!("");
+                }
+                Ok(())
+            },
+            _ => {
+                if let Level::Nested(ref mut map) = *node {
+                    self.parse(
+                        map.entry(key).or_insert(Level::Nested(FnvHashMap::default()))
+                    )?;
+                    Ok(())
+                } else {
+                    Ok(())
+                }
+            }
+        }
+    }
+
+    fn parse_seq_value(&mut self, node: &mut Level) -> Result<(), Error> {
+        match tu!(self.peek()) {
+            b'=' => {
+                self.acc.clear();
+                // let value = str::from_utf8(input.take_while(|b| *b != &b'&').collect());
+                // self.acc.extend_from_slice(&self.take_while(|b| *b != &b'&').collect());
+                let end = self.position(|b| b == b'&');
+                let value = match end {
+                    Some(idx) => {
+                        for b in self.inner.by_ref().take(idx) {
+                            self.acc.push(b);
+                        }
+                        String::from_utf8(self.acc.split_off(0)).map(|s| s.into())
+                        // Ok("")
+                    },
+                    None => Ok("".into()),
+                };
+                let value = value.map_err(|e| de::Error::custom(e.to_string()))?;
+                // Reached the end of the key string
+                if let Level::Sequence(ref mut seq) = *node {
+                    seq.push(Level::Flat(value));
+                } else {
+                    panic!("");
+                }
+                Ok(())
+            },
+            _ => {
+                Err(de::Error::custom("non-indexed sequence of structs not supported"))
+            }
+        }
+    }
+
 
     // Call this with a map, with key k, and rest should the rest of the key.
     // I.e. a[b][c]=v would be called as parse(map, "a", "b][c]", v)
-    fn parse(map: &mut HashMap<Cow<'a, str>, Level<'a>>, k: Cow<'a, str>, rest: Cow<'a, str>, v: Cow<'a, str>) {
-        if rest.is_empty() {
-            match map.entry(k) {
-                Entry::Occupied(mut o) => {
-                    o.insert(Level::Invalid("Multiple values for one key"));
-                },
-                Entry::Vacant(vm) => {
-                    vm.insert(Level::Flat(v));
-                }
-            }
-            return;
-        } else {
-            // rest is not empty
-            // "b][c]" =? "b", "[c]"
-            let (next_key, next_rest) = split(rest, ']');
-            if next_key.is_empty() {
-                // key is of the form a[]
-                // We assume this is at the bottom layer of nesting, otherwise we have 
-                // ambiguity: a[][b]=1, a[][b]=2, a[][c]=3, a[][c] = 4
-                // ==> [{b:1, c:3}, {b:2, c:4}] or 
-                // ==> [{b:1, c:4}, {b:2, c:3}] ? Ordering not clear.
-                if next_rest != "]" {
-                    map.insert(k, Level::Invalid("unindexed nested structs is unsupported"));
-                    return;
-                }
+    fn parse(&mut self, node: &mut Level) -> Result<bool, Error> {
+        // First character determines parsing type
 
-                match map.entry(k) {
-                    Entry::Vacant(vm) => {
-                        let vec: Vec<Cow<'a, str>> = Vec::new();
-                        vm.insert(Level::Sequence(vec));
+        // loop {
+            match self.peek() {
+                Some(x) => match x {
+                    b'a' ... b'z' | b'A' ... b'Z' => {
+                        let key = self.parse_string_key(b'[', false).unwrap();
+                        self.parse_map_value(key.into(), node)?;
+                        Ok(true)
                     },
-                    Entry::Occupied(o) => {
-                        match o.into_mut() {
-                            &mut Level::Sequence(ref mut inner) => { inner.push(v); },
-                            x => { *x = Level::Invalid("multiple types for one key"); }
+                    b'0' ... b'9' => {
+                        let key = self.parse_int_key(b'[').unwrap();
+                        if let Some(key) = key {
+                            self.parse_map_value(key.to_string().into(), node)?;
+                            Ok(true)
+                        } else {
+                            self.parse_seq_value(node)?;
+                            Ok(true)
                         }
+
+                    },
+                    b'[' => {
+                        self.acc.clear();
+                        // let _ = self.next();
+                        match tu!(self.peek()) {
+                            b'a' ... b'z' | b'A' ... b'Z' => {
+                                let key = self.parse_string_key(b']', true).unwrap();
+                                // key.into()
+                                self.parse_map_value(key.into(), node)?;
+                                Ok(true)
+
+                            },
+                            b'0' ... b'9' => {
+                                let key = self.parse_int_key(b']').unwrap();
+                                if let Some(key) = key {
+                                    self.parse_map_value(key.to_string().into(), node)?;
+                                    Ok(true)
+                                } else {
+                                    self.parse_seq_value(node)?;
+                                    Ok(true)
+                                }
+                            },
+                            _ => {
+                                panic!("");
+                            }
+                        }
+                    },
+                    _ => {
+                        panic!("");
                     }
-                };
-                return;
-            } else {
-                // assert_eq!(&rest.as_ref()[0..1], "[");
-                // println!("{:?}", next_rest);
-                let (e, next_rest) = split(next_rest, '[');
-                assert_eq!(e, "");
-                match map.entry(k).or_insert(Level::Nested(HashMap::new())) {
-                    &mut Level::Nested(ref mut m) => Deserializer::parse(m, next_key, next_rest, v),
-                    x => { *x = Level::Invalid(""); return; }
-                    
-                }
-                return;
-            }
+                },
+                None => return Ok(false)
+            // }
+
+            // println!("Map: {:?}", node);
         }
     }
 
-    /// Returns a new `Deserializer`.
-    pub fn new(input: &'a [u8]) -> Self {
-        let mut map = HashMap::<Cow<str>, Level<'a>>::new();
-        let parser = parse(input).into_iter();
+}
 
-        for (k, v) in parser {
-            let (ldepth, rdepth) = k.chars().fold((0, 0), |(acc0, acc1), x| {
-                match x {
-                    '[' => (acc0+1, acc1),
-                    ']' => (acc0, acc1+1),
-                    _ => (acc0, acc1)
-                }
-            });
-            debug_assert!(ldepth == rdepth);
-
-            // Split keystring into the `root` key and the `rest`.
-            // a[b][c]/// => "a", "b][c]..."
-            let (root, rest) = split(k, '[');
-
-            Deserializer::parse(&mut map, root, rest, v);        }
-
-        // println!("{:?}", map);
-
-        Deserializer { 
-            iter: map.into_iter().fuse().peekable(),
-        }
-    }
-
-    fn with_map(map: HashMap<Cow<'a, str>, Level<'a>>) -> Self {
+impl<'a> Deserializer<'a> {
+    fn with_map(map: FnvHashMap<String, Level<'a>>) -> Self {
         Deserializer {
             iter: map.into_iter().fuse().peekable(),
         }
     }
-}
 
-fn split<'a>(input: Cow<'a, str>, split: char) -> (Cow<'a, str>, Cow<'a, str>) {
-    match input {
-        Cow::Borrowed(v) => {
-            let mut split2 = v.splitn(2, split);
-            let s1 = split2.next().unwrap();
-            let s2 = split2.next().unwrap_or("");
-            (Cow::Borrowed(s1), Cow::Borrowed(s2))
-        },
-        Cow::Owned(v) => {
-            // let v = v.into_bytes();
-            let mut split_idx = v.len();
-            for (idx, c) in v.chars().enumerate() {
-                if c == split {
-                    split_idx = idx;
-                    break;
-                }
+
+
+    /// Returns a new `Deserializer`.
+    pub fn new(input: &'a [u8]) -> Self {
+        let map = FnvHashMap::<String, Level<'a>>::default();
+        let mut root = Level::Nested(map);
+
+        let decoded = percent_encoding::percent_decode(&input);
+        let mut parser = Parser::new(decoded);
+        while let Ok(x) = parser.parse(&mut root) {
+            if !x {
+                break
             }
-            // b][c] split = ], idx = 1
-            if split_idx < v.len() {
-                let mut v = v.into_bytes();
-                let v2 = v.split_off(split_idx+1);
-                v.pop();
-                unsafe {
-                    return (Cow::Owned(String::from_utf8_unchecked(v)),
-                            Cow::Owned(String::from_utf8_unchecked(v2)))
-                }
-            } else {
-                return (Cow::Owned(v), Cow::Owned("".to_string()))
-            }
-            // (Cow::Owned(v),Cow::Borrowed(""))
+        }
+        // self.input = Some(decoded.as_bytes());
+        // println!("{:?}", root);
+        let iter = match root {
+            Level::Nested(map) => map.into_iter().fuse().peekable(),
+            _ => panic!(""),
+        };
+        Deserializer { 
+            // input: Some(decoded.as_bytes().into()),
+            iter: iter,
         }
     }
 }
@@ -251,7 +398,6 @@ impl<'a, 'b> de::Deserializer for Deserializer<'a> {
         where V: de::Visitor
     {
         visitor.visit_seq(MapDeserializer::new(self.iter))
-
     }
     forward_to_deserialize! {
         bool
@@ -357,6 +503,8 @@ impl<'a> de::Deserializer for LevelDeserializer<'a> {
         // visitor.visit_seq(self)
         if let Level::Sequence(x) = self.0 {
             SeqDeserializer::new(x.into_iter()).deserialize(visitor)
+        } else if let Level::Nested(map) = self.0 {
+            SeqDeserializer::new(map.into_iter().map(|(_k, v)| v)).deserialize(visitor)
         } else {
             Err(de::Error::custom("value does not appear to be a sequence"))
         }

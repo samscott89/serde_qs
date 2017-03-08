@@ -1,7 +1,6 @@
 //! Serialization support for the `application/x-www-form-urlencoded` format.
 
 mod key;
-mod pair;
 mod part;
 mod value;
 
@@ -13,19 +12,34 @@ use std::str;
 use url::form_urlencoded::Serializer as UrlEncodedSerializer;
 use url::form_urlencoded::Target as UrlEncodedTarget;
 
+
+
+
 /// Serializes a value into a `application/x-wwww-url-encoded` `String` buffer.
 ///
 /// ```
-/// let meal = &[
-///     ("bread", "baguette"),
-///     ("cheese", "comté"),
-///     ("meat", "ham"),
-///     ("fat", "butter"),
-/// ];
+/// # #[macro_use]
+/// # extern crate serde_derive;
+/// # extern crate serde_qs;
+/// #[derive(Deserialize, Serialize)]
+/// struct Query {
+///     name: String,
+///     age: u8,
+///     occupation: String,   
+/// }
+///
+/// # fn main(){
+/// let q =  Query {
+///     name: "Alice".to_owned(),
+///     age: 24,
+///     occupation: "Student".to_owned(),   
+/// };
+///
 ///
 /// assert_eq!(
-///     serde_urlencoded::to_string(meal),
-///     Ok("bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter".to_owned()));
+///     serde_qs::to_string(&q),
+///     Ok("name=Alice&age=24&occupation=Student".to_owned()));
+/// # }
 /// ```
 pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String, Error> {
     let mut urlencoder = UrlEncodedSerializer::new("".to_owned());
@@ -93,8 +107,8 @@ impl ser::Error for Error {
 }
 
 /// Sequence serializer.
-pub struct SeqSerializer<'output, Target: 'output + UrlEncodedTarget> {
-    urlencoder: &'output mut UrlEncodedSerializer<Target>,
+pub struct SeqSerializer<'output, T: 'output + UrlEncodedTarget> {
+    inner: ser::Impossible<&'output mut UrlEncodedSerializer<T>, Error>,
 }
 
 /// Tuple serializer.
@@ -277,14 +291,14 @@ impl<'output, Target> ser::Serializer for Serializer<'output, Target>
     fn serialize_seq(self,
                      _len: Option<usize>)
                      -> Result<Self::SerializeSeq, Error> {
-        Ok(SeqSerializer { urlencoder: self.urlencoder })
+        Err(Error::top_level())
     }
 
     /// Serializes a sequence, given length is ignored.
     fn serialize_seq_fixed_size(self,
                                 _len: usize)
                                 -> Result<Self::SerializeSeq, Error> {
-        Ok(SeqSerializer { urlencoder: self.urlencoder })
+        Err(Error::top_level())
     }
 
     /// Returns an error.
@@ -352,13 +366,14 @@ impl<'output, Target> ser::SerializeSeq for SeqSerializer<'output, Target>
     fn serialize_element<T: ?Sized + ser::Serialize>(&mut self,
                                                      value: &T)
                                                      -> Result<(), Error> {
-        value.serialize(pair::PairSerializer::new(self.urlencoder))
+        self.inner.serialize_element(value)
     }
 
     fn end(self) -> Result<Self::Ok, Error> {
-        Ok(self.urlencoder)
+        self.inner.end()
     }
 }
+
 
 impl<'output, Target> ser::SerializeTuple for TupleSerializer<'output, Target>
     where Target: 'output + UrlEncodedTarget,

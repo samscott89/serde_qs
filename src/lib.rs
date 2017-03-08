@@ -1,13 +1,16 @@
-//! `x-www-form-urlencoded` meets Serde
+//! Serde support for querystring-style strings
 
 #![warn(unused_extern_crates)]
 
+extern crate fnv;
 extern crate itoa;
 extern crate dtoa;
 #[macro_use]
 extern crate serde;
 extern crate url;
 
+#[macro_use]
+extern crate serde_derive;
 
 
 pub mod de;
