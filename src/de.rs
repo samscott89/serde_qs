@@ -2,7 +2,15 @@
 
 use serde::de;
 
-use fnv::FnvHashMap;
+use fnv::FnvHasher;
+// use serde::de::MapVisitor;
+use std::iter;
+use std::hash::BuildHasherDefault;
+// use std::collections::hash_map::{HashMap, Entry, IntoIter};
+use std::collections::btree_map::{BTreeMap, Entry, IntoIter};
+
+// use std::collections::BTreeMap;
+// type MyHasher = BuildHasherDefault<FnvHasher>;
 
 use std::borrow::Cow;
 
@@ -88,20 +96,16 @@ pub fn from_reader<T, R>(mut reader: R) -> Result<T, Error>
 /// A deserializer for the query-string format.
 ///
 /// Supported top-level outputs are structs and maps.
-pub struct Deserializer<'a> {
-    iter: iter::Peekable<iter::Fuse<IntoIter<String, Level<'a>>>>,
+pub struct Deserializer {
+    iter: IntoIter<String, Level>,
+    value: Option<Level>,
 }
 
-
-// use serde::de::MapVisitor;
-use std::iter;
-use std::collections::hash_map::{Entry, IntoIter};
-
 #[derive(Debug)]
-enum Level<'a> {
-    Nested(FnvHashMap<String, Level<'a>>),
-    Sequence(Vec<Level<'a>>),
-    Flat(Cow<'a, str>),
+enum Level {
+    Nested(BTreeMap<String, Level>),
+    Sequence(Vec<Level>),
+    Flat(String),
     Invalid(&'static str),
 }
 
@@ -122,12 +126,12 @@ struct Parser<I: Iterator<Item=u8>> {
     inner: I,
     acc: Vec<u8>,
     peeked: Option<u8>,
-    array_limit: u8,
 }
 
 impl<I: Iterator<Item=u8>> Iterator for Parser<I>
 {
     type Item = u8;
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next()
     }
@@ -139,10 +143,10 @@ impl<I: Iterator<Item=u8>> Parser<I> {
             inner: iter,
             acc: Vec::new(),
             peeked: None,
-            array_limit: 20,
         }
     }
 
+    #[inline]
     fn peek(&mut self) -> Option<<Self as Iterator>::Item> {
         if !self.acc.is_empty() {
             self.peeked
@@ -169,7 +173,6 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                         self.acc.push(x);
                         self.peeked = Some(x);
                     }
-                    // println!("Key parsed as: {:?}", res);
                     return res.map_err(|_| de::Error::custom("blah"))
                 },
                 x @ b'=' => {
@@ -179,7 +182,6 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                     // Add this character back to the buffer for peek.
                     self.acc.push(x);
                     self.peeked = Some(x);
-                    // println!("Key parsed as: {:?}", res);
                     return res.map_err(|_| de::Error::custom("blah"))
                 }
                 x @ b']' | x @ b'[' => {
@@ -193,23 +195,39 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                 }
             }
         }
-
     }
 
-    fn parse_int_key(&mut self, end_on: u8) -> Result<Option<u8>, Error> {
-        Ok(None)
+    fn parse_int_key(&mut self, end_on: u8) -> Result<String, Error> {
+        loop {
+            match tu!(self.next()) {
+                x if x == end_on  => {
+                    let res = String::from_utf8(self.acc.split_off(0)).unwrap();
+                    self.acc.clear();
+                    return Ok(res);
+                },
+                x @ b'[' => {
+                    return Err(de::Error::custom(format!("unexpected character {} in query string, waiting for: {}.", x as char, end_on as char)));
+                }
+                x @ b'0' ... b'9' => {
+                    self.acc.push(x);
+                },
+                _ => {
+                    return Err(de::Error::custom("unexpected character in query string."));
+                }
+            }
+        }
+
     }
 
     fn parse_map_value(&mut self, key: String, node: &mut Level) -> Result<(), Error> {
         match tu!(self.peek()) {
             b'=' => {
                 self.acc.clear();
-                let vec: Vec<u8> = self.take_while(|b| *b != b'&').collect();
-                self.acc.extend(vec);
+                for b in self.inner.by_ref().take_while(|b| b != &b'&') {
+                    self.acc.push(b);
+                }
                 let value = String::from_utf8(self.acc.split_off(0));
-                // println!("Value parsed as: {:?}", value);
                 let value = value.map_err(|_e| de::Error::custom("blah"))?;
-
                 // Reached the end of the key string
                 if let Level::Nested(ref mut map) = *node {
                     match map.entry(key) {
@@ -217,7 +235,7 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                             o.insert(Level::Invalid("Multiple values for one key"));
                         },
                         Entry::Vacant(vm) => {
-                            vm.insert(Level::Flat(value.into()));
+                            vm.insert(Level::Flat(value));
                         }
                     }
                 } else {
@@ -226,9 +244,10 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                 Ok(())
             },
             _ => {
+                // Ok(())
                 if let Level::Nested(ref mut map) = *node {
                     self.parse(
-                        map.entry(key).or_insert(Level::Nested(FnvHashMap::default()))
+                        map.entry(key).or_insert(Level::Nested(BTreeMap::default()))
                     )?;
                     Ok(())
                 } else {
@@ -244,17 +263,10 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                 self.acc.clear();
                 // let value = str::from_utf8(input.take_while(|b| *b != &b'&').collect());
                 // self.acc.extend_from_slice(&self.take_while(|b| *b != &b'&').collect());
-                let end = self.position(|b| b == b'&');
-                let value = match end {
-                    Some(idx) => {
-                        for b in self.inner.by_ref().take(idx) {
-                            self.acc.push(b);
-                        }
-                        String::from_utf8(self.acc.split_off(0)).map(|s| s.into())
-                        // Ok("")
-                    },
-                    None => Ok("".into()),
-                };
+                for b in self.inner.by_ref().take_while(|b| b != &b'&') {
+                    self.acc.push(b);
+                }
+                let value = String::from_utf8(self.acc.split_off(0)).map(|s| s.into());
                 let value = value.map_err(|e| de::Error::custom(e.to_string()))?;
                 // Reached the end of the key string
                 if let Level::Sequence(ref mut seq) = *node {
@@ -271,81 +283,65 @@ impl<I: Iterator<Item=u8>> Parser<I> {
     }
 
 
-    // Call this with a map, with key k, and rest should the rest of the key.
-    // I.e. a[b][c]=v would be called as parse(map, "a", "b][c]", v)
     fn parse(&mut self, node: &mut Level) -> Result<bool, Error> {
         // First character determines parsing type
-
-        // loop {
-            match self.peek() {
-                Some(x) => match x {
-                    b'a' ... b'z' | b'A' ... b'Z' => {
-                        let key = self.parse_string_key(b'[', false).unwrap();
-                        self.parse_map_value(key.into(), node)?;
-                        Ok(true)
-                    },
-                    b'0' ... b'9' => {
-                        let key = self.parse_int_key(b'[').unwrap();
-                        if let Some(key) = key {
-                            self.parse_map_value(key.to_string().into(), node)?;
+        match self.peek() {
+            Some(x) => match x {
+                b'a' ... b'z' | b'A' ... b'Z' => {
+                    let key = self.parse_string_key(b'[', false).unwrap();
+                    self.parse_map_value(key.into(), node)?;
+                    Ok(true)
+                },
+                b'[' => {
+                    self.acc.clear();
+                    // let _ = self.next();
+                    match tu!(self.peek()) {
+                        b'a' ... b'z' | b'A' ... b'Z' => {
+                            let key = self.parse_string_key(b']', true).unwrap();
+                            // key.into()
+                            self.parse_map_value(key.into(), node)?;
                             Ok(true)
-                        } else {
+
+                        },
+                        b']' => {
                             self.parse_seq_value(node)?;
                             Ok(true)
-                        }
 
-                    },
-                    b'[' => {
-                        self.acc.clear();
-                        // let _ = self.next();
-                        match tu!(self.peek()) {
-                            b'a' ... b'z' | b'A' ... b'Z' => {
-                                let key = self.parse_string_key(b']', true).unwrap();
-                                // key.into()
-                                self.parse_map_value(key.into(), node)?;
-                                Ok(true)
-
-                            },
-                            b'0' ... b'9' => {
-                                let key = self.parse_int_key(b']').unwrap();
-                                if let Some(key) = key {
-                                    self.parse_map_value(key.to_string().into(), node)?;
-                                    Ok(true)
-                                } else {
-                                    self.parse_seq_value(node)?;
-                                    Ok(true)
-                                }
-                            },
-                            _ => {
-                                panic!("");
-                            }
+                        },
+                        b'0' ... b'9' => {
+                            let key = self.parse_int_key(b']').unwrap();
+                            self.parse_map_value(key, node)?;
+                            Ok(true)
+                        },
+                        _ => {
+                            panic!("");
                         }
-                    },
-                    _ => {
-                        panic!("");
                     }
                 },
-                None => return Ok(false)
-            // }
-
-            // println!("Map: {:?}", node);
+                _ => {
+                    panic!("");
+                }
+            },
+            // Ran out of characters to parse
+            None => return Ok(false)
         }
     }
 
 }
 
-impl<'a> Deserializer<'a> {
-    fn with_map(map: FnvHashMap<String, Level<'a>>) -> Self {
+impl Deserializer {
+    fn with_map(map: BTreeMap<String,Level>) -> Self {
         Deserializer {
-            iter: map.into_iter().fuse().peekable(),
+            iter: map.into_iter(),
+            value: None,
         }
     }
 
 
 
     /// Returns a new `Deserializer`.
-    pub fn new(input: &'a [u8]) -> Self {
-        let map = FnvHashMap::<String, Level<'a>>::default();
+    pub fn new(input: &[u8]) -> Self {
+        let map = BTreeMap::default();
         let mut root = Level::Nested(map);
 
         let decoded = percent_encoding::percent_decode(&input);
@@ -358,17 +354,17 @@ impl<'a> Deserializer<'a> {
         // self.input = Some(decoded.as_bytes());
         // println!("{:?}", root);
         let iter = match root {
-            Level::Nested(map) => map.into_iter().fuse().peekable(),
+            Level::Nested(map) => map.into_iter(),
             _ => panic!(""),
         };
         Deserializer { 
-            // input: Some(decoded.as_bytes().into()),
             iter: iter,
+            value: None,
         }
     }
 }
 
-impl<'a, 'b> de::Deserializer for Deserializer<'a> {
+impl de::Deserializer for Deserializer {
     type Error = Error;
 
     fn deserialize<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -434,7 +430,7 @@ impl<'a, 'b> de::Deserializer for Deserializer<'a> {
 use serde::de::value::{SeqDeserializer, ValueDeserializer};
 
 
-impl<'a> de::MapVisitor for Deserializer<'a> {
+impl de::MapVisitor for Deserializer {
     type Error = Error;
 
 
@@ -442,8 +438,9 @@ impl<'a> de::MapVisitor for Deserializer<'a> {
         where K: de::DeserializeSeed,
     {
 
-        if let Some(&(ref key, _)) = self.iter.peek() {
-            return seed.deserialize(key.clone().into_deserializer()).map(Some)
+        if let Some((key, value)) = self.iter.next() {
+            self.value = Some(value);
+            return seed.deserialize(key.into_deserializer()).map(Some)
         };
         Ok(None)
     
@@ -452,17 +449,17 @@ impl<'a> de::MapVisitor for Deserializer<'a> {
     fn visit_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Error>
         where V: de::DeserializeSeed,
     {
-        if let Some((_, value)) = self.iter.next() {
-            seed.deserialize(value.into_deserializer())
+        if let Some(v) = self.value.take() {
+            seed.deserialize(v.into_deserializer())
         } else {
             Err(de::Error::custom("Somehow the list was empty after a non-empty key was returned"))
         }
     }
 }
 
-struct LevelDeserializer<'a>(Level<'a>);
+struct LevelDeserializer(Level);
 
-impl<'a> de::Deserializer for LevelDeserializer<'a> {
+impl de::Deserializer for LevelDeserializer {
     type Error = Error;
 
     fn deserialize<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -500,15 +497,29 @@ impl<'a> de::Deserializer for LevelDeserializer<'a> {
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
         where V: de::Visitor
     {
-        // visitor.visit_seq(self)
-        if let Level::Sequence(x) = self.0 {
-            SeqDeserializer::new(x.into_iter()).deserialize(visitor)
-        } else if let Level::Nested(map) = self.0 {
-            SeqDeserializer::new(map.into_iter().map(|(_k, v)| v)).deserialize(visitor)
-        } else {
-            Err(de::Error::custom("value does not appear to be a sequence"))
+        match self.0 {
+            Level::Nested(map) => {
+                SeqDeserializer::new(map.into_iter().map(|(_k, v)| v)).deserialize(visitor)
+            },
+            Level::Sequence(x) => {
+                SeqDeserializer::new(x.into_iter()).deserialize(visitor)
+            },
+            Level::Flat(x) => {
+                SeqDeserializer::new(vec!(x).into_iter()).deserialize(visitor)
+            }
+            _ => {
+                Err(de::Error::custom("value does not appear to be a sequence"))
+            }
         }
     }
+
+    fn deserialize_seq_fixed_size<V>(self, _len: usize, visitor: V) 
+        -> Result<V::Value, Self::Error> where V: de::Visitor
+    {
+        self.deserialize_seq(visitor)
+    }
+
+
     forward_to_deserialize! {
         bool
         u8
@@ -529,11 +540,8 @@ impl<'a> de::Deserializer for LevelDeserializer<'a> {
         bytes
         byte_buf
         unit_struct
-        // seq
-        seq_fixed_size
         newtype_struct
         tuple_struct
-        // struct
         struct_field
         tuple
         enum
@@ -541,9 +549,9 @@ impl<'a> de::Deserializer for LevelDeserializer<'a> {
     }
 }
 
-impl<'a> ValueDeserializer for Level<'a> 
+impl ValueDeserializer for Level 
 {
-    type Deserializer = LevelDeserializer<'a>;
+    type Deserializer = LevelDeserializer;
     fn into_deserializer(self) -> Self::Deserializer {
         LevelDeserializer(self)
     }
