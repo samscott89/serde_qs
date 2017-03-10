@@ -1,14 +1,22 @@
-`x-www-form-urlencoded` meets Serde
+Serde Querystrings
 ===================================
 
 This crate is a Rust library for serialising to and deserialising from
-the [`application/x-www-form-urlencoded`][urlencoded] format. It is built
+querystrings. This crate is designed to extend [`serde_urlencoded`][urlencoded]
+when using nested parameters, similar to those used by [qs][qs] for Node, and
+commonly used by Ruby on Rails via [Rake][Rake].
+
+The core of the library is heavily adapted from 
+[`application/x-www-form-urlencoded`][urlencoded], which should be preferred
+over this crate whenever non-nested query parameters are sufficient. It is built
 upon [Serde], a high performance generic serialization framework and [rust-url],
 a URL parser for Rust.
 
 [rust-url]: https://github.com/servo/rust-url
 [Serde]: https://github.com/serde-rs/serde
-[urlencoded]: https://url.spec.whatwg.org/#application/x-www-form-urlencoded
+[urlencoded]: https://github.com/nox/serde_urlencoded
+[qs]: https://www.npmjs.com/package/qs
+[Rake]: http://www.rubydoc.info/github/rack/rack/Rack/Utils#parse_nested_query-class_method
 
 Installation
 ============
@@ -18,23 +26,14 @@ This crate works with Cargo and can be found on
 
 ```toml
 [dependencies]
-serde_urlencoded = "0.4.2"
+serde_qs = "0.0.1"
 ```
 
-[crates.io]: https://crates.io/crates/serde_urlencoded
-
-## Getting help
-
-Serde developers live in the #serde channel on
-[`irc.mozilla.org`](https://wiki.mozilla.org/IRC) and most rust-url developers
-live in the #servo one. The #rust channel is also a good resource with generally
-faster response time but less specific knowledge about Serde, rust-url or this
-crate. If IRC is not your thing, we are happy to respond to [GitHub
-issues](https://github.com/nox/serde_urlencoded/issues/new) as well.
+[crates.io]: https://crates.io/crates/serde_qs
 
 ## License
 
-serde_urlencoded is licensed under either of
+serde_qs is licensed under either of
 
  * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
    http://www.apache.org/licenses/LICENSE-2.0)
@@ -46,5 +45,5 @@ at your option.
 ### Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in serde_urlencoded by you, as defined in the Apache-2.0 license,
+for inclusion in serde_qs by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.
