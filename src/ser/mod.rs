@@ -12,10 +12,7 @@ use std::str;
 use url::form_urlencoded::Serializer as UrlEncodedSerializer;
 use url::form_urlencoded::Target as UrlEncodedTarget;
 
-
-
-
-/// Serializes a value into a `application/x-wwww-url-encoded` `String` buffer.
+/// Serializes a value into a querystring.
 ///
 /// ```
 /// # #[macro_use]
@@ -47,7 +44,7 @@ pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String, Error> {
     Ok(urlencoder.finish())
 }
 
-/// A serializer for the `application/x-www-form-urlencoded` format.
+/// A serializer for the querystring format.
 ///
 /// * Supported top-level inputs are structs, maps and sequences of pairs,
 ///   with or without a given length.
@@ -67,7 +64,7 @@ impl<'output, Target: 'output + UrlEncodedTarget> Serializer<'output, Target> {
     }
 }
 
-/// Errors returned during serializing to `application/x-www-form-urlencoded`.
+/// Errors returned during serializing to querystring.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
     Custom(Cow<'static, str>),

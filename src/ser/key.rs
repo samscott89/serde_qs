@@ -1,5 +1,5 @@
 use ser::{Error};
-use serde::ser::{SerializeStruct};
+use serde::ser::{SerializeSeq, SerializeStruct};
 use ser::part::Sink;
 use serde::Serialize;
 use std::borrow::Cow;
@@ -42,7 +42,7 @@ impl<End, Ok> KeySink<End>
     }
 }
 
-impl<End, Ok> Sink for KeySink<End>
+impl<End, Ok> Sink<Ok, Error> for KeySink<End>
     where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
 {
 
@@ -92,5 +92,23 @@ where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
         Err(self.unsupported())
     }
 }
+
+impl<End, Ok> SerializeSeq for KeySink<End>
+where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
+{
+    type Ok = Ok;
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self,
+                                                   _value: &T)
+                                                   -> Result<(), Error> {
+        Err(Error::top_level())
+    }
+
+    fn end(self) -> Result<Self::Ok, Error> {
+        Err(self.unsupported())
+    }
+}
+
 
 

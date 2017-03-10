@@ -2,112 +2,117 @@ use dtoa;
 use itoa;
 use ser::Error;
 use serde::ser;
+use serde;
 use std::str;
+use std::marker::PhantomData;
 
-pub struct PartSerializer<S> {
+pub struct PartSerializer<SO, S: Sink<SO, Error>> {
     sink: S,
+    marker: PhantomData<SO>,
 }
 
-impl<S: Sink> PartSerializer<S> {
+impl<SO, S: Sink<SO, Error>> PartSerializer<SO, S> {
     pub fn new(sink: S) -> Self {
-        PartSerializer { sink: sink }
+        PartSerializer { sink: sink, marker: PhantomData }
     }
 }
 
-pub trait Sink: Sized + ser::SerializeStruct {
+pub trait Sink<S, E>: Sized + ser::SerializeStruct<Ok=S, Error=E> + ser::SerializeSeq<Ok=S, Error=E>
+  where E: serde::ser::Error
+{
     // type Ok;
-
+    // type Error;
     fn serialize_static_str(self,
                             value: &'static str)
-                            -> Result<Self::Ok, Error>;
+                            -> Result<S, Error>;
 
-    fn serialize_str(self, value: &str) -> Result<Self::Ok, Error>;
-    fn serialize_string(self, value: String) -> Result<Self::Ok, Error>;
-    fn serialize_none(self) -> Result<Self::Ok, Error>;
+    fn serialize_str(self, value: &str) -> Result<S, Error>;
+    fn serialize_string(self, value: String) -> Result<S, Error>;
+    fn serialize_none(self) -> Result<S, Error>;
 
     fn serialize_some<T: ?Sized + ser::Serialize>
         (self,
          value: &T)
-         -> Result<Self::Ok, Error>;
+         -> Result<S, Error>;
 
     fn unsupported(self) -> Error;
 }
 
-impl<S: Sink<Error=Error>> ser::Serializer for PartSerializer<S> {
-    type Ok = S::Ok;
+impl<SO, S: Sink<SO, Error>> ser::Serializer for PartSerializer<SO, S> {
+    type Ok = SO;
     type Error = Error;
-    type SerializeSeq = ser::Impossible<S::Ok, Error>;
-    type SerializeTuple = ser::Impossible<S::Ok, Error>;
-    type SerializeTupleStruct = ser::Impossible<S::Ok, Error>;
-    type SerializeTupleVariant = ser::Impossible<S::Ok, Error>;
-    type SerializeMap = ser::Impossible<S::Ok, Error>;
+    type SerializeSeq = S;
+    type SerializeTuple = ser::Impossible<SO, Error>;
+    type SerializeTupleStruct = ser::Impossible<SO, Error>;
+    type SerializeTupleVariant = ser::Impossible<SO, Error>;
+    type SerializeMap = ser::Impossible<SO, Error>;
     type SerializeStruct = S;
-    type SerializeStructVariant = ser::Impossible<S::Ok, Error>;
+    type SerializeStructVariant = ser::Impossible<SO, Error>;
 
-    fn serialize_bool(self, v: bool) -> Result<S::Ok, Error> {
+    fn serialize_bool(self, v: bool) -> Result<SO, Error> {
         self.sink.serialize_static_str(if v { "true" } else { "false" })
     }
 
-    fn serialize_i8(self, v: i8) -> Result<S::Ok, Error> {
+    fn serialize_i8(self, v: i8) -> Result<SO, Error> {
         self.serialize_integer(v)
     }
 
-    fn serialize_i16(self, v: i16) -> Result<S::Ok, Error> {
+    fn serialize_i16(self, v: i16) -> Result<SO, Error> {
         self.serialize_integer(v)
     }
 
-    fn serialize_i32(self, v: i32) -> Result<S::Ok, Error> {
+    fn serialize_i32(self, v: i32) -> Result<SO, Error> {
         self.serialize_integer(v)
     }
 
-    fn serialize_i64(self, v: i64) -> Result<S::Ok, Error> {
+    fn serialize_i64(self, v: i64) -> Result<SO, Error> {
         self.serialize_integer(v)
     }
 
-    fn serialize_u8(self, v: u8) -> Result<S::Ok, Error> {
+    fn serialize_u8(self, v: u8) -> Result<SO, Error> {
         self.serialize_integer(v)
     }
 
-    fn serialize_u16(self, v: u16) -> Result<S::Ok, Error> {
+    fn serialize_u16(self, v: u16) -> Result<SO, Error> {
         self.serialize_integer(v)
     }
 
-    fn serialize_u32(self, v: u32) -> Result<S::Ok, Error> {
+    fn serialize_u32(self, v: u32) -> Result<SO, Error> {
         self.serialize_integer(v)
     }
 
-    fn serialize_u64(self, v: u64) -> Result<S::Ok, Error> {
+    fn serialize_u64(self, v: u64) -> Result<SO, Error> {
         self.serialize_integer(v)
     }
 
-    fn serialize_f32(self, v: f32) -> Result<S::Ok, Error> {
+    fn serialize_f32(self, v: f32) -> Result<SO, Error> {
         self.serialize_floating(v)
     }
 
-    fn serialize_f64(self, v: f64) -> Result<S::Ok, Error> {
+    fn serialize_f64(self, v: f64) -> Result<SO, Error> {
         self.serialize_floating(v)
     }
 
-    fn serialize_char(self, v: char) -> Result<S::Ok, Error> {
+    fn serialize_char(self, v: char) -> Result<SO, Error> {
         self.sink.serialize_string(v.to_string())
     }
 
-    fn serialize_str(self, value: &str) -> Result<S::Ok, Error> {
+    fn serialize_str(self, value: &str) -> Result<SO, Error> {
         self.sink.serialize_str(value)
     }
 
-    fn serialize_bytes(self, value: &[u8]) -> Result<S::Ok, Error> {
+    fn serialize_bytes(self, value: &[u8]) -> Result<SO, Error> {
         match str::from_utf8(value) {
             Ok(value) => self.sink.serialize_str(value),
             Err(err) => Err(Error::Utf8(err)),
         }
     }
 
-    fn serialize_unit(self) -> Result<S::Ok, Error> {
+    fn serialize_unit(self) -> Result<SO, Error> {
         Err(self.sink.unsupported())
     }
 
-    fn serialize_unit_struct(self, name: &'static str) -> Result<S::Ok, Error> {
+    fn serialize_unit_struct(self, name: &'static str) -> Result<SO, Error> {
         self.sink.serialize_static_str(name.into())
     }
 
@@ -115,7 +120,7 @@ impl<S: Sink<Error=Error>> ser::Serializer for PartSerializer<S> {
                               _name: &'static str,
                               _variant_index: usize,
                               variant: &'static str)
-                              -> Result<S::Ok, Error> {
+                              -> Result<SO, Error> {
         self.sink.serialize_static_str(variant.into())
     }
 
@@ -123,7 +128,7 @@ impl<S: Sink<Error=Error>> ser::Serializer for PartSerializer<S> {
         (self,
          _name: &'static str,
          value: &T)
-         -> Result<S::Ok, Error> {
+         -> Result<SO, Error> {
         value.serialize(self)
     }
 
@@ -133,24 +138,24 @@ impl<S: Sink<Error=Error>> ser::Serializer for PartSerializer<S> {
          _variant_index: usize,
          _variant: &'static str,
          _value: &T)
-         -> Result<S::Ok, Error> {
+         -> Result<SO, Error> {
         Err(self.sink.unsupported())
     }
 
-    fn serialize_none(self) -> Result<S::Ok, Error> {
+    fn serialize_none(self) -> Result<SO, Error> {
         self.sink.serialize_none()
     }
 
     fn serialize_some<T: ?Sized + ser::Serialize>(self,
                                                   value: &T)
-                                                  -> Result<S::Ok, Error> {
+                                                  -> Result<SO, Error> {
         self.sink.serialize_some(value)
     }
 
     fn serialize_seq(self,
                      _len: Option<usize>)
                      -> Result<Self::SerializeSeq, Error> {
-        Err(self.sink.unsupported())
+        Ok(self.sink)
     }
 
 
@@ -209,8 +214,8 @@ impl<S: Sink<Error=Error>> ser::Serializer for PartSerializer<S> {
     }
 }
 
-impl<S: Sink<Error=Error>> PartSerializer<S> {
-    fn serialize_integer<I>(self, value: I) -> Result<S::Ok, Error>
+impl<SO, S: Sink<SO, Error>> PartSerializer<SO, S> {
+    fn serialize_integer<I>(self, value: I) -> Result<SO, Error>
         where I: itoa::Integer,
     {
         let mut buf = [b'\0'; 20];
@@ -219,7 +224,7 @@ impl<S: Sink<Error=Error>> PartSerializer<S> {
         ser::Serializer::serialize_str(self, part)
     }
 
-    fn serialize_floating<F>(self, value: F) -> Result<S::Ok, Error>
+    fn serialize_floating<F>(self, value: F) -> Result<SO, Error>
         where F: dtoa::Floating,
     {
         let mut buf = [b'\0'; 24];

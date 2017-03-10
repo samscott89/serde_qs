@@ -2,24 +2,11 @@
 
 use serde::de;
 
-use fnv::FnvHasher;
-// use serde::de::MapVisitor;
-use std::iter;
-use std::hash::BuildHasherDefault;
-// use std::collections::hash_map::{HashMap, Entry, IntoIter};
 use std::collections::btree_map::{BTreeMap, Entry, IntoIter};
-
-// use std::collections::BTreeMap;
-// type MyHasher = BuildHasherDefault<FnvHasher>;
-
-use std::borrow::Cow;
-
 #[doc(inline)]
 pub use serde::de::value::Error;
 use serde::de::value::MapDeserializer;
 use std::io::Read;
-// use url::form_urlencoded::Parse as UrlEncodedParse;
-use url::form_urlencoded::parse;
 use url::percent_encoding;
 
 /// Deserializes a query-string from a `&[u8]`.
@@ -336,8 +323,6 @@ impl Deserializer {
             value: None,
         }
     }
-
-
 
     /// Returns a new `Deserializer`.
     pub fn new(input: &[u8]) -> Self {
