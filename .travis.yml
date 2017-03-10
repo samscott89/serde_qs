@@ -3,6 +3,3 @@ rust:
   - nightly
   - beta
   - stable
-branches:
-  except:
-    - staging.tmp

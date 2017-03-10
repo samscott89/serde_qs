@@ -55,7 +55,7 @@ impl<'key, 'target, Target> Sink<(), Error> for ValueSink<'key, 'target, Target>
         value.serialize(PartSerializer::new(self))
     }
 
-    fn unsupported(self) -> Error {
+    fn unsupported(&self) -> Error {
         Error::Custom("unsupported value".into())
     }
 }

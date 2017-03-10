@@ -70,7 +70,7 @@ impl<End, Ok> Sink<Ok, Error> for KeySink<End>
         Err(self.unsupported())
     }
 
-    fn unsupported(self) -> Error {
+    fn unsupported(&self) -> Error {
         Error::Custom("unsupported key".into())
     }
 }
@@ -85,7 +85,7 @@ where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
                                                    _key: &'static str,
                                                    _value: &T)
                                                    -> Result<(), Error> {
-        Err(Error::top_level())
+        Err(self.unsupported())
     }
 
     fn end(self) -> Result<Self::Ok, Error> {
@@ -102,7 +102,7 @@ where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
     fn serialize_element<T: ?Sized + Serialize>(&mut self,
                                                    _value: &T)
                                                    -> Result<(), Error> {
-        Err(Error::top_level())
+        Err(self.unsupported())
     }
 
     fn end(self) -> Result<Self::Ok, Error> {

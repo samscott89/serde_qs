@@ -35,7 +35,7 @@ pub trait Sink<S, E>: Sized + ser::SerializeStruct<Ok=S, Error=E> + ser::Seriali
          value: &T)
          -> Result<S, Error>;
 
-    fn unsupported(self) -> Error;
+    fn unsupported(&self) -> Error;
 }
 
 impl<SO, S: Sink<SO, Error>> ser::Serializer for PartSerializer<SO, S> {

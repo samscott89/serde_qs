@@ -16,11 +16,12 @@ authors = ["Sam Scott <me@samjs.co.uk>"]
 # test = false
 
 [dependencies]
+csv = "0.15"
 fnv = "1.0.3"
 dtoa = "0.4.0"
 itoa = "0.3.0"
 serde = "0.9.3"
-serde_derive = "*"
+serde_derive = "0.9.8"
 url = "1.0.0"
 
 [profile.release]

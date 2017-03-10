@@ -46,11 +46,10 @@ pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String, Error> {
 
 /// A serializer for the querystring format.
 ///
-/// * Supported top-level inputs are structs, maps and sequences of pairs,
-///   with or without a given length.
+/// * Supported top-level inputs are structs and maps.
 ///
-/// * Supported keys and values are integers, bytes (if convertible to strings),
-///   unit structs and unit variants.
+/// * Supported values are currently most primitive types, structs, maps and
+///   sequences. Sequences are serialized with an incrementing key index.
 ///
 /// * Newtype structs defer to their inner values.
 pub struct Serializer<'output, Target: 'output + UrlEncodedTarget> {
