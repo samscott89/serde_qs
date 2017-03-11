@@ -9,6 +9,47 @@ use serde::de::value::MapDeserializer;
 use std::io::Read;
 use url::percent_encoding;
 
+/// 
+pub struct Config {
+    max_depth: usize,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            max_depth: 6,
+        }
+    }
+}
+
+impl Config {
+    pub fn max_depth(&mut self, depth: usize) {
+        self.max_depth = depth;
+    } 
+}
+
+impl Config {
+    pub fn from_bytes<T: de::Deserialize>(&self, input: &[u8]) -> Result<T, Error> {
+        T::deserialize(Deserializer::with_config(self, input))
+    }
+
+    pub fn from_str<T: de::Deserialize>(&self, input: &str) -> Result<T, Error> {
+        self.from_bytes(input.as_bytes())
+    }
+
+    pub fn from_reader<T, R>(&self, mut reader: R) -> Result<T, Error>
+        where T: de::Deserialize, R: Read
+    {
+        let mut buf = vec![];
+        reader.read_to_end(&mut buf)
+            .map_err(|e| {
+                de::Error::custom(format_args!("could not read input: {}", e))
+            })?;
+        self.from_bytes(&buf)
+        // from_bytes(&buf)
+        // T::deserialize(Deserializer::with_config(self, input.as_bytes()))
+    }
+}
 /// Deserializes a query-string from a `&[u8]`.
 ///
 /// ```
@@ -35,7 +76,7 @@ use url::percent_encoding;
 /// # }
 /// ```
 pub fn from_bytes<T: de::Deserialize>(input: &[u8]) -> Result<T, Error> {
-    T::deserialize(Deserializer::new(input))
+    Config::default().from_bytes(input)
 }
 
 /// Deserializes a query-string from a `&str`.
@@ -113,6 +154,7 @@ struct Parser<I: Iterator<Item=u8>> {
     inner: I,
     acc: Vec<u8>,
     peeked: Option<u8>,
+    depth: usize,
 }
 
 impl<I: Iterator<Item=u8>> Iterator for Parser<I>
@@ -125,14 +167,6 @@ impl<I: Iterator<Item=u8>> Iterator for Parser<I>
 }
 
 impl<I: Iterator<Item=u8>> Parser<I> {
-    fn new(iter: I) -> Self {
-        Parser {
-            inner: iter,
-            acc: Vec::new(),
-            peeked: None,
-        }
-    }
-
     #[inline]
     fn peek(&mut self) -> Option<<Self as Iterator>::Item> {
         if !self.acc.is_empty() {
@@ -148,99 +182,136 @@ impl<I: Iterator<Item=u8>> Parser<I> {
         }
     }
 
-    fn parse_string_key(&mut self, end_on: u8, consume: bool) -> Result<String, Error> {
+    fn parse_key(&mut self, end_on: u8, consume: bool) -> Result<String, Error> {
         loop {
-            match tu!(self.next()) {
-                x if x == end_on  => {
-                    let res = String::from_utf8(self.acc.split_off(0));
-                    self.acc.clear();
+            if let Some(x) = self.next() {
+                match x {       
+                    x if x == end_on  => {
+                        let res = String::from_utf8(self.acc.split_off(0));
+                        self.acc.clear();
 
-                    // Add this character back to the buffer for peek.
-                    if !consume {
-                        self.acc.push(x);
-                        self.peeked = Some(x);
+                        // Add this character back to the buffer for peek.
+                        if !consume {
+                            self.acc.push(x);
+                            self.peeked = Some(x);
+                        }
+                        return res.map_err(|_| de::Error::custom("blah"))
+                    },
+                    b'=' => {
+                        // Allow the '=' byte when parsing keys within []
+                        if end_on == b']' {
+                            self.acc.push(b'=');
+                        } else {
+                            let res = String::from_utf8(self.acc.split_off(0));
+                            self.acc.clear();
+
+                            // Add this character back to the buffer for peek.
+                            self.acc.push(b'=');
+                            self.peeked = Some(b'=');
+
+                            return res.map_err(|_| de::Error::custom("blah"))
+                        }
                     }
-                    return res.map_err(|_| de::Error::custom("blah"))
-                },
-                x @ b'=' => {
-                    let res = String::from_utf8(self.acc.split_off(0));
-                    self.acc.clear();
-
-                    // Add this character back to the buffer for peek.
-                    self.acc.push(x);
-                    self.peeked = Some(x);
-                    return res.map_err(|_| de::Error::custom("blah"))
+                    // x @ b']' | x @ b'[' => {
+                    //     return Err(de::Error::custom(format!("unexpected character {} in query string, waiting for: {}.", x as char, end_on as char)));
+                    // }
+                    b' ' => {
+                        self.acc.push(b' ');
+                    }
+                    b'&' => {
+                        let res = String::from_utf8(self.acc.split_off(0));
+                        self.acc.clear();
+                        self.acc.push(b'&');
+                        self.peeked = Some(b'&');
+                        return res.map_err(|_| de::Error::custom("blah"))
+                    }
+                    x @ 0x20 ... 0x7e => {
+                        self.acc.push(x);
+                    },
+                    _ => {
+                        return Err(de::Error::custom("unexpected character in query string."));
+                    }
                 }
-                x @ b']' | x @ b'[' => {
-                    return Err(de::Error::custom(format!("unexpected character {} in query string, waiting for: {}.", x as char, end_on as char)));
-                }
-                x @ 0x20 ... 0x7e => {
-                    self.acc.push(x);
-                },
-                _ => {
-                    return Err(de::Error::custom("unexpected character in query string."));
-                }
+            } else {
+                // End of string.
+                let res = String::from_utf8(self.acc.split_off(0));
+                self.acc.clear();
+                return res.map_err(|_| de::Error::custom("blah"))
             }
         }
-    }
-
-    fn parse_int_key(&mut self, end_on: u8) -> Result<String, Error> {
-        loop {
-            match tu!(self.next()) {
-                x if x == end_on  => {
-                    let res = String::from_utf8(self.acc.split_off(0)).unwrap();
-                    self.acc.clear();
-                    return Ok(res);
-                },
-                x @ b'[' => {
-                    return Err(de::Error::custom(format!("unexpected character {} in query string, waiting for: {}.", x as char, end_on as char)));
-                }
-                x @ b'0' ... b'9' => {
-                    self.acc.push(x);
-                },
-                _ => {
-                    return Err(de::Error::custom("unexpected character in query string."));
-                }
-            }
-        }
-
     }
 
     fn parse_map_value(&mut self, key: String, node: &mut Level) -> Result<(), Error> {
-        match tu!(self.peek()) {
-            b'=' => {
-                self.acc.clear();
-                for b in self.inner.by_ref().take_while(|b| b != &b'&') {
-                    self.acc.push(b);
-                }
-                let value = String::from_utf8(self.acc.split_off(0));
-                let value = value.map_err(|_e| de::Error::custom("blah"))?;
-                // Reached the end of the key string
-                if let Level::Nested(ref mut map) = *node {
-                    match map.entry(key) {
-                        Entry::Occupied(mut o) => {
-                            o.insert(Level::Invalid("Multiple values for one key"));
-                        },
-                        Entry::Vacant(vm) => {
-                            vm.insert(Level::Flat(value));
+        if let Some(x) = self.peek() {
+            match x {    
+                b'=' => {
+                    self.acc.clear();
+                    for b in self.inner.by_ref().take_while(|b| b != &b'&') {
+                        if b == b'+' {
+                            self.acc.push(b' ');
+                        } else {
+                            self.acc.push(b);
                         }
                     }
-                } else {
-                    panic!("");
+                    let value = String::from_utf8(self.acc.split_off(0));
+                    let value = value.map_err(|_e| de::Error::custom("blah"))?;
+                    // Reached the end of the key string
+                    if let Level::Nested(ref mut map) = *node {
+                        match map.entry(key) {
+                            Entry::Occupied(mut o) => {
+                                o.insert(Level::Invalid("Multiple values for one key"));
+                            },
+                            Entry::Vacant(vm) => {
+                                vm.insert(Level::Flat(value));
+                            }
+                        }
+                    } else {
+                        panic!("");
+                    }
+                    Ok(())
+                },
+                b'&' => {
+                    if let Level::Nested(ref mut map) = *node {
+                        match map.entry(key) {
+                            Entry::Occupied(mut o) => {
+                                o.insert(Level::Invalid("Multiple values for one key"));
+                            },
+                            Entry::Vacant(vm) => {
+                                vm.insert(Level::Flat("".into()));
+                            }
+                        }
+                    } else {
+                        panic!("");
+                    }
+                    Ok(())
                 }
-                Ok(())
-            },
-            _ => {
-                // Ok(())
-                if let Level::Nested(ref mut map) = *node {
-                    self.parse(
-                        map.entry(key).or_insert(Level::Nested(BTreeMap::default()))
-                    )?;
-                    Ok(())
-                } else {
-                    Ok(())
+                _ => {
+                    // Ok(())
+                    if let Level::Nested(ref mut map) = *node {
+                        self.depth -= 1;
+                        self.parse(
+                            map.entry(key).or_insert(Level::Nested(BTreeMap::default()))
+                        )?;
+                        Ok(())
+                    } else {
+                        Ok(())
+                    }
                 }
             }
+        } else {
+            if let Level::Nested(ref mut map) = *node {
+                match map.entry(key) {
+                    Entry::Occupied(mut o) => {
+                        o.insert(Level::Invalid("Multiple values for one key"));
+                    },
+                    Entry::Vacant(vm) => {
+                        vm.insert(Level::Flat("".into()));
+                    }
+                }
+            } else {
+                panic!("");
+            }
+            Ok(())
         }
     }
 
@@ -272,45 +343,53 @@ impl<I: Iterator<Item=u8>> Parser<I> {
 
     fn parse(&mut self, node: &mut Level) -> Result<bool, Error> {
         // First character determines parsing type
+        if self.depth == 0 {
+            let key = self.parse_key(b'\x00', true)?;
+            self.parse_map_value(key.into(), node)?;
+            self.depth += 1;
+            return Ok(true);
+        }
         match self.peek() {
             Some(x) => match x {
-                b'a' ... b'z' | b'A' ... b'Z' => {
-                    let key = self.parse_string_key(b'[', false).unwrap();
-                    self.parse_map_value(key.into(), node)?;
-                    Ok(true)
-                },
                 b'[' => {
                     self.acc.clear();
                     // let _ = self.next();
                     match tu!(self.peek()) {
-                        b'a' ... b'z' | b'A' ... b'Z' => {
-                            let key = self.parse_string_key(b']', true).unwrap();
-                            // key.into()
-                            self.parse_map_value(key.into(), node)?;
-                            Ok(true)
+                        b'[' => {
+                            panic!("");
 
                         },
                         b']' => {
                             self.parse_seq_value(node)?;
+                            self.depth += 1;
                             Ok(true)
 
                         },
-                        b'0' ... b'9' => {
-                            let key = self.parse_int_key(b']').unwrap();
-                            self.parse_map_value(key, node)?;
+                        0x20 ... 0x7e => {
+                            let key = self.parse_key(b']', true).unwrap();
+                            // key.into()
+                            self.parse_map_value(key.into(), node)?;
+                            self.depth += 1;
                             Ok(true)
+
                         },
                         _ => {
                             panic!("");
                         }
                     }
                 },
+                0x20 ... 0x7e => {
+                    let key = self.parse_key(b'[', false).unwrap();
+                    self.parse_map_value(key.into(), node)?;
+                    self.depth += 1;
+                    Ok(true)
+                },
                 _ => {
                     panic!("");
                 }
             },
             // Ran out of characters to parse
-            None => return Ok(false)
+            None => Ok(false)
         }
     }
 
@@ -325,12 +404,18 @@ impl Deserializer {
     }
 
     /// Returns a new `Deserializer`.
-    pub fn new(input: &[u8]) -> Self {
+    fn with_config(config: &Config, input: &[u8]) -> Self {
         let map = BTreeMap::default();
         let mut root = Level::Nested(map);
 
         let decoded = percent_encoding::percent_decode(&input);
-        let mut parser = Parser::new(decoded);
+        let mut parser = Parser {
+            inner: decoded,
+            acc: Vec::new(),
+            peeked: None,
+            depth: config.max_depth,
+        };
+
         while let Ok(x) = parser.parse(&mut root) {
             if !x {
                 break
@@ -347,6 +432,30 @@ impl Deserializer {
             value: None,
         }
     }
+
+    // /// Returns a new `Deserializer`.
+    // pub fn new(input: &[u8]) -> Self {
+    //     let map = BTreeMap::default();
+    //     let mut root = Level::Nested(map);
+
+    //     let decoded = percent_encoding::percent_decode(&input);
+    //     let mut parser = Parser::new(decoded);
+    //     while let Ok(x) = parser.parse(&mut root) {
+    //         if !x {
+    //             break
+    //         }
+    //     }
+    //     // self.input = Some(decoded.as_bytes());
+    //     // println!("{:?}", root);
+    //     let iter = match root {
+    //         Level::Nested(map) => map.into_iter(),
+    //         _ => panic!(""),
+    //     };
+    //     Deserializer { 
+    //         iter: iter,
+    //         value: None,
+    //     }
+    // }
 }
 
 impl de::Deserializer for Deserializer {
@@ -463,7 +572,7 @@ impl de::Deserializer for LevelDeserializer {
         if let Level::Nested(x) = self.0 {
             Deserializer::with_map(x).deserialize_map(visitor)
         } else {
-            Err(de::Error::custom("value does not appear to be a map"))
+            Err(de::Error::custom(format!("value: {:?} does not appear to be a map", self.0)))
         }
     }
 
@@ -504,6 +613,23 @@ impl de::Deserializer for LevelDeserializer {
         self.deserialize_seq(visitor)
     }
 
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: de::Visitor
+
+    {
+        match self.0 {
+            Level::Flat(x) => {
+                if x == "" {
+                    visitor.visit_none()
+                } else {
+                    visitor.visit_some(x.into_deserializer())
+                }
+            }
+            _ => {
+                Err(de::Error::custom("value does not appear to be a value"))
+            }
+        }
+    }
+
 
     forward_to_deserialize! {
         bool
@@ -521,7 +647,7 @@ impl de::Deserializer for LevelDeserializer {
         str
         string
         unit
-        option
+        // option
         bytes
         byte_buf
         unit_struct
