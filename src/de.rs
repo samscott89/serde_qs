@@ -166,6 +166,26 @@ impl<I: Iterator<Item=u8>> Iterator for Parser<I>
     }
 }
 
+
+fn insert_into_map(node: &mut Level, key: String, value: String) {
+    // println!("({:?}, {:?})", key, value);
+    if let Level::Nested(ref mut map) = *node {
+        match map.entry(key) {
+            Entry::Occupied(mut o) => {
+                o.insert(Level::Invalid("Multiple values for one key"));
+            },
+            Entry::Vacant(vm) => {
+                vm.insert(Level::Flat(value));
+            }
+        }
+    } else {
+        // println!("Removing uninitialised value");
+        let mut map = BTreeMap::default();
+        map.insert(key, Level::Flat(value));
+        *node = Level::Nested(map);
+    }
+}
+
 impl<I: Iterator<Item=u8>> Parser<I> {
     #[inline]
     fn peek(&mut self) -> Option<<Self as Iterator>::Item> {
@@ -212,9 +232,6 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                             return res.map_err(|_| de::Error::custom("blah"))
                         }
                     }
-                    // x @ b']' | x @ b'[' => {
-                    //     return Err(de::Error::custom(format!("unexpected character {} in query string, waiting for: {}.", x as char, end_on as char)));
-                    // }
                     b' ' => {
                         self.acc.push(b' ');
                     }
@@ -256,66 +273,42 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                     let value = String::from_utf8(self.acc.split_off(0));
                     let value = value.map_err(|_e| de::Error::custom("blah"))?;
                     // Reached the end of the key string
-                    if let Level::Nested(ref mut map) = *node {
-                        match map.entry(key) {
-                            Entry::Occupied(mut o) => {
-                                o.insert(Level::Invalid("Multiple values for one key"));
-                            },
-                            Entry::Vacant(vm) => {
-                                vm.insert(Level::Flat(value));
-                            }
-                        }
-                    } else {
-                        panic!("");
-                    }
+                    insert_into_map(node, key, value);
                     Ok(())
                 },
                 b'&' => {
-                    if let Level::Nested(ref mut map) = *node {
-                        match map.entry(key) {
-                            Entry::Occupied(mut o) => {
-                                o.insert(Level::Invalid("Multiple values for one key"));
-                            },
-                            Entry::Vacant(vm) => {
-                                vm.insert(Level::Flat("".into()));
-                            }
-                        }
-                    } else {
-                        panic!("");
-                    }
+                    insert_into_map(node, key, "".to_string());
                     Ok(())
                 }
-                _ => {
+                b'[' => {
+                    if let Level::Invalid(_) = *node {
+                        *node = Level::Nested(BTreeMap::default());
+                    }
+
                     // Ok(())
                     if let Level::Nested(ref mut map) = *node {
                         self.depth -= 1;
+                        // println!("Possibly adding uninitialised value for {}", key);
                         self.parse(
-                            map.entry(key).or_insert(Level::Nested(BTreeMap::default()))
+                            map.entry(key).or_insert(Level::Invalid("uninitialised"))
                         )?;
                         Ok(())
                     } else {
-                        Ok(())
+                        Err(de::Error::custom(format!("tried to insert a new key into {:?}", node)))
                     }
+                }
+                _ => {
+                    panic!("Unexpected character");
                 }
             }
         } else {
-            if let Level::Nested(ref mut map) = *node {
-                match map.entry(key) {
-                    Entry::Occupied(mut o) => {
-                        o.insert(Level::Invalid("Multiple values for one key"));
-                    },
-                    Entry::Vacant(vm) => {
-                        vm.insert(Level::Flat("".into()));
-                    }
-                }
-            } else {
-                panic!("");
-            }
+            insert_into_map(node, key, "".to_string());
             Ok(())
         }
     }
 
     fn parse_seq_value(&mut self, node: &mut Level) -> Result<(), Error> {
+        // println!("Adding as a sequence value.");
         match tu!(self.peek()) {
             b'=' => {
                 self.acc.clear();
@@ -330,7 +323,9 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                 if let Level::Sequence(ref mut seq) = *node {
                     seq.push(Level::Flat(value));
                 } else {
-                    panic!("");
+                    let mut seq = Vec::new();
+                    seq.push(Level::Flat(value));
+                    *node = Level::Sequence(seq);
                 }
                 Ok(())
             },
@@ -355,19 +350,26 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                     self.acc.clear();
                     // let _ = self.next();
                     match tu!(self.peek()) {
+                        // key is of the form "[...", not really allowed. 
                         b'[' => {
                             panic!("");
 
                         },
+                        // key is simply "[]", so treat as a seq.
                         b']' => {
+                            self.acc.clear();
+                            // println!("Empty key => vector");
+                            // println!("{:?}", node);
                             self.parse_seq_value(node)?;
                             self.depth += 1;
                             Ok(true)
 
                         },
+                        // Key is "[a..." so parse up to the closing "]"
                         0x20 ... 0x7e => {
                             let key = self.parse_key(b']', true).unwrap();
                             // key.into()
+                            // println!("key: {:?}", key);
                             self.parse_map_value(key.into(), node)?;
                             self.depth += 1;
                             Ok(true)
@@ -378,6 +380,7 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                         }
                     }
                 },
+                // This means the key should be a root key of the form "abc" or "abc[...]"
                 0x20 ... 0x7e => {
                     let key = self.parse_key(b'[', false).unwrap();
                     self.parse_map_value(key.into(), node)?;
@@ -572,6 +575,7 @@ impl de::Deserializer for LevelDeserializer {
         if let Level::Nested(x) = self.0 {
             Deserializer::with_map(x).deserialize_map(visitor)
         } else {
+            // Deserializer::with_map(BTreeMap::default()).deserialize_map(visitor)
             Err(de::Error::custom(format!("value: {:?} does not appear to be a map", self.0)))
         }
     }
