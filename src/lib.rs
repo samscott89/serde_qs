@@ -5,7 +5,7 @@
 //!
 //! This library aims for compatability with the syntax of
 //! [qs](https://github.com/ljharb/qs) and also of the
-//! [Rack::Utils::parse_nested_query](http://www.rubydoc.info/github/rack/rack/Rack/Utils#parse_nested_query-class_method)
+//! [`Rack::Utils::parse_nested_query`](http://www.rubydoc.info/github/rack/rack/Rack/Utils#parse_nested_query-class_method)
 //! implementation.
 //!
 //! For users who do *not* require nested URL parameters, it is highly
@@ -65,10 +65,6 @@ extern crate dtoa;
 #[macro_use]
 extern crate serde;
 extern crate url;
-
-#[macro_use]
-extern crate serde_derive;
-
 
 pub mod de;
 pub mod ser;

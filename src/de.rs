@@ -9,14 +9,39 @@ use std::collections::btree_map::{BTreeMap, Entry, IntoIter};
 use std::io::Read;
 use url::percent_encoding;
 
+/// To override the default serialization parameters, first construct a new
+/// Config.
+///
+/// A `max_depth` of 0 implies no nesting: the result will be a flat map.
+/// This is mostly useful when the maximum nested depth is known beforehand,
+/// to prevent denial of service attacks by providing incredibly deeply nested
+/// inputs.
+///
+/// ```
+/// use serde_qs::de::Config;
+/// use std::collections::HashMap;
+///
+/// let mut config = Config::default();
+/// config.max_depth(0);
+/// let map: HashMap<String, String> = config.deserialize_str("a[b][c]=1")
+///                                          .unwrap();
+/// assert_eq!(map.get("a[b][c]").unwrap(), "1");
+///
+/// config.max_depth(10);
+/// let map: HashMap<String, HashMap<String, HashMap<String, String>>> =
+///             config.deserialize_str("a[b][c]=1").unwrap();
+/// assert_eq!(map.get("a").unwrap().get("b").unwrap().get("c").unwrap(), "1");
+/// ```
 ///
 pub struct Config {
+    /// Specifies the maximum depth key that `serde_qs` will attempt to
+    /// deserialize. Default is 5.
     max_depth: usize,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Config { max_depth: 6 }
+        Config { max_depth: 5 }
     }
 }
 
@@ -27,19 +52,19 @@ impl Config {
 }
 
 impl Config {
-    pub fn from_bytes<T: de::Deserialize>(&self,
-                                          input: &[u8])
-                                          -> Result<T, Error> {
+    pub fn deserialize_bytes<T: de::Deserialize>(&self,
+                                                 input: &[u8])
+                                                 -> Result<T, Error> {
         T::deserialize(Deserializer::with_config(self, input))
     }
 
-    pub fn from_str<T: de::Deserialize>(&self,
-                                        input: &str)
-                                        -> Result<T, Error> {
-        self.from_bytes(input.as_bytes())
+    pub fn deserialize_str<T: de::Deserialize>(&self,
+                                               input: &str)
+                                               -> Result<T, Error> {
+        self.deserialize_bytes(input.as_bytes())
     }
 
-    pub fn from_reader<T, R>(&self, mut reader: R) -> Result<T, Error>
+    pub fn deserialize_reader<T, R>(&self, mut reader: R) -> Result<T, Error>
         where T: de::Deserialize,
               R: Read,
     {
@@ -48,7 +73,7 @@ impl Config {
             .map_err(|e| {
                 de::Error::custom(format_args!("could not read input: {}", e))
             })?;
-        self.from_bytes(&buf)
+        self.deserialize_bytes(&buf)
         // from_bytes(&buf)
         // T::deserialize(Deserializer::with_config(self, input.as_bytes()))
     }
@@ -81,7 +106,7 @@ impl Config {
 /// # }
 /// ```
 pub fn from_bytes<T: de::Deserialize>(input: &[u8]) -> Result<T, Error> {
-    Config::default().from_bytes(input)
+    Config::default().deserialize_bytes(input)
 }
 
 /// Deserializes a querystring from a `&str`.
@@ -194,14 +219,12 @@ impl<I: Iterator<Item = u8>> Parser<I> {
     fn peek(&mut self) -> Option<<Self as Iterator>::Item> {
         if !self.acc.is_empty() {
             self.peeked
+        } else if let Some(x) = self.inner.next() {
+            self.acc.push(x);
+            self.peeked = Some(x);
+            Some(x)
         } else {
-            if let Some(x) = self.inner.next() {
-                self.acc.push(x);
-                self.peeked = Some(x);
-                Some(x)
-            } else {
-                None
-            }
+            None
         }
     }
 
@@ -421,7 +444,7 @@ impl Deserializer {
         let map = BTreeMap::default();
         let mut root = Level::Nested(map);
 
-        let decoded = percent_encoding::percent_decode(&input);
+        let decoded = percent_encoding::percent_decode(input);
         let mut parser = Parser {
             inner: decoded,
             acc: Vec::new(),

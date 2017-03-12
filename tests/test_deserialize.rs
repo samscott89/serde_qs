@@ -188,6 +188,7 @@ fn qs_nesting() {
     //     { a: { b: { c: { d: { e: { f: { '[g][h]': 'i' } } } } } } },
     //     'defaults to a depth of 5'
     // );
+    // This looks like depth 6 to me? Tweaked test to make it 5.
     map_test!("a[b][c][d][e][f][g][h]=i",
-              "a"["b"["c"["d"["e"["f"["[g][h]"["i"]]]]]]]);
+              "a"["b"["c"["d"["e"["[f][g][h]"["i"]]]]]]);
 }

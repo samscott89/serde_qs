@@ -13,7 +13,7 @@ struct Query {
 
 fn main() {
     let q = "s=12&r=1,2,3";
-    let q: Query = qs::from_str(&q).unwrap();
+    let q: Query = qs::from_str(q).unwrap();
     println!("{:?}", q);
 }
 
