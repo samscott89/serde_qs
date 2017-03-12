@@ -1,4 +1,4 @@
-//! Deserialization support for the `application/x-www-form-urlencoded` format.
+//! Deserialization support for querystrings.
 
 use serde::de;
 #[doc(inline)]

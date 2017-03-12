@@ -1,4 +1,4 @@
-//! Serialization support for the `application/x-www-form-urlencoded` format.
+//! Serialization support for querystrings.
 
 mod key;
 mod part;
