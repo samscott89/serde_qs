@@ -15,6 +15,7 @@ struct QueryParams {
     id: u8,
     name: String,
     address: Address,
+    phone: u32,
     user_ids: Vec<u8>,
 }
 
@@ -67,6 +68,7 @@ fn deserialize_struct() {
     let params = QueryParams {
         id: 42,
         name: "Acme".to_string(),
+        phone: 12345,
         address: Address {
             city: "Carrot City".to_string(),
             postcode: "12345".to_string(),

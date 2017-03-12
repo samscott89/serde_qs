@@ -2,43 +2,38 @@
 extern crate serde_derive;
 extern crate serde_qs as qs;
 
-#[derive(Serialize, Deserialize)]
-struct Foo { bar: Bar, baz: Baz }
-#[derive(Serialize, Deserialize)]
-struct Bar { x: u8, y: String }
-#[derive(Serialize, Deserialize)]
-struct Baz { thing: String, other: u8 }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+struct Address {
+    city: String,
+    postcode: String,
+}
 
-#[derive(Serialize, Deserialize)]
-struct Complex { x: Vec<u8>, y: Vec<Baz> }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+struct QueryParams {
+    id: u8,
+    name: String,
+    phone: u32,
+    address: Address,
+    user_ids: Vec<u8>,
+}
 
 
 #[test]
 fn serialize_struct() {
-    let params = Foo {
-      bar: Bar {
-        x: 10,
-        y: "Ten".to_owned()
-      },
-      baz: Baz {
-        thing: "Thing".to_owned(),
-        other: 12
-      }
+    let params = QueryParams {
+        id: 42,
+        name: "Acme".to_string(),
+        phone: 12345,
+        address: Address {
+            city: "Carrot City".to_string(),
+            postcode: "12345".to_string(),
+        },
+        user_ids: vec!(1,2,3,4),
     };
 
-    assert_eq!(qs::to_string(&params),
-      Ok(urlencode("bar[x]=10&bar[y]=Ten&baz[thing]=Thing&baz[other]=12")));
-
-    let params = Complex {
-        x: vec![0,1,2],
-        y: vec![params.baz],
-    };
-
-
-    assert_eq!(qs::to_string(&params),
-      Ok(urlencode("x[0]=0&x[1]=1&x[2]=2&y[0][thing]=Thing&y[0][other]=12")));
+    assert_eq!(qs::to_string(&params).unwrap(), urlencode("id=42&name=Acme&phone=12345&address[city]=Carrot+City&address[postcode]=12345&user_ids[0]=1&user_ids[1]=2&user_ids[2]=3&user_ids[3]=4"));
 }
 
 fn urlencode(input: &str) -> String {
-  str::replace(&str::replace(input, "[", "%5B"), "]", "%5D")
+    str::replace(&str::replace(input, "[", "%5B"), "]", "%5D")
 }
