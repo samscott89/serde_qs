@@ -22,14 +22,16 @@
 //! Serializing/Deserializing is designed to work with maps and structs.
 //!
 //! ```
+//! #[macro_use]
+//! extern crate serde_derive;
+//! extern crate serde_qs as qs;
 //!
-//!
-//! #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+//! #[derive(Debug, PartialEq, Deserialize, Serialize)]
 //! struct Address {
 //!     city: String,
 //!     postcode: String,
 //! }
-//! #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+//! #[derive(Debug, PartialEq, Deserialize, Serialize)]
 //! struct QueryParams {
 //!     id: u8,
 //!     name: String,

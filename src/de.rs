@@ -53,7 +53,7 @@ impl Config {
         // T::deserialize(Deserializer::with_config(self, input.as_bytes()))
     }
 }
-/// Deserializes a query-string from a `&[u8]`.
+/// Deserializes a querystring from a `&[u8]`.
 ///
 /// ```
 /// # #[macro_use]
@@ -84,7 +84,7 @@ pub fn from_bytes<T: de::Deserialize>(input: &[u8]) -> Result<T, Error> {
     Config::default().from_bytes(input)
 }
 
-/// Deserializes a query-string from a `&str`.
+/// Deserializes a querystring from a `&str`.
 ///
 /// ```
 /// # #[macro_use]
@@ -127,7 +127,7 @@ pub fn from_reader<T, R>(mut reader: R) -> Result<T, Error>
     from_bytes(&buf)
 }
 
-/// A deserializer for the query-string format.
+/// A deserializer for the querystring format.
 ///
 /// Supported top-level outputs are structs and maps.
 pub struct Deserializer {
@@ -376,7 +376,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                             },
                             // Key is "[a..." so parse up to the closing "]"
                             0x20...0x7e => {
-                                let key = self.parse_key(b']', true).unwrap();
+                                let key = self.parse_key(b']', true)?;
                                 // key.into()
                                 // println!("key: {:?}", key);
                                 self.parse_map_value(key.into(), node)?;
@@ -392,7 +392,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                     // This means the key should be a root key
                     // of the form "abc" or "abc[...]"
                     0x20...0x7e => {
-                        let key = self.parse_key(b'[', false).unwrap();
+                        let key = self.parse_key(b'[', false)?;
                         self.parse_map_value(key.into(), node)?;
                         self.depth += 1;
                         Ok(true)
