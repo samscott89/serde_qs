@@ -1,44 +1,47 @@
 //! Deserialization support for the `application/x-www-form-urlencoded` format.
 
 use serde::de;
-
-use std::collections::btree_map::{BTreeMap, Entry, IntoIter};
 #[doc(inline)]
 pub use serde::de::value::Error;
 use serde::de::value::MapDeserializer;
+
+use std::collections::btree_map::{BTreeMap, Entry, IntoIter};
 use std::io::Read;
 use url::percent_encoding;
 
-/// 
+///
 pub struct Config {
     max_depth: usize,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Config {
-            max_depth: 6,
-        }
+        Config { max_depth: 6 }
     }
 }
 
 impl Config {
     pub fn max_depth(&mut self, depth: usize) {
         self.max_depth = depth;
-    } 
+    }
 }
 
 impl Config {
-    pub fn from_bytes<T: de::Deserialize>(&self, input: &[u8]) -> Result<T, Error> {
+    pub fn from_bytes<T: de::Deserialize>(&self,
+                                          input: &[u8])
+                                          -> Result<T, Error> {
         T::deserialize(Deserializer::with_config(self, input))
     }
 
-    pub fn from_str<T: de::Deserialize>(&self, input: &str) -> Result<T, Error> {
+    pub fn from_str<T: de::Deserialize>(&self,
+                                        input: &str)
+                                        -> Result<T, Error> {
         self.from_bytes(input.as_bytes())
     }
 
     pub fn from_reader<T, R>(&self, mut reader: R) -> Result<T, Error>
-        where T: de::Deserialize, R: Read
+        where T: de::Deserialize,
+              R: Read,
     {
         let mut buf = vec![];
         reader.read_to_end(&mut buf)
@@ -60,18 +63,20 @@ impl Config {
 /// struct Query {
 ///     name: String,
 ///     age: u8,
-///     occupation: String,   
+///     occupation: String,
 /// }
 ///
 /// # fn main(){
 /// let q =  Query {
 ///     name: "Alice".to_owned(),
 ///     age: 24,
-///     occupation: "Student".to_owned(),   
+///     occupation: "Student".to_owned(),
 /// };
 ///
 /// assert_eq!(
-///     serde_qs::from_bytes::<Query>("name=Alice&age=24&occupation=Student".as_bytes()),
+///     serde_qs::from_bytes::<Query>(
+///         "name=Alice&age=24&occupation=Student".as_bytes()
+///     ),
 ///     Ok(q));
 /// # }
 /// ```
@@ -89,14 +94,14 @@ pub fn from_bytes<T: de::Deserialize>(input: &[u8]) -> Result<T, Error> {
 /// struct Query {
 ///     name: String,
 ///     age: u8,
-///     occupation: String,   
+///     occupation: String,
 /// }
 ///
 /// # fn main(){
 /// let q =  Query {
 ///     name: "Alice".to_owned(),
 ///     age: 24,
-///     occupation: "Student".to_owned(),   
+///     occupation: "Student".to_owned(),
 /// };
 ///
 /// assert_eq!(
@@ -111,7 +116,8 @@ pub fn from_str<T: de::Deserialize>(input: &str) -> Result<T, Error> {
 /// Convenience function that reads all bytes from `reader` and deserializes
 /// them with `from_bytes`.
 pub fn from_reader<T, R>(mut reader: R) -> Result<T, Error>
-    where T: de::Deserialize, R: Read
+    where T: de::Deserialize,
+          R: Read,
 {
     let mut buf = vec![];
     reader.read_to_end(&mut buf)
@@ -141,24 +147,23 @@ macro_rules! tu {
     ($x:expr) => (
         match $x {
             Some(x) => x,
-            // None => return Err(de::Error::custom("query string ended before expected"))
-            None => panic!("None found here"),
+            None => return Err(
+                de::Error::custom("query string ended before expected"))
         }
     )
 }
 
-use std::str;
 use std::iter::Iterator;
+use std::str;
 
-struct Parser<I: Iterator<Item=u8>> {
+struct Parser<I: Iterator<Item = u8>> {
     inner: I,
     acc: Vec<u8>,
     peeked: Option<u8>,
     depth: usize,
 }
 
-impl<I: Iterator<Item=u8>> Iterator for Parser<I>
-{
+impl<I: Iterator<Item = u8>> Iterator for Parser<I> {
     type Item = u8;
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -168,7 +173,6 @@ impl<I: Iterator<Item=u8>> Iterator for Parser<I>
 
 
 fn insert_into_map(node: &mut Level, key: String, value: String) {
-    // println!("({:?}, {:?})", key, value);
     if let Level::Nested(ref mut map) = *node {
         match map.entry(key) {
             Entry::Occupied(mut o) => {
@@ -176,17 +180,16 @@ fn insert_into_map(node: &mut Level, key: String, value: String) {
             },
             Entry::Vacant(vm) => {
                 vm.insert(Level::Flat(value));
-            }
+            },
         }
     } else {
-        // println!("Removing uninitialised value");
         let mut map = BTreeMap::default();
         map.insert(key, Level::Flat(value));
         *node = Level::Nested(map);
     }
 }
 
-impl<I: Iterator<Item=u8>> Parser<I> {
+impl<I: Iterator<Item = u8>> Parser<I> {
     #[inline]
     fn peek(&mut self) -> Option<<Self as Iterator>::Item> {
         if !self.acc.is_empty() {
@@ -202,11 +205,14 @@ impl<I: Iterator<Item=u8>> Parser<I> {
         }
     }
 
-    fn parse_key(&mut self, end_on: u8, consume: bool) -> Result<String, Error> {
+    fn parse_key(&mut self,
+                 end_on: u8,
+                 consume: bool)
+                 -> Result<String, Error> {
         loop {
             if let Some(x) = self.next() {
-                match x {       
-                    x if x == end_on  => {
+                match x {
+                    x if x == end_on => {
                         let res = String::from_utf8(self.acc.split_off(0));
                         self.acc.clear();
 
@@ -215,7 +221,7 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                             self.acc.push(x);
                             self.peeked = Some(x);
                         }
-                        return res.map_err(|_| de::Error::custom("blah"))
+                        return res.map_err(|_| de::Error::custom("blah"));
                     },
                     b'=' => {
                         // Allow the '=' byte when parsing keys within []
@@ -229,38 +235,42 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                             self.acc.push(b'=');
                             self.peeked = Some(b'=');
 
-                            return res.map_err(|_| de::Error::custom("blah"))
+                            return res.map_err(|_| de::Error::custom("blah"));
                         }
-                    }
+                    },
                     b' ' => {
                         self.acc.push(b' ');
-                    }
+                    },
                     b'&' => {
                         let res = String::from_utf8(self.acc.split_off(0));
                         self.acc.clear();
                         self.acc.push(b'&');
                         self.peeked = Some(b'&');
-                        return res.map_err(|_| de::Error::custom("blah"))
-                    }
-                    x @ 0x20 ... 0x7e => {
+                        return res.map_err(|_| de::Error::custom("blah"));
+                    },
+                    x @ 0x20...0x7e => {
                         self.acc.push(x);
                     },
                     _ => {
-                        return Err(de::Error::custom("unexpected character in query string."));
-                    }
+                        return Err(de::Error::custom("unexpected character \
+                                                      in query string."));
+                    },
                 }
             } else {
                 // End of string.
                 let res = String::from_utf8(self.acc.split_off(0));
                 self.acc.clear();
-                return res.map_err(|_| de::Error::custom("blah"))
+                return res.map_err(|_| de::Error::custom("blah"));
             }
         }
     }
 
-    fn parse_map_value(&mut self, key: String, node: &mut Level) -> Result<(), Error> {
+    fn parse_map_value(&mut self,
+                       key: String,
+                       node: &mut Level)
+                       -> Result<(), Error> {
         if let Some(x) = self.peek() {
-            match x {    
+            match x {
                 b'=' => {
                     self.acc.clear();
                     for b in self.inner.by_ref().take_while(|b| b != &b'&') {
@@ -279,27 +289,25 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                 b'&' => {
                     insert_into_map(node, key, "".to_string());
                     Ok(())
-                }
+                },
                 b'[' => {
                     if let Level::Invalid(_) = *node {
                         *node = Level::Nested(BTreeMap::default());
                     }
-
-                    // Ok(())
                     if let Level::Nested(ref mut map) = *node {
                         self.depth -= 1;
-                        // println!("Possibly adding uninitialised value for {}", key);
-                        self.parse(
-                            map.entry(key).or_insert(Level::Invalid("uninitialised"))
-                        )?;
+                        self.parse(map.entry(key)
+                                .or_insert(Level::Invalid("uninitialised")))?;
                         Ok(())
                     } else {
-                        Err(de::Error::custom(format!("tried to insert a new key into {:?}", node)))
+                        Err(de::Error::custom(format!("tried to insert a \
+                                                       new key into {:?}",
+                                                      node)))
                     }
-                }
+                },
                 _ => {
                     panic!("Unexpected character");
-                }
+                },
             }
         } else {
             insert_into_map(node, key, "".to_string());
@@ -308,17 +316,16 @@ impl<I: Iterator<Item=u8>> Parser<I> {
     }
 
     fn parse_seq_value(&mut self, node: &mut Level) -> Result<(), Error> {
-        // println!("Adding as a sequence value.");
         match tu!(self.peek()) {
             b'=' => {
                 self.acc.clear();
-                // let value = str::from_utf8(input.take_while(|b| *b != &b'&').collect());
-                // self.acc.extend_from_slice(&self.take_while(|b| *b != &b'&').collect());
                 for b in self.inner.by_ref().take_while(|b| b != &b'&') {
                     self.acc.push(b);
                 }
-                let value = String::from_utf8(self.acc.split_off(0)).map(|s| s.into());
-                let value = value.map_err(|e| de::Error::custom(e.to_string()))?;
+                let value = String::from_utf8(self.acc.split_off(0))
+                    .map(|s| s.into());
+                let value =
+                    value.map_err(|e| de::Error::custom(e.to_string()))?;
                 // Reached the end of the key string
                 if let Level::Sequence(ref mut seq) = *node {
                     seq.push(Level::Flat(value));
@@ -330,8 +337,9 @@ impl<I: Iterator<Item=u8>> Parser<I> {
                 Ok(())
             },
             _ => {
-                Err(de::Error::custom("non-indexed sequence of structs not supported"))
-            }
+                Err(de::Error::custom("non-indexed sequence of structs not \
+                                       supported"))
+            },
         }
     }
 
@@ -345,61 +353,63 @@ impl<I: Iterator<Item=u8>> Parser<I> {
             return Ok(true);
         }
         match self.peek() {
-            Some(x) => match x {
-                b'[' => {
-                    self.acc.clear();
-                    // let _ = self.next();
-                    match tu!(self.peek()) {
-                        // key is of the form "[...", not really allowed. 
-                        b'[' => {
-                            panic!("");
+            Some(x) => {
+                match x {
+                    b'[' => {
+                        self.acc.clear();
+                        // let _ = self.next();
+                        match tu!(self.peek()) {
+                            // key is of the form "[...", not really allowed.
+                            b'[' => {
+                                panic!("");
 
-                        },
-                        // key is simply "[]", so treat as a seq.
-                        b']' => {
-                            self.acc.clear();
-                            // println!("Empty key => vector");
-                            // println!("{:?}", node);
-                            self.parse_seq_value(node)?;
-                            self.depth += 1;
-                            Ok(true)
+                            },
+                            // key is simply "[]", so treat as a seq.
+                            b']' => {
+                                self.acc.clear();
+                                // println!("Empty key => vector");
+                                // println!("{:?}", node);
+                                self.parse_seq_value(node)?;
+                                self.depth += 1;
+                                Ok(true)
 
-                        },
-                        // Key is "[a..." so parse up to the closing "]"
-                        0x20 ... 0x7e => {
-                            let key = self.parse_key(b']', true).unwrap();
-                            // key.into()
-                            // println!("key: {:?}", key);
-                            self.parse_map_value(key.into(), node)?;
-                            self.depth += 1;
-                            Ok(true)
+                            },
+                            // Key is "[a..." so parse up to the closing "]"
+                            0x20...0x7e => {
+                                let key = self.parse_key(b']', true).unwrap();
+                                // key.into()
+                                // println!("key: {:?}", key);
+                                self.parse_map_value(key.into(), node)?;
+                                self.depth += 1;
+                                Ok(true)
 
-                        },
-                        _ => {
-                            panic!("");
+                            },
+                            _ => {
+                                panic!("");
+                            },
                         }
-                    }
-                },
-                // This means the key should be a root key of the form "abc" or "abc[...]"
-                0x20 ... 0x7e => {
-                    let key = self.parse_key(b'[', false).unwrap();
-                    self.parse_map_value(key.into(), node)?;
-                    self.depth += 1;
-                    Ok(true)
-                },
-                _ => {
-                    panic!("");
+                    },
+                    // This means the key should be a root key
+                    // of the form "abc" or "abc[...]"
+                    0x20...0x7e => {
+                        let key = self.parse_key(b'[', false).unwrap();
+                        self.parse_map_value(key.into(), node)?;
+                        self.depth += 1;
+                        Ok(true)
+                    },
+                    _ => {
+                        panic!("");
+                    },
                 }
             },
             // Ran out of characters to parse
-            None => Ok(false)
+            None => Ok(false),
         }
     }
-
 }
 
 impl Deserializer {
-    fn with_map(map: BTreeMap<String,Level>) -> Self {
+    fn with_map(map: BTreeMap<String, Level>) -> Self {
         Deserializer {
             iter: map.into_iter(),
             value: None,
@@ -421,44 +431,18 @@ impl Deserializer {
 
         while let Ok(x) = parser.parse(&mut root) {
             if !x {
-                break
+                break;
             }
         }
-        // self.input = Some(decoded.as_bytes());
-        // println!("{:?}", root);
         let iter = match root {
             Level::Nested(map) => map.into_iter(),
             _ => panic!(""),
         };
-        Deserializer { 
+        Deserializer {
             iter: iter,
             value: None,
         }
     }
-
-    // /// Returns a new `Deserializer`.
-    // pub fn new(input: &[u8]) -> Self {
-    //     let map = BTreeMap::default();
-    //     let mut root = Level::Nested(map);
-
-    //     let decoded = percent_encoding::percent_decode(&input);
-    //     let mut parser = Parser::new(decoded);
-    //     while let Ok(x) = parser.parse(&mut root) {
-    //         if !x {
-    //             break
-    //         }
-    //     }
-    //     // self.input = Some(decoded.as_bytes());
-    //     // println!("{:?}", root);
-    //     let iter = match root {
-    //         Level::Nested(map) => map.into_iter(),
-    //         _ => panic!(""),
-    //     };
-    //     Deserializer { 
-    //         iter: iter,
-    //         value: None,
-    //     }
-    // }
 }
 
 impl de::Deserializer for Deserializer {
@@ -476,19 +460,18 @@ impl de::Deserializer for Deserializer {
         visitor.visit_map(self)
     }
 
-    // _serde::Deserializer::deserialize_struct(deserializer,"A", FIELDS, __Visitor)
     fn deserialize_struct<V>(self,
                              _name: &'static str,
                              _fields: &'static [&'static str],
                              visitor: V)
                              -> Result<V::Value, Self::Error>
-        where V: de::Visitor
+        where V: de::Visitor,
     {
         visitor.visit_map(self)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where V: de::Visitor
+        where V: de::Visitor,
     {
         visitor.visit_seq(MapDeserializer::new(self.iter))
     }
@@ -526,7 +509,6 @@ impl de::Deserializer for Deserializer {
 
 use serde::de::value::{SeqDeserializer, ValueDeserializer};
 
-
 impl de::MapVisitor for Deserializer {
     type Error = Error;
 
@@ -537,10 +519,10 @@ impl de::MapVisitor for Deserializer {
 
         if let Some((key, value)) = self.iter.next() {
             self.value = Some(value);
-            return seed.deserialize(key.into_deserializer()).map(Some)
+            return seed.deserialize(key.into_deserializer()).map(Some);
         };
         Ok(None)
-    
+
     }
 
     fn visit_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Error>
@@ -549,7 +531,8 @@ impl de::MapVisitor for Deserializer {
         if let Some(v) = self.value.take() {
             seed.deserialize(v.into_deserializer())
         } else {
-            Err(de::Error::custom("Somehow the list was empty after a non-empty key was returned"))
+            Err(de::Error::custom("Somehow the list was empty after a \
+                                   non-empty key was returned"))
         }
     }
 }
@@ -575,50 +558,54 @@ impl de::Deserializer for LevelDeserializer {
         if let Level::Nested(x) = self.0 {
             Deserializer::with_map(x).deserialize_map(visitor)
         } else {
-            // Deserializer::with_map(BTreeMap::default()).deserialize_map(visitor)
-            Err(de::Error::custom(format!("value: {:?} does not appear to be a map", self.0)))
+            Err(de::Error::custom(format!("value: {:?} does not appear to \
+                                           be a map",
+                                          self.0)))
         }
     }
 
-    // _serde::Deserializer::deserialize_struct(deserializer,"A", FIELDS, __Visitor)
     fn deserialize_struct<V>(self,
                              _name: &'static str,
                              _fields: &'static [&'static str],
                              visitor: V)
                              -> Result<V::Value, Self::Error>
-        where V: de::Visitor
+        where V: de::Visitor,
     {
 
         self.deserialize_map(visitor)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where V: de::Visitor
+        where V: de::Visitor,
     {
         match self.0 {
             Level::Nested(map) => {
-                SeqDeserializer::new(map.into_iter().map(|(_k, v)| v)).deserialize(visitor)
+                SeqDeserializer::new(map.into_iter().map(|(_k, v)| v))
+                    .deserialize(visitor)
             },
             Level::Sequence(x) => {
                 SeqDeserializer::new(x.into_iter()).deserialize(visitor)
             },
             Level::Flat(x) => {
-                SeqDeserializer::new(vec!(x).into_iter()).deserialize(visitor)
-            }
+                SeqDeserializer::new(vec![x].into_iter()).deserialize(visitor)
+            },
             _ => {
                 Err(de::Error::custom("value does not appear to be a sequence"))
-            }
+            },
         }
     }
 
-    fn deserialize_seq_fixed_size<V>(self, _len: usize, visitor: V) 
-        -> Result<V::Value, Self::Error> where V: de::Visitor
+    fn deserialize_seq_fixed_size<V>(self,
+                                     _len: usize,
+                                     visitor: V)
+                                     -> Result<V::Value, Self::Error>
+        where V: de::Visitor,
     {
         self.deserialize_seq(visitor)
     }
 
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: de::Visitor
-
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+        where V: de::Visitor,
     {
         match self.0 {
             Level::Flat(x) => {
@@ -627,10 +614,8 @@ impl de::Deserializer for LevelDeserializer {
                 } else {
                     visitor.visit_some(x.into_deserializer())
                 }
-            }
-            _ => {
-                Err(de::Error::custom("value does not appear to be a value"))
-            }
+            },
+            _ => Err(de::Error::custom("value does not appear to be a value")),
         }
     }
 
@@ -664,8 +649,7 @@ impl de::Deserializer for LevelDeserializer {
     }
 }
 
-impl ValueDeserializer for Level 
-{
+impl ValueDeserializer for Level {
     type Deserializer = LevelDeserializer;
     fn into_deserializer(self) -> Self::Deserializer {
         LevelDeserializer(self)

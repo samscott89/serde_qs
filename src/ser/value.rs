@@ -68,9 +68,9 @@ impl<'key, 'target, Target> SerializeStruct for ValueSink<'key, 'target, Target>
     type Error = Error;
 
     fn serialize_field<T: ?Sized + Serialize>(&mut self,
-                                                   key: &'static str,
-                                                   value: &T)
-                                                   -> Result<(), Error> {
+                                              key: &'static str,
+                                              value: &T)
+                                              -> Result<(), Error> {
         let newk = format!("{}[{}]", self.key, key);
         let value_sink = ValueSink::new(self.urlencoder, &newk);
         value.serialize(super::part::PartSerializer::new(value_sink))
@@ -88,8 +88,8 @@ impl<'key, 'target, Target> SerializeSeq for ValueSink<'key, 'target, Target>
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self,
-                                                   value: &T)
-                                                   -> Result<(), Error> {
+                                                value: &T)
+                                                -> Result<(), Error> {
         let newk = format!("{}[{}]", self.key, self.idx);
         self.idx += 1;
         let value_sink = ValueSink::new(self.urlencoder, &newk);
@@ -100,4 +100,3 @@ impl<'key, 'target, Target> SerializeSeq for ValueSink<'key, 'target, Target>
         Ok(())
     }
 }
-

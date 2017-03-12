@@ -19,7 +19,7 @@ fn main() {
 
 
 fn from_csv<D>(deserializer: D) -> Result<Vec<u8>, D::Error>
-    where D: serde::Deserializer
+    where D: serde::Deserializer,
 {
     deserializer.deserialize_str(CSVVecVisitor)
 }
@@ -30,12 +30,14 @@ struct CSVVecVisitor;
 impl serde::de::Visitor for CSVVecVisitor {
     type Value = Vec<u8>;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self,
+                 formatter: &mut std::fmt::Formatter)
+                 -> std::fmt::Result {
         write!(formatter, "a str")
     }
 
     fn visit_str<E>(self, s: &str) -> std::result::Result<Self::Value, E>
-        where E: serde::de::Error
+        where E: serde::de::Error,
     {
         let mut output = Vec::new();
         let mut items = csv::Reader::from_string(s);
@@ -46,6 +48,4 @@ impl serde::de::Visitor for CSVVecVisitor {
 
         Ok(output)
     }
-
-
 }

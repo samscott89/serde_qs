@@ -1,10 +1,10 @@
 use dtoa;
 use itoa;
 use ser::Error;
-use serde::ser;
 use serde;
-use std::str;
+use serde::ser;
 use std::marker::PhantomData;
+use std::str;
 
 pub struct PartSerializer<SO, S: Sink<SO, Error>> {
     sink: S,
@@ -13,15 +13,19 @@ pub struct PartSerializer<SO, S: Sink<SO, Error>> {
 
 impl<SO, S: Sink<SO, Error>> PartSerializer<SO, S> {
     pub fn new(sink: S) -> Self {
-        PartSerializer { sink: sink, marker: PhantomData }
+        PartSerializer {
+            sink: sink,
+            marker: PhantomData,
+        }
     }
 }
 
-pub trait Sink<S, E>: Sized + ser::SerializeStruct<Ok=S, Error=E> + ser::SerializeSeq<Ok=S, Error=E>
+pub trait Sink<S, E>: Sized + ser::SerializeStruct<Ok=S, Error=E>
+                            + ser::SerializeSeq<Ok=S, Error=E>
   where E: serde::ser::Error
 {
-    // type Ok;
-    // type Error;
+// type Ok;
+// type Error;
     fn serialize_static_str(self,
                             value: &'static str)
                             -> Result<S, Error>;

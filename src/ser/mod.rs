@@ -22,14 +22,14 @@ use url::form_urlencoded::Target as UrlEncodedTarget;
 /// struct Query {
 ///     name: String,
 ///     age: u8,
-///     occupation: String,   
+///     occupation: String,
 /// }
 ///
 /// # fn main(){
 /// let q =  Query {
 ///     name: "Alice".to_owned(),
 ///     age: 24,
-///     occupation: "Student".to_owned(),   
+///     occupation: "Student".to_owned(),
 /// };
 ///
 ///
@@ -389,7 +389,8 @@ impl<'output, Target> ser::SerializeTuple for TupleSerializer<'output, Target>
 }
 
 impl<'output, Target> ser::SerializeTupleStruct
-    for TupleStructSerializer<'output, Target>
+    for
+    TupleStructSerializer<'output, Target>
     where Target: 'output + UrlEncodedTarget,
 {
     type Ok = &'output mut UrlEncodedSerializer<Target>;
@@ -407,7 +408,8 @@ impl<'output, Target> ser::SerializeTupleStruct
 }
 
 impl<'output, Target> ser::SerializeTupleVariant
-    for TupleVariantSerializer<'output, Target>
+    for
+    TupleVariantSerializer<'output, Target>
     where Target: 'output + UrlEncodedTarget,
 {
     type Ok = &'output mut UrlEncodedSerializer<Target>;
@@ -491,7 +493,8 @@ impl<'output, Target> ser::SerializeStruct for StructSerializer<'output, Target>
 }
 
 impl<'output, Target> ser::SerializeStructVariant
-    for StructVariantSerializer<'output, Target>
+    for
+    StructVariantSerializer<'output, Target>
     where Target: 'output + UrlEncodedTarget,
 {
     type Ok = &'output mut UrlEncodedSerializer<Target>;

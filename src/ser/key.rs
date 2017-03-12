@@ -1,7 +1,7 @@
-use ser::{Error};
-use serde::ser::{SerializeSeq, SerializeStruct};
+use ser::Error;
 use ser::part::Sink;
 use serde::Serialize;
+use serde::ser::{SerializeSeq, SerializeStruct};
 use std::borrow::Cow;
 use std::ops::Deref;
 
@@ -35,7 +35,7 @@ pub struct KeySink<End> {
 }
 
 impl<End, Ok> KeySink<End>
-    where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
+    where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>,
 {
     pub fn new(end: End) -> Self {
         KeySink { end: end }
@@ -43,12 +43,9 @@ impl<End, Ok> KeySink<End>
 }
 
 impl<End, Ok> Sink<Ok, Error> for KeySink<End>
-    where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
+    where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>,
 {
-
-    fn serialize_static_str(self,
-                            value: &'static str)
-                            -> Result<Ok, Error> {
+    fn serialize_static_str(self, value: &'static str) -> Result<Ok, Error> {
         (self.end)(Key::Static(value))
     }
 
@@ -76,15 +73,15 @@ impl<End, Ok> Sink<Ok, Error> for KeySink<End>
 }
 
 impl<End, Ok> SerializeStruct for KeySink<End>
-where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
+    where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>,
 {
     type Ok = Ok;
     type Error = Error;
 
     fn serialize_field<T: ?Sized + Serialize>(&mut self,
-                                                   _key: &'static str,
-                                                   _value: &T)
-                                                   -> Result<(), Error> {
+                                              _key: &'static str,
+                                              _value: &T)
+                                              -> Result<(), Error> {
         Err(self.unsupported())
     }
 
@@ -94,14 +91,14 @@ where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
 }
 
 impl<End, Ok> SerializeSeq for KeySink<End>
-where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
+    where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>,
 {
     type Ok = Ok;
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self,
-                                                   _value: &T)
-                                                   -> Result<(), Error> {
+                                                _value: &T)
+                                                -> Result<(), Error> {
         Err(self.unsupported())
     }
 
@@ -109,6 +106,3 @@ where End: for<'key> FnOnce(Key<'key>) -> Result<Ok, Error>
         Err(self.unsupported())
     }
 }
-
-
-

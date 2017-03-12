@@ -38,7 +38,7 @@ fn main() {
             city: "Carrot City".to_string(),
             postcode: "12345".to_string(),
         },
-        user_ids: vec!(1,2,3,4),
+        user_ids: vec![1, 2, 3, 4],
     };
 
     // Naive approach: manually parameters in a map. Painful.
@@ -80,19 +80,18 @@ fn main() {
     let encoded2 = qs::to_string(&params).unwrap();
     assert_eq!(encoded, encoded2);
 
-    // An advantage of `serde_qs` for deserializing, is that it is robust against
-    // different orderings of inputs:
+    // An advantage of `serde_qs` for deserializing, is that it is robust
+    // against different orderings of inputs:
 
-    let mut inputs = vec!["id=42", 
-        "name=Acme", 
-        "phone=12345", 
-        "address[city]=Carrot+City", 
-        "address[postcode]=12345", 
-        "user_ids[0]=1", 
-        "user_ids[1]=2", 
-        "user_ids[2]=3", 
-        "user_ids[3]=4"
-    ];
+    let mut inputs = vec!["id=42",
+                          "name=Acme",
+                          "phone=12345",
+                          "address[city]=Carrot+City",
+                          "address[postcode]=12345",
+                          "user_ids[0]=1",
+                          "user_ids[1]=2",
+                          "user_ids[2]=3",
+                          "user_ids[3]=4"];
 
     let mut rng = rand::thread_rng();
     for _ in 0..10 {

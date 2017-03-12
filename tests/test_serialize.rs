@@ -28,10 +28,14 @@ fn serialize_struct() {
             city: "Carrot City".to_string(),
             postcode: "12345".to_string(),
         },
-        user_ids: vec!(1,2,3,4),
+        user_ids: vec![1, 2, 3, 4],
     };
 
-    assert_eq!(qs::to_string(&params).unwrap(), urlencode("id=42&name=Acme&phone=12345&address[city]=Carrot+City&address[postcode]=12345&user_ids[0]=1&user_ids[1]=2&user_ids[2]=3&user_ids[3]=4"));
+    assert_eq!(qs::to_string(&params).unwrap(),
+               urlencode("\
+        id=42&name=Acme&phone=12345&address[city]=Carrot+City&\
+        address[postcode]=12345&user_ids[0]=1&user_ids[1]=2&\
+        user_ids[2]=3&user_ids[3]=4"));
 }
 
 fn urlencode(input: &str) -> String {
