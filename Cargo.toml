@@ -16,7 +16,6 @@ travis-ci = {repository = "samscott89/serde_qs"}
 test = false
 
 [dependencies]
-csv = "0.15"
 fnv = "1.0.3"
 dtoa = "0.4.0"
 itoa = "0.3.0"
@@ -26,6 +25,7 @@ url = "1.0.0"
 
 [dev-dependencies]
 # Used for examples/
+csv = "0.15"
 rand = "0.3"
 serde_urlencoded = "0.4"
 
