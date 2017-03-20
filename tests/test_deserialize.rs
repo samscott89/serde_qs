@@ -200,6 +200,13 @@ fn optional_seq() {
         vec: Option<Vec<u8>>,
     }
 
+    let params = "";
+    let query = Query {
+        vec: None,
+    };
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, query);
+
     let params = "vec=";
     let query = Query {
         vec: None,
@@ -221,6 +228,13 @@ fn optional_struct() {
     struct Query {
         address: Option<Address>,
     }
+
+    let params = "";
+    let query = Query {
+        address: None,
+    };
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, query);
 
     let params = "address=";
     let query = Query {

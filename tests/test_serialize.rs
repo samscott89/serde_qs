@@ -41,3 +41,25 @@ fn serialize_struct() {
 fn urlencode(input: &str) -> String {
     str::replace(&str::replace(input, "[", "%5B"), "]", "%5D")
 }
+
+#[test]
+fn serialize_option() {
+    #[derive(Debug,Serialize,Deserialize,PartialEq)]
+    struct Query {
+        vec: Option<Vec<u8>>,
+    }
+
+    let params = "";
+    let query = Query {
+        vec: None,
+    };
+    let rec_params = qs::to_string(&query).unwrap();
+    assert_eq!(rec_params, params);
+
+    let params = urlencode("vec[0]=1&vec[1]=2");
+    let query = Query {
+        vec: Some(vec![1,2]),
+    };
+    let rec_params = qs::to_string(&query).unwrap();
+    assert_eq!(rec_params, params);
+}
