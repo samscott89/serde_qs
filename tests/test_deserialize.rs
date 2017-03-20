@@ -192,3 +192,50 @@ fn qs_nesting() {
     map_test!("a[b][c][d][e][f][g][h]=i",
               "a"["b"["c"["d"["e"["[f][g][h]"["i"]]]]]]);
 }
+
+#[test]
+fn optional_seq() {
+    #[derive(Debug,Serialize,Deserialize,PartialEq)]
+    struct Query {
+        vec: Option<Vec<u8>>,
+    }
+
+    let params = "vec=";
+    let query = Query {
+        vec: None,
+    };
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, query);
+
+    let params = "vec[0]=1&vec[1]=2";
+    let query = Query {
+        vec: Some(vec![1,2]),
+    };
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, query);
+}
+
+#[test]
+fn optional_struct() {
+    #[derive(Debug,Serialize,Deserialize,PartialEq)]
+    struct Query {
+        address: Option<Address>,
+    }
+
+    let params = "address=";
+    let query = Query {
+        address: None,
+    };
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, query);
+
+    let params = "address[city]=Carrot+City&address[postcode]=12345";
+    let query = Query {
+        address: Some(Address {
+            city: "Carrot City".to_string(),
+            postcode: "12345".to_string(),
+        },),
+    };
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, query);
+}

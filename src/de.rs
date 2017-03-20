@@ -568,10 +568,19 @@ impl de::Deserializer for LevelDeserializer {
     fn deserialize<V>(self, visitor: V) -> Result<V::Value, Self::Error>
         where V: de::Visitor,
     {
-        if let Level::Flat(x) = self.0 {
-            x.into_deserializer().deserialize(visitor)
-        } else {
-            Err(de::Error::custom("cannot deserialize value"))
+        match self.0 {
+            Level::Nested(map) => {
+                Deserializer::with_map(map).deserialize_map(visitor)
+            },
+            Level::Sequence(seq) => {
+                SeqDeserializer::new(seq.into_iter()).deserialize(visitor)
+            },
+            Level::Flat(x) => {
+                x.into_deserializer().deserialize(visitor)
+            },
+            Level::Invalid(e) => {
+                Err(de::Error::custom(e))
+            }
         }
     }
 
@@ -631,14 +640,12 @@ impl de::Deserializer for LevelDeserializer {
         where V: de::Visitor,
     {
         match self.0 {
-            Level::Flat(x) => {
-                if x == "" {
-                    visitor.visit_none()
-                } else {
-                    visitor.visit_some(x.into_deserializer())
-                }
+            Level::Flat(ref x) if x == "" => {
+                visitor.visit_none()
             },
-            _ => Err(de::Error::custom("value does not appear to be a value")),
+            _ => {
+                visitor.visit_some(self)
+            },
         }
     }
 
