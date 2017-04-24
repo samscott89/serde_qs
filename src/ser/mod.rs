@@ -244,7 +244,7 @@ impl<'output, Target> ser::Serializer for Serializer<'output, Target>
     /// Returns an error.
     fn serialize_unit_variant(self,
                               _name: &'static str,
-                              _variant_index: usize,
+                              _variant_index: u32,
                               _variant: &'static str)
                               -> Result<Self::Ok, Error> {
         Err(Error::top_level())
@@ -263,7 +263,7 @@ impl<'output, Target> ser::Serializer for Serializer<'output, Target>
     fn serialize_newtype_variant<T: ?Sized + ser::Serialize>
         (self,
          _name: &'static str,
-         _variant_index: usize,
+         _variant_index: u32,
          _variant: &'static str,
          _value: &T)
          -> Result<Self::Ok, Error> {
@@ -290,12 +290,6 @@ impl<'output, Target> ser::Serializer for Serializer<'output, Target>
         Err(Error::top_level())
     }
 
-    /// Serializes a sequence, given length is ignored.
-    fn serialize_seq_fixed_size(self,
-                                _len: usize)
-                                -> Result<Self::SerializeSeq, Error> {
-        Err(Error::top_level())
-    }
 
     /// Returns an error.
     fn serialize_tuple(self,
@@ -316,7 +310,7 @@ impl<'output, Target> ser::Serializer for Serializer<'output, Target>
     fn serialize_tuple_variant
         (self,
          _name: &'static str,
-         _variant_index: usize,
+         _variant_index: u32,
          _variant: &'static str,
          _len: usize)
          -> Result<Self::SerializeTupleVariant, Error> {
@@ -345,7 +339,7 @@ impl<'output, Target> ser::Serializer for Serializer<'output, Target>
     fn serialize_struct_variant
         (self,
          _name: &'static str,
-         _variant_index: usize,
+         _variant_index: u32,
          _variant: &'static str,
          _len: usize)
          -> Result<Self::SerializeStructVariant, Error> {

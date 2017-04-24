@@ -1,33 +1,36 @@
 [package]
-name = "serde_qs"
-version = "0.0.2"
 authors = ["Sam Scott <me@samjs.co.uk>"]
-license = "MIT/Apache-2.0"
-repository = "https://github.com/samscott89/serde_qs"
-documentation = "https://docs.rs/serde_qs"
-description = "Querystrings for Serde"
 categories = ["encoding", "web-programming"]
+description = "Querystrings for Serde"
+documentation = "https://docs.rs/serde_qs"
 keywords = ["serde", "serialization", "querystring"]
+license = "MIT/Apache-2.0"
+name = "serde_qs"
+repository = "https://github.com/samscott89/serde_qs"
+version = "0.0.2"
 
 [badges]
-travis-ci = {repository = "samscott89/serde_qs"}
+
+[badges.travis-ci]
+repository = "samscott89/serde_qs"
+
+[dependencies]
+dtoa = "0.4.0"
+fnv = "1.0.3"
+itoa = "0.3.0"
+serde = "1.0.1"
+serde_derive = "1.0.1"
+url = "1.0.0"
+
+[dev-dependencies]
+csv = "0.15"
+rand = "0.3"
+serde_urlencoded = "0.4"
 
 [lib]
 test = false
 
-[dependencies]
-fnv = "1.0.3"
-dtoa = "0.4.0"
-itoa = "0.3.0"
-serde = "0.9.3"
-serde_derive = "0.9.8"
-url = "1.0.0"
-
-[dev-dependencies]
-# Used for examples/
-csv = "0.15"
-rand = "0.3"
-serde_urlencoded = "0.4"
+[profile]
 
 [profile.release]
 debug = true

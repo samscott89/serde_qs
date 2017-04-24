@@ -18,8 +18,8 @@ fn main() {
 }
 
 
-fn from_csv<D>(deserializer: D) -> Result<Vec<u8>, D::Error>
-    where D: serde::Deserializer,
+fn from_csv<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where D: serde::Deserializer<'de>,
 {
     deserializer.deserialize_str(CSVVecVisitor)
 }
@@ -27,7 +27,7 @@ fn from_csv<D>(deserializer: D) -> Result<Vec<u8>, D::Error>
 /// Visits a string value of the form "v1,v2,v3" into a vector of bytes Vec<u8>
 struct CSVVecVisitor;
 
-impl serde::de::Visitor for CSVVecVisitor {
+impl<'de> serde::de::Visitor<'de> for CSVVecVisitor {
     type Value = Vec<u8>;
 
     fn expecting(&self,

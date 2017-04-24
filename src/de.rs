@@ -52,20 +52,20 @@ impl Config {
 }
 
 impl Config {
-    pub fn deserialize_bytes<T: de::Deserialize>(&self,
+    pub fn deserialize_bytes<'de, T: de::Deserialize<'de>>(&self,
                                                  input: &[u8])
                                                  -> Result<T, Error> {
         T::deserialize(Deserializer::with_config(self, input))
     }
 
-    pub fn deserialize_str<T: de::Deserialize>(&self,
+    pub fn deserialize_str<'de, T: de::Deserialize<'de>>(&self,
                                                input: &str)
                                                -> Result<T, Error> {
         self.deserialize_bytes(input.as_bytes())
     }
 
-    pub fn deserialize_reader<T, R>(&self, mut reader: R) -> Result<T, Error>
-        where T: de::Deserialize,
+    pub fn deserialize_reader<'de, T, R>(&self, mut reader: R) -> Result<T, Error>
+        where T: de::Deserialize<'de>,
               R: Read,
     {
         let mut buf = vec![];
@@ -105,7 +105,7 @@ impl Config {
 ///     Ok(q));
 /// # }
 /// ```
-pub fn from_bytes<T: de::Deserialize>(input: &[u8]) -> Result<T, Error> {
+pub fn from_bytes<'de, T: de::Deserialize<'de>>(input: &[u8]) -> Result<T, Error> {
     Config::default().deserialize_bytes(input)
 }
 
@@ -134,14 +134,14 @@ pub fn from_bytes<T: de::Deserialize>(input: &[u8]) -> Result<T, Error> {
 ///     Ok(q));
 /// # }
 /// ```
-pub fn from_str<T: de::Deserialize>(input: &str) -> Result<T, Error> {
+pub fn from_str<'de, T: de::Deserialize<'de>>(input: &str) -> Result<T, Error> {
     from_bytes(input.as_bytes())
 }
 
 /// Convenience function that reads all bytes from `reader` and deserializes
 /// them with `from_bytes`.
-pub fn from_reader<T, R>(mut reader: R) -> Result<T, Error>
-    where T: de::Deserialize,
+pub fn from_reader<'de, T, R>(mut reader: R) -> Result<T, Error>
+    where T: de::Deserialize<'de>,
           R: Read,
 {
     let mut buf = vec![];
@@ -468,17 +468,17 @@ impl Deserializer {
     }
 }
 
-impl de::Deserializer for Deserializer {
+impl<'de> de::Deserializer<'de> for Deserializer {
     type Error = Error;
 
-    fn deserialize<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where V: de::Visitor,
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+        where V: de::Visitor<'de>,
     {
         self.deserialize_map(visitor)
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where V: de::Visitor,
+        where V: de::Visitor<'de>,
     {
         visitor.visit_map(self)
     }
@@ -488,17 +488,17 @@ impl de::Deserializer for Deserializer {
                              _fields: &'static [&'static str],
                              visitor: V)
                              -> Result<V::Value, Self::Error>
-        where V: de::Visitor,
+        where V: de::Visitor<'de>,
     {
         visitor.visit_map(self)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where V: de::Visitor,
+        where V: de::Visitor<'de>,
     {
         visitor.visit_seq(MapDeserializer::new(self.iter))
     }
-    forward_to_deserialize! {
+    forward_to_deserialize_any! {
         bool
         u8
         u16
@@ -519,25 +519,27 @@ impl de::Deserializer for Deserializer {
         byte_buf
         unit_struct
         // seq
-        seq_fixed_size
+        // seq_fixed_size
         newtype_struct
         tuple_struct
         // struct
-        struct_field
+        identifier
+        // struct_field
         tuple
         enum
         ignored_any
     }
 }
 
-use serde::de::value::{SeqDeserializer, ValueDeserializer};
+use serde::de::IntoDeserializer;
+use serde::de::value::SeqDeserializer;
 
-impl de::MapVisitor for Deserializer {
+impl<'de> de::MapAccess<'de> for Deserializer {
     type Error = Error;
 
 
-    fn visit_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Error>
-        where K: de::DeserializeSeed,
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Error>
+        where K: de::DeserializeSeed<'de>,
     {
 
         if let Some((key, value)) = self.iter.next() {
@@ -548,8 +550,8 @@ impl de::MapVisitor for Deserializer {
 
     }
 
-    fn visit_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Error>
-        where V: de::DeserializeSeed,
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Error>
+        where V: de::DeserializeSeed<'de>,
     {
         if let Some(v) = self.value.take() {
             seed.deserialize(v.into_deserializer())
@@ -562,21 +564,21 @@ impl de::MapVisitor for Deserializer {
 
 struct LevelDeserializer(Level);
 
-impl de::Deserializer for LevelDeserializer {
+impl<'de> de::Deserializer<'de> for LevelDeserializer {
     type Error = Error;
 
-    fn deserialize<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where V: de::Visitor,
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+        where V: de::Visitor<'de>,
     {
         match self.0 {
             Level::Nested(map) => {
                 Deserializer::with_map(map).deserialize_map(visitor)
             },
             Level::Sequence(seq) => {
-                SeqDeserializer::new(seq.into_iter()).deserialize(visitor)
+                SeqDeserializer::new(seq.into_iter()).deserialize_any(visitor)
             },
             Level::Flat(x) => {
-                x.into_deserializer().deserialize(visitor)
+                x.into_deserializer().deserialize_any(visitor)
             },
             Level::Invalid(e) => {
                 Err(de::Error::custom(e))
@@ -585,7 +587,7 @@ impl de::Deserializer for LevelDeserializer {
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where V: de::Visitor,
+        where V: de::Visitor<'de>,
     {
         if let Level::Nested(x) = self.0 {
             Deserializer::with_map(x).deserialize_map(visitor)
@@ -601,25 +603,25 @@ impl de::Deserializer for LevelDeserializer {
                              _fields: &'static [&'static str],
                              visitor: V)
                              -> Result<V::Value, Self::Error>
-        where V: de::Visitor,
+        where V: de::Visitor<'de>,
     {
 
         self.deserialize_map(visitor)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where V: de::Visitor,
+        where V: de::Visitor<'de>,
     {
         match self.0 {
             Level::Nested(map) => {
                 SeqDeserializer::new(map.into_iter().map(|(_k, v)| v))
-                    .deserialize(visitor)
+                    .deserialize_any(visitor)
             },
             Level::Sequence(x) => {
-                SeqDeserializer::new(x.into_iter()).deserialize(visitor)
+                SeqDeserializer::new(x.into_iter()).deserialize_any(visitor)
             },
             Level::Flat(x) => {
-                SeqDeserializer::new(vec![x].into_iter()).deserialize(visitor)
+                SeqDeserializer::new(vec![x].into_iter()).deserialize_any(visitor)
             },
             _ => {
                 Err(de::Error::custom("value does not appear to be a sequence"))
@@ -627,17 +629,8 @@ impl de::Deserializer for LevelDeserializer {
         }
     }
 
-    fn deserialize_seq_fixed_size<V>(self,
-                                     _len: usize,
-                                     visitor: V)
-                                     -> Result<V::Value, Self::Error>
-        where V: de::Visitor,
-    {
-        self.deserialize_seq(visitor)
-    }
-
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where V: de::Visitor,
+        where V: de::Visitor<'de>,
     {
         match self.0 {
             Level::Flat(ref x) if x == "" => {
@@ -650,7 +643,7 @@ impl de::Deserializer for LevelDeserializer {
     }
 
 
-    forward_to_deserialize! {
+    forward_to_deserialize_any! {
         bool
         u8
         u16
@@ -672,14 +665,15 @@ impl de::Deserializer for LevelDeserializer {
         unit_struct
         newtype_struct
         tuple_struct
-        struct_field
+        // struct_field
+        identifier
         tuple
         enum
         ignored_any
     }
 }
 
-impl ValueDeserializer for Level {
+impl<'de> IntoDeserializer<'de> for Level {
     type Deserializer = LevelDeserializer;
     fn into_deserializer(self) -> Self::Deserializer {
         LevelDeserializer(self)
