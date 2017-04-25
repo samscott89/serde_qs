@@ -541,7 +541,6 @@ impl<'de> de::MapAccess<'de> for Deserializer {
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Error>
         where K: de::DeserializeSeed<'de>,
     {
-
         if let Some((key, value)) = self.iter.next() {
             self.value = Some(value);
             return seed.deserialize(key.into_deserializer()).map(Some);
@@ -579,7 +578,9 @@ macro_rules! deserialize_primitive {
                                                   stringify!($ty))))
                 },
                 Level::Flat(x) => {
-                    visitor.$visit_method(str::FromStr::from_str(&x).unwrap())
+                    let val = str::FromStr::from_str(&x)
+                        .map_err(|e| de::Error::custom(e))?;
+                    visitor.$visit_method(val)
                 },
                 Level::Invalid(e) => {
                     Err(de::Error::custom(e))

@@ -175,6 +175,34 @@ fn qs_test_simple() {
 }
 
 #[test]
+fn qs_u32_map() {
+    #[derive(Debug,Serialize,Deserialize,PartialEq)]
+    struct Query {
+        map: HashMap<u32, String>
+    }
+
+    let query = {
+        let mut map = HashMap::new();
+        map.insert(10, "Hello".into());
+        Query { map: map }
+    };
+
+    let params: Query = qs::from_str("map[10]=Hello").unwrap();
+    assert_eq!(params, query)
+}
+
+#[test]
+fn no_panic_on_parse_error() {
+    #[derive(Debug,Serialize,Deserialize,PartialEq)]
+    struct Query {
+        vec: Vec<u32>
+    }
+
+    let params: Result<Query, _> = qs::from_str("vec[]=a&vec[]=2");
+    assert!(params.is_err())
+}
+
+#[test]
 fn qs_nesting() {
     // t.deepEqual(qs.parse('a[b]=c'), { a: { b: 'c' } }, 'parses a single
     // nested string');
