@@ -564,6 +564,32 @@ impl<'de> de::MapAccess<'de> for Deserializer {
 
 struct LevelDeserializer(Level);
 
+macro_rules! deserialize_primitive {
+    ($ty:ident, $method:ident, $visit_method:ident) => (
+        fn $method<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+            where V: de::Visitor<'de>,
+        {
+            match self.0 {
+                Level::Nested(map) => {
+                    Deserializer::with_map(map).deserialize_map(visitor)
+                },
+                Level::Sequence(seq) => {
+                    SeqDeserializer::new(seq.into_iter()).deserialize_any(visitor)
+                },
+                Level::Flat(x) => {
+                    visitor.$visit_method(str::FromStr::from_str(&x).unwrap())
+                    // visitor.visit_u32(str::FromStr::from_str(&x).or_else(|_| {
+                    //     Err(de::Error::custom(format!("Unexpected string: {}", x)))
+                    // }))
+                },
+                Level::Invalid(e) => {
+                    Err(de::Error::custom(e))
+                }
+            }
+        }
+    )
+}
+
 impl<'de> de::Deserializer<'de> for LevelDeserializer {
     type Error = Error;
 
@@ -578,7 +604,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
                 SeqDeserializer::new(seq.into_iter()).deserialize_any(visitor)
             },
             Level::Flat(x) => {
-                x.into_deserializer().deserialize_any(visitor)
+                visitor.visit_string(x)
             },
             Level::Invalid(e) => {
                 Err(de::Error::custom(e))
@@ -642,30 +668,29 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
         }
     }
 
+    deserialize_primitive!(bool, deserialize_bool, visit_bool);
+    deserialize_primitive!(i8,  deserialize_i8, visit_i8);
+    deserialize_primitive!(i16, deserialize_i16, visit_i16);
+    deserialize_primitive!(i32, deserialize_i32, visit_i32);
+    deserialize_primitive!(i64, deserialize_i64, visit_i64);
+    deserialize_primitive!(u8,  deserialize_u8, visit_u8);
+    deserialize_primitive!(u16, deserialize_u16, visit_u16);
+    deserialize_primitive!(u32, deserialize_u32, visit_u32);
+    deserialize_primitive!(u64, deserialize_u64, visit_u64);
+    deserialize_primitive!(f32, deserialize_f32, visit_f32);
+    deserialize_primitive!(f64, deserialize_f64, visit_f64);
+
 
     forward_to_deserialize_any! {
-        bool
-        u8
-        u16
-        u32
-        u64
-        i8
-        i16
-        i32
-        i64
-        f32
-        f64
         char
         str
         string
         unit
-        // option
         bytes
         byte_buf
         unit_struct
         newtype_struct
         tuple_struct
-        // struct_field
         identifier
         tuple
         enum

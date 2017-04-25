@@ -24,7 +24,7 @@ struct QueryParams {
 macro_rules! map_test {
     ($string:expr, $($mapvars:tt)*) => {
         let expected_map = hash_to_map!(New $($mapvars)*);
-        let testmap: HashMap<_, _> = qs::from_str($string).unwrap();
+        let testmap: HashMap<String, _> = qs::from_str($string).unwrap();
         assert_eq!(expected_map, testmap);
     }
 }
@@ -37,13 +37,13 @@ macro_rules! hash_to_map {
     //{}
     // This parses a single map entry, with a value explicitly an expression.
     ($map:expr, $k:tt[e $v:expr] $($rest:tt)*) => {{
-        $map.insert($k.to_owned(), $v.to_owned());
+        $map.insert($k.to_string(), $v.to_owned());
         hash_to_map!($map, $($rest)*);
     }};
 
     // This parses a single map entry, plus the rest of the values.
     ($map:expr, $k:tt[$v:tt] $($rest:tt)*) => {{
-        $map.insert($k.to_owned(), $v.to_owned());
+        $map.insert($k.to_string(), $v.to_owned());
         hash_to_map!($map, $($rest)*);
     }};
 
@@ -52,7 +52,7 @@ macro_rules! hash_to_map {
     ($map:expr, $k:tt[$($inner:tt)*] $($rest:tt)*) => {{
         let mut inner_map = HashMap::new();
         hash_to_map!(inner_map, $($inner)*);
-        $map.insert($k.to_owned(), inner_map);
+        $map.insert($k.to_string(), inner_map);
         hash_to_map!($map, $($rest)*);
     }};
 
@@ -252,4 +252,56 @@ fn optional_struct() {
     };
     let rec_params: Query = qs::from_str(params).unwrap();
     assert_eq!(rec_params, query);
+}
+
+#[test]
+fn deserialize_enum_untagged() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(untagged)]
+    enum E {
+        B(bool),
+        S(String),
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        e: E,
+    }
+
+    let params = "e=true";
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, Query { e: E::S("true".to_string()) });
+}
+
+#[test]
+fn deserialize_enum_adjacently() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(tag = "type", content = "val")]
+    enum E {
+        B(bool),
+        S(String),
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(tag = "type", content = "val")]
+    enum V {
+        V1 { x: u8, y: u16 },
+        V2(String),
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        e: E,
+        v: Option<V>
+    }
+
+    let params = "e[type]=B&e[val]=true&v[type]=V1&v[val][x]=12&v[val][y]=300";
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params,
+        Query { e: E::B(true), v: Some(V::V1 { x: 12, y: 300 }) }
+    );
+
+    let params = "e[type]=S&e[val]=other";
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, Query { e: E::S("other".to_string()), v: None });
 }

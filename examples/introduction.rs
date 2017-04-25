@@ -127,4 +127,29 @@ fn main() {
                    user_ids[512]=4";
     let params: QueryParams = qs::from_str(encoded).unwrap();
     assert_eq!(params, example_params);
+
+    // Enums are supported, but only adjacently tagged enums
+    // (see https://serde.rs/enum-representations.html for more information).
+    #[derive(Deserialize, Debug, PartialEq, Serialize)]
+    #[serde(tag = "type", content = "value")]
+    enum AdjTaggedEnum {
+        B(bool),
+        S(String),
+        V { id: u8, v: String },
+    }
+
+    #[derive(Deserialize, Debug, PartialEq, Serialize)]
+    struct EnumQuery {
+        e: AdjTaggedEnum,
+    }
+
+    let example_params = EnumQuery {
+        e: AdjTaggedEnum::B(false),
+    };
+    // encodes as:
+    //   "e[type]=B&e[value]=false"
+    let encoded = qs::to_string(&example_params).unwrap();
+    println!("`serde_qs` to_string for enum:\n\t{:?}", encoded);
+    let params: EnumQuery = qs::from_str(&encoded).unwrap();
+    println!("`serde_qs` from_str for enum:\n\t{:?}", params);
 }
