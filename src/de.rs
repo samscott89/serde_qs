@@ -570,17 +570,16 @@ macro_rules! deserialize_primitive {
             where V: de::Visitor<'de>,
         {
             match self.0 {
-                Level::Nested(map) => {
-                    Deserializer::with_map(map).deserialize_map(visitor)
+                Level::Nested(_) => {
+                    Err(de::Error::custom(format!("Expected: {:?}, got a Map",
+                                                  stringify!($ty))))
                 },
-                Level::Sequence(seq) => {
-                    SeqDeserializer::new(seq.into_iter()).deserialize_any(visitor)
+                Level::Sequence(_) => {
+                    Err(de::Error::custom(format!("Expected: {:?}, got a Sequence",
+                                                  stringify!($ty))))
                 },
                 Level::Flat(x) => {
                     visitor.$visit_method(str::FromStr::from_str(&x).unwrap())
-                    // visitor.visit_u32(str::FromStr::from_str(&x).or_else(|_| {
-                    //     Err(de::Error::custom(format!("Unexpected string: {}", x)))
-                    // }))
                 },
                 Level::Invalid(e) => {
                     Err(de::Error::custom(e))
