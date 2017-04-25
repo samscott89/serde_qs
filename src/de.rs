@@ -490,7 +490,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
                              -> Result<V::Value, Self::Error>
         where V: de::Visitor<'de>,
     {
-        visitor.visit_map(self)
+        self.deserialize_map(visitor)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -543,7 +543,7 @@ impl<'de> de::MapAccess<'de> for Deserializer {
     {
         if let Some((key, value)) = self.iter.next() {
             self.value = Some(value);
-            return seed.deserialize(key.into_deserializer()).map(Some);
+            return seed.deserialize(ParsableStringDeserializer(key)).map(Some);
         };
         Ok(None)
 
@@ -578,9 +578,7 @@ macro_rules! deserialize_primitive {
                                                   stringify!($ty))))
                 },
                 Level::Flat(x) => {
-                    let val = str::FromStr::from_str(&x)
-                        .map_err(|e| de::Error::custom(e))?;
-                    visitor.$visit_method(val)
+                    ParsableStringDeserializer(x).$method(visitor)
                 },
                 Level::Invalid(e) => {
                     Err(de::Error::custom(e))
@@ -703,4 +701,76 @@ impl<'de> IntoDeserializer<'de> for Level {
     fn into_deserializer(self) -> Self::Deserializer {
         LevelDeserializer(self)
     }
+}
+
+macro_rules! forward_parsable_to_deserialize_any {
+    ($($ty:ident => $meth:ident,)*) => {
+        $(
+            fn $meth<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: de::Visitor<'de> {
+                match self.0.parse::<$ty>() {
+                    Ok(val) => val.into_deserializer().$meth(visitor),
+                    Err(e) => Err(de::Error::custom(e))
+                }
+            }
+        )*
+    }
+}
+
+
+pub struct ParsableStringDeserializer(String);
+
+impl<'de> de::Deserializer<'de> for ParsableStringDeserializer {
+    type Error = Error;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+        where V: de::Visitor<'de>,
+    {
+        self.0.into_deserializer().deserialize_any(visitor)
+    }
+
+    forward_to_deserialize_any! {
+        // bool
+        // u8
+        // u16
+        // u32
+        // u64
+        // i8
+        // i16
+        // i32
+        // i64
+        // f32
+        // f64
+        map
+        struct
+        seq
+        option
+        char
+        str
+        string
+        unit
+        bytes
+        byte_buf
+        unit_struct
+        newtype_struct
+        tuple_struct
+        identifier
+        tuple
+        enum
+        ignored_any
+    }
+
+    forward_parsable_to_deserialize_any! {
+        bool => deserialize_bool,
+        u8 => deserialize_u8,
+        u16 => deserialize_u16,
+        u32 => deserialize_u32,
+        u64 => deserialize_u64,
+        i8 => deserialize_i8,
+        i16 => deserialize_i16,
+        i32 => deserialize_i32,
+        i64 => deserialize_i64,
+        f32 => deserialize_f32,
+        f64 => deserialize_f64,
+    }
+
 }
