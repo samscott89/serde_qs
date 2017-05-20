@@ -74,4 +74,6 @@ pub mod ser;
 #[doc(inline)]
 pub use de::{Deserializer, from_bytes, from_reader, from_str};
 #[doc(inline)]
+pub use de::Config;
+#[doc(inline)]
 pub use ser::{QsSerializer, to_string};
