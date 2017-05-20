@@ -59,7 +59,9 @@
 //! assert_eq!(rec_params, params);
 //!
 //! # }
-
+extern crate data_encoding;
+#[macro_use]
+extern crate error_chain;
 extern crate itoa;
 extern crate dtoa;
 #[macro_use]
@@ -72,4 +74,4 @@ pub mod ser;
 #[doc(inline)]
 pub use de::{Deserializer, from_bytes, from_reader, from_str};
 #[doc(inline)]
-pub use ser::{Serializer, to_string};
+pub use ser::{QsSerializer, to_string};

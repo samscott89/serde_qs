@@ -63,3 +63,50 @@ fn serialize_option() {
     let rec_params = qs::to_string(&query).unwrap();
     assert_eq!(rec_params, params);
 }
+
+#[test]
+fn serialize_enum() {
+    #[derive(Debug,Serialize,Deserialize,PartialEq)]
+    #[serde(rename_all = "lowercase")]
+    enum TestEnum {
+        A,
+        B(bool),
+        C { x: u8, y: u8},       
+        D(u8, u8),
+    }
+
+    #[derive(Debug,Serialize,Deserialize,PartialEq)]
+    struct Query {
+        e: TestEnum,
+    }
+
+    let params = urlencode("e=a");
+    let query = Query {
+        e: TestEnum::A,
+    };
+    let rec_params = qs::to_string(&query).unwrap();
+    assert_eq!(rec_params, params);
+
+   let params = urlencode("e[b]=true");
+   let query = Query {
+       e: TestEnum::B(true),
+   };
+   let rec_params = qs::to_string(&query).unwrap();
+   assert_eq!(rec_params, params);
+
+   let params = urlencode("e[c][x]=2&e[c][y]=3");
+   let query = Query {
+       e: TestEnum::C { x: 2, y: 3 },
+   };
+   let rec_params = qs::to_string(&query).unwrap();
+   assert_eq!(rec_params, params);
+
+   let params = urlencode("e[d][0]=128&e[d][1]=1");
+   let query = Query {
+       e: TestEnum::D(128, 1),
+   };
+   let rec_params = qs::to_string(&query).unwrap();
+   assert_eq!(rec_params, params);
+
+   
+}

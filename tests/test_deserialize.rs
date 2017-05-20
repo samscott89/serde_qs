@@ -333,3 +333,38 @@ fn deserialize_enum_adjacently() {
     let rec_params: Query = qs::from_str(params).unwrap();
     assert_eq!(rec_params, Query { e: E::S("other".to_string()), v: None });
 }
+
+#[test]
+fn deserialize_enum() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct NewU8(u8);
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    enum E {
+        B,
+        S(String),
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    enum V {
+        V1 { x: u8, y: u16 },
+        V2(String),
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        e: E,
+        v: Option<V>,
+        u: NewU8,
+    }
+
+    let params = "e=B&v[V1][x]=12&v[V1][y]=300&u=12";
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params,
+        Query { e: E::B, v: Some(V::V1 { x: 12, y: 300 }), u: NewU8(12) }
+    );
+
+    let params = "e[S]=other&u=1";
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, Query { e: E::S("other".to_string()), v: None, u: NewU8(1) });
+}

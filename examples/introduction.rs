@@ -131,7 +131,7 @@ fn main() {
     // Enums are supported, but only adjacently tagged enums
     // (see https://serde.rs/enum-representations.html for more information).
     #[derive(Deserialize, Debug, PartialEq, Serialize)]
-    #[serde(tag = "type", content = "value")]
+    // #[serde(tag = "type", content = "value")]
     enum AdjTaggedEnum {
         B(bool),
         S(String),
