@@ -6,7 +6,7 @@ querystrings. This crate is designed to extend [`serde_urlencoded`][urlencoded]
 when using nested parameters, similar to those used by [qs][qs] for Node, and
 commonly used by Ruby on Rails via [Rake][Rake].
 
-The core of the library is heavily adapted from 
+The core of the library was inspired by
 [`serde_urlencoded`][urlencoded], which should be preferred
 over this crate whenever non-nested query parameters are sufficient. It is built
 upon [Serde], a high performance generic serialization framework and [rust-url],
