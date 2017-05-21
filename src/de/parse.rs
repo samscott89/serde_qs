@@ -13,7 +13,7 @@ use super::*;
 /// The default value for `max_depth` is 5.
 ///
 /// ```
-/// use serde_qs::de::Config;
+/// use serde_qs::Config;
 /// use std::collections::HashMap;
 ///
 /// let config = Config::with_max_depth(0);
@@ -131,7 +131,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
         }
     }
 
-    pub fn to_deserializer(mut self) -> QsDeserializer {
+    pub fn as_deserializer(&mut self) -> QsDeserializer {
         let map = BTreeMap::default();
         let mut root = Level::Nested(map);
         while let Ok(x) = self.parse(&mut root) {
@@ -141,7 +141,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
         }
         let iter = match root {
             Level::Nested(map) => map.into_iter(),
-            _ => panic!(""),
+            _ => panic!("root node should never be able to converted to anything else. Something went seriously wrong."),
         };
         QsDeserializer {
             iter: iter,
@@ -238,7 +238,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                         }
                     }
                     let value = String::from_utf8(self.acc.split_off(0));
-                    let value = value.map_err(|e| ErrorKind::Utf8(e))?;
+                    let value = value.map_err(Error::from)?;
                     // Reached the end of the key string
                     insert_into_map(node, key, value);
                     Ok(())
@@ -263,7 +263,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                     }
                 },
                 _ => {
-                    panic!("Unexpected character");
+                    Err(de::Error::custom("Unexpected character found when parsing"))
                 },
             }
         } else {
@@ -281,7 +281,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                 }
                 let value = String::from_utf8(self.acc.split_off(0))
                     .map(|s| s.into());
-                let value = value.map_err(|e| ErrorKind::Utf8(e))?;
+                let value = value.map_err(Error::from)?;
                 // Reached the end of the key string
                 if let Level::Sequence(ref mut seq) = *node {
                     seq.push(Level::Flat(value));
@@ -300,7 +300,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
     }
 
 
-    pub fn parse(&mut self, node: &mut Level) -> Result<bool> {
+    fn parse(&mut self, node: &mut Level) -> Result<bool> {
         // First character determines parsing type
         if self.depth == 0 {
             let key = self.parse_key(b'\x00', true)?;
@@ -317,7 +317,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                         match tu!(self.peek()) {
                             // key is of the form "[...", not really allowed.
                             b'[' => {
-                                panic!("");
+                                Err(de::Error::custom("found another opening bracket before the closed bracket"))
 
                             },
                             // key is simply "[]", so treat as a seq.
@@ -329,29 +329,29 @@ impl<I: Iterator<Item = u8>> Parser<I> {
 
                             },
                             // Key is "[a..." so parse up to the closing "]"
-                            0x20...0x7e => {
+                            0x20...0x5a | 0x5c | 0x5e...0x7e => {
                                 let key = self.parse_key(b']', true)?;
                                 self.parse_map_value(key.into(), node)?;
                                 self.depth += 1;
                                 Ok(true)
 
                             },
-                            _ => {
-                                panic!("");
+                            c => {
+                                Err(de::Error::custom(format!("unexpected character: {}", c)))
                             },
                         }
                     },
                     // This means the key should be a root key
                     // of the form "abc" or "abc[...]"
-                    0x20...0x7e => {
+                    0x20...0x5a | 0x5c...0x7e => {
                         let key = self.parse_key(b'[', false)?;
                         self.parse_map_value(key.into(), node)?;
                         self.depth += 1;
                         Ok(true)
                     },
-                    _ => {
-                        panic!("");
-                    },
+                    c => {
+                        Err(de::Error::custom(format!("unexpected character: {}", c)))
+                    }
                 }
             },
             // Ran out of characters to parse

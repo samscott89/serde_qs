@@ -75,8 +75,8 @@ extern crate dtoa;
 extern crate serde;
 extern crate url;
 
-pub mod de;
-pub mod ser;
+mod de;
+mod ser;
 
 #[doc(inline)]
 pub use de::{QsDeserializer, from_bytes, from_reader, from_str};

@@ -1,10 +1,49 @@
 //! Deserialization support for querystrings.
 
+//! ### An overview of the design of `QsDeserializer`
+//!
+//! This code is designed to handle non-ordered query parameters. For example,
+//! `struct { a: Vec<u8>, b: String }` might be serialized as either
+//! `a[0]=1&a[1]=2&b=Hello or a[1]=2&b=Hello&a[0]=1`.
+//!
+//! In order to cover the latter case, we have two options: scan through the
+//! string each time we need to find a particular key - worst case O(n^2 )
+//! running time; or pre-parse the list into a map structure, and then
+//! deserialize the map.
+//!
+//! We opt for the latter. But a TODO is implement the first case, which could
+//! potentially be more desirable, especially when the keys are known to be in
+//! order.
+//!
+//! The `parse` module handles this step of deserializing a querystring into the
+//! map structure. This uses `rust_url::percent_encoding` to handle 
+//! first converting the string.
+//!
+//! From here, there are two main `Deserializer` objects: `QsDeserializer` and
+//! `LevelDeserializer`.
+//!
+//! The former is the top-level deserializer which is effectively only capable
+//! of deserializing map-like objects (i.e. those with (key, value) pairs).
+//! Hence, structs, maps, and enums are supported at this level.
+//!
+//! Each key is a `String`, and deserialized from a `String`. The values are
+//! `Level` elements. This is a recursive structure which can either be a "flat
+//! value", i.e. just a string, or a sequence or map of these elements. This can
+//! be thought of as similar to the `serde_json::Value` enum.
+//!
+//! Each `Level` can be deserialized through `LevelDeserializer`. This will
+//! recursively call back to the top level `QsDeserializer`, or when `Level` is
+//! a flat value it will attempt to deserialize it to a primitive via
+//! `ParsableStringDeserializer`.
+
+
+
 mod parse;
 
 pub use de::parse::Config;
 
 use data_encoding;
+use data_encoding::base64url as base64;
 
 use serde::de;
 use serde::de::IntoDeserializer;
@@ -122,7 +161,7 @@ pub struct QsDeserializer {
 }
 
 #[derive(Debug)]
-pub enum Level {
+enum Level {
     Nested(BTreeMap<String, Level>),
     Sequence(Vec<Level>),
     Flat(String),
@@ -140,7 +179,7 @@ impl QsDeserializer {
     /// Returns a new `QsDeserializer`.
     fn with_config(config: &Config, input: &[u8]) -> Self {
         let decoded = percent_encoding::percent_decode(input);
-        parse::Parser::new(decoded, vec![], None, config.max_depth()).to_deserializer()
+        parse::Parser::new(decoded, vec![], None, config.max_depth()).as_deserializer()
 
     }
 }
@@ -148,10 +187,10 @@ impl QsDeserializer {
 impl<'de> de::Deserializer<'de> for QsDeserializer {
     type Error = Error;
 
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
         where V: de::Visitor<'de>,
     {
-        self.deserialize_map(visitor)
+        Err(Error::top_level("primitive"))
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
@@ -248,25 +287,13 @@ impl<'de> de::Deserializer<'de> for QsDeserializer {
         bytes
         byte_buf
         unit_struct
-        // seq
-        // seq_fixed_size
-        // newtype_struct
-        // tuple_struct
-        // struct
         identifier
-        // struct_field
-        // tuple
-        // enum
         ignored_any
     }
 }
 
-// use serde::de::IntoDeserializer;
-// use serde::de::value::SeqDeserializer;
-
 impl<'de> de::MapAccess<'de> for QsDeserializer {
     type Error = Error;
-
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
         where K: de::DeserializeSeed<'de>,
@@ -292,15 +319,63 @@ impl<'de> de::MapAccess<'de> for QsDeserializer {
 
 impl<'de> de::EnumAccess<'de> for QsDeserializer {
     type Error =  Error;
-    type Variant = LevelDeserializer;
+    type Variant = Self;
 
     fn variant_seed<V>(mut self, seed: V) -> Result<(V::Value, Self::Variant)>
         where V: de::DeserializeSeed<'de>
     {
         if let Some((key, value)) = self.iter.next() {
-            Ok((seed.deserialize(ParsableStringDeserializer(key))?, LevelDeserializer(value)))
+            self.value = Some(value);
+            Ok((seed.deserialize(ParsableStringDeserializer(key))?, self))
         } else {
             Err(de::Error::custom("No more values"))
+        }
+    }
+}
+
+impl<'de> de::VariantAccess<'de> for QsDeserializer {
+    type Error = Error;
+    fn unit_variant(self) -> Result<()> {
+        Ok(())
+    }
+
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value>
+    where
+        T: de::DeserializeSeed<'de>
+    {
+        if let Some(value) = self.value {
+            seed.deserialize(LevelDeserializer(value))
+        } else {
+            Err(de::Error::custom("no value to deserialize"))
+        }
+
+    }
+    fn tuple_variant<V>(
+        self, 
+        _len: usize, 
+        visitor: V
+    ) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>
+    {
+        if let Some(value) = self.value {
+            de::Deserializer::deserialize_seq(LevelDeserializer(value), visitor)
+        } else {
+            Err(de::Error::custom("no value to deserialize"))
+        }
+    }
+    fn struct_variant<V>(
+        self, 
+        _fields: &'static [&'static str], 
+        visitor: V
+    ) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>
+    {
+        if let Some(value) = self.value {
+            de::Deserializer::deserialize_map(LevelDeserializer(value), visitor)
+        } else {
+            Err(de::Error::custom("no value to deserialize"))
         }
     }
 }
@@ -314,10 +389,11 @@ impl<'de> de::EnumAccess<'de> for LevelDeserializer {
     {
         match self.0 {
             Level::Flat(x) => {
-                Ok((seed.deserialize(ParsableStringDeserializer(x))?, LevelDeserializer(Level::Invalid(""))))
+                Ok((seed.deserialize(ParsableStringDeserializer(x))?,
+                    LevelDeserializer(Level::Invalid("this value can only deserialize to a UnitVariant"))))
             },
             _ => {
-                Err(de::Error::custom("should not be here..."))
+                Err(de::Error::custom("this value can only deserialize to a UnitVariant"))
             }
         }
     }
@@ -376,7 +452,7 @@ impl<'de, I: Iterator<Item=Level>> de::SeqAccess<'de> for LevelSeq<I> {
 
 
 
-pub struct LevelDeserializer(Level);
+struct LevelDeserializer(Level);
 
 macro_rules! deserialize_primitive {
     ($ty:ident, $method:ident, $visit_method:ident) => (
@@ -404,7 +480,7 @@ macro_rules! deserialize_primitive {
 }
 
 impl LevelDeserializer {
-    fn to_deserializer(self) -> Result<QsDeserializer> {
+    fn into_deserializer(self) -> Result<QsDeserializer> {
         match self.0 {
             Level::Nested(map) => {
                 Ok(QsDeserializer::with_map(map))
@@ -427,7 +503,6 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
     {
         match self.0 {
             Level::Nested(_) => {
-                // QsDeserializer::with_map(map).deserialize_map(visitor)
                 self.deserialize_map(visitor)
             },
             Level::Sequence(_) => {
@@ -499,7 +574,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
         where V: de::Visitor<'de>,
     {
-        self.to_deserializer()?.deserialize_map(visitor)
+        self.into_deserializer()?.deserialize_map(visitor)
 
     }
 
@@ -510,7 +585,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
                              -> Result<V::Value>
         where V: de::Visitor<'de>,
     {
-        self.to_deserializer()?.deserialize_struct(name, fields, visitor)
+        self.into_deserializer()?.deserialize_struct(name, fields, visitor)
     }
 
     fn deserialize_newtype_struct<V>(
@@ -530,7 +605,6 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
     ) -> Result<V::Value>
         where V: de::Visitor<'de>
     {
-        // self.to_deserializer()?.deserialize_tuple(len, visitor)
         self.deserialize_seq(visitor)
 
     }
@@ -543,6 +617,44 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
         where V: de::Visitor<'de>
     {
         self.deserialize_seq(visitor)
+    }
+
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
+        where V: de::Visitor<'de>
+    {
+        match self.0 {
+            Level::Nested(_) => {
+                Err(de::Error::custom("Expected: base64-encoded string, got a Map"))
+            },
+            Level::Sequence(_) => {
+                Err(de::Error::custom("Expected: base64-encoded string, got a Sequence"))
+            },
+            Level::Flat(x) => {
+                visitor.visit_byte_buf(base64::decode_nopad(x.as_bytes())?)   
+            },
+            Level::Invalid(e) => {
+                Err(de::Error::custom(e))
+            }
+        }
+    }
+
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
+        where V: de::Visitor<'de>
+    {
+        match self.0 {
+            Level::Nested(_) => {
+                Err(de::Error::custom("Expected: base64-encoded string, got a Map"))
+            },
+            Level::Sequence(_) => {
+                Err(de::Error::custom("Expected: base64-encoded string, got a Sequence"))
+            },
+            Level::Flat(x) => {
+                visitor.visit_byte_buf(base64::decode_nopad(x.as_bytes())?)   
+            },
+            Level::Invalid(e) => {
+                Err(de::Error::custom(e))
+            }
+        }
     }
 
     deserialize_primitive!(bool, deserialize_bool, visit_bool);
@@ -563,14 +675,8 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
         str
         string
         unit
-        bytes
-        byte_buf
         unit_struct
-        // newtype_struct
-        // tuple_struct
         identifier
-        // tuple
-        // enum
         ignored_any
     }
 }
@@ -590,7 +696,7 @@ macro_rules! forward_parsable_to_deserialize_any {
 }
 
 
-pub struct ParsableStringDeserializer(String);
+struct ParsableStringDeserializer(String);
 
 impl<'de> de::Deserializer<'de> for ParsableStringDeserializer {
     type Error = Error;
@@ -603,17 +709,6 @@ impl<'de> de::Deserializer<'de> for ParsableStringDeserializer {
 
 
     forward_to_deserialize_any! {
-        // bool
-        // u8
-        // u16
-        // u32
-        // u64
-        // i8
-        // i16
-        // i32
-        // i64
-        // f32
-        // f64
         map
         struct
         seq

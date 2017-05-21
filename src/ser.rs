@@ -1,6 +1,7 @@
 
 //! Serialization support for querystrings.
 
+use data_encoding::base64url as base64;
 use serde::ser;
 use url::form_urlencoded::Serializer as UrlEncodedSerializer;
 use url::form_urlencoded::Target as UrlEncodedTarget;
@@ -66,7 +67,7 @@ impl<'a, Target: 'a + UrlEncodedTarget> QsSerializer<'a, Target> {
 
     fn write_value(&mut self, value: &str) -> Result<()> {
         if let Some(ref key) = self.key {
-            self.urlencoder.append_pair(&key, value);
+            self.urlencoder.append_pair(key, value);
             Ok(())
         } else {
             Err(Error::no_key())
@@ -82,11 +83,6 @@ error_chain!{
 }
 
 impl Error {
-    fn top_level() -> Self {
-        let msg = "top-level serializer supports only maps and structs";
-        msg.into()
-    }
-
     fn no_key() -> Self {
         let msg = "tried to serialize a value before serializing key";
         msg.into()
@@ -136,11 +132,10 @@ impl<'a, Target: 'a + UrlEncodedTarget> ser::Serializer for &'a mut QsSerializer
         f64 => serialize_f64,
         char => serialize_char,
         &str => serialize_str,
-        // &[u8] => serialize_bytes,
     }
 
-    fn serialize_bytes(self, _value: &[u8]) -> Result<Self::Ok> {
-        Err(Error::top_level())
+    fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok> {
+        self.write_value(&base64::encode_nopad(value))
     }
 
 
@@ -445,7 +440,7 @@ impl ser::Serializer for StringSerializer {
 
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok> {
-        Err(ErrorKind::Unsupported.into())
+        Ok(base64::encode_nopad(value))
     }
 
     /// Returns an error.
