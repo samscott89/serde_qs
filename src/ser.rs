@@ -67,7 +67,8 @@ impl<'a, Target: 'a + UrlEncodedTarget> QsSerializer<'a, Target> {
 
     fn write_value(&mut self, value: &str) -> Result<()> {
         if let Some(ref key) = self.key {
-            self.urlencoder.append_pair(key, value);
+            // returns &Self back anyway
+            let _ = self.urlencoder.append_pair(key, value);
             Ok(())
         } else {
             Err(Error::no_key())

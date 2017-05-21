@@ -40,39 +40,41 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Construct a new `Config` with the specified maximum depth of nesting.
     pub fn with_max_depth(depth: usize) -> Config {
         Config {
             max_depth: depth
         }
     }
 
+    /// Get maximum depth parameter.
     pub fn max_depth(&self) -> usize {
         self.max_depth
     }
 }
 
 impl Config {
+    /// Deserializes a querystring from a `&[u8]` using this `Config`.
     pub fn deserialize_bytes<'de, T: de::Deserialize<'de>>(&self,
                                                  input: &[u8])
                                                  -> Result<T> {
         T::deserialize(QsDeserializer::with_config(self, input))
     }
 
+    /// Deserializes a querystring from a `&str` using this `Config`.
     pub fn deserialize_str<'de, T: de::Deserialize<'de>>(&self,
                                                input: &str)
                                                -> Result<T> {
         self.deserialize_bytes(input.as_bytes())
     }
 
+    /// Deserializes a querystring from a reader using this `Config`.
     pub fn deserialize_reader<'de, T, R>(&self, mut reader: R) -> Result<T>
         where T: de::Deserialize<'de>,
               R: Read,
     {
         let mut buf = vec![];
-        reader.read_to_end(&mut buf)
-            .map_err(|e| {
-                ErrorKind::Io(e)
-            })?;
+        let _ = reader.read_to_end(&mut buf).map_err(Error::from)?;
         self.deserialize_bytes(&buf)
     }
 }
@@ -111,15 +113,17 @@ fn insert_into_map(node: &mut Level, key: String, value: String) {
     if let Level::Nested(ref mut map) = *node {
         match map.entry(key) {
             Entry::Occupied(mut o) => {
-                o.insert(Level::Invalid("Multiple values for one key"));
+                // Throw away old result; map is now invalid anyway.
+                let _ = o.insert(Level::Invalid("Multiple values for one key"));
             },
             Entry::Vacant(vm) => {
-                vm.insert(Level::Flat(value));
+                // Map is empty, result is None
+                let _ = vm.insert(Level::Flat(value));
             },
         }
     } else {
         let mut map = BTreeMap::default();
-        map.insert(key, Level::Flat(value));
+        let _ = map.insert(key, Level::Flat(value));
         *node = Level::Nested(map);
     }
 }
@@ -141,7 +145,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
         }
         let iter = match root {
             Level::Nested(map) => map.into_iter(),
-            _ => panic!("root node should never be able to converted to anything else. Something went seriously wrong."),
+            _ => BTreeMap::default().into_iter()
         };
         QsDeserializer {
             iter: iter,

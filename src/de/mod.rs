@@ -145,10 +145,8 @@ pub fn from_reader<'de, T, R>(mut reader: R) -> Result<T>
           R: Read,
 {
     let mut buf = vec![];
-    reader.read_to_end(&mut buf)
-        .map_err(|e| {
-            ErrorKind::Io(e)
-        })?;
+    let _ = reader.read_to_end(&mut buf)
+        .map_err(Error::from)?;
     from_bytes(&buf)
 }
 
@@ -177,7 +175,7 @@ impl QsDeserializer {
     }
 
     /// Returns a new `QsDeserializer`.
-    fn with_config(config: &Config, input: &[u8]) -> Self {
+    pub fn with_config(config: &Config, input: &[u8]) -> Self {
         let decoded = percent_encoding::percent_decode(input);
         parse::Parser::new(decoded, vec![], None, config.max_depth()).as_deserializer()
 
