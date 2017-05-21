@@ -27,6 +27,7 @@ url = "1.0.0"
 [dev-dependencies]
 csv = "0.15"
 rand = "0.3"
+serde_json = "1.0.2"
 serde_urlencoded = "0.4"
 
 [lib]

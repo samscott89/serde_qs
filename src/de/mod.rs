@@ -505,10 +505,9 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
             },
             Level::Sequence(_) => {
                 self.deserialize_seq(visitor)
-
             },
             Level::Flat(x) => {
-                visitor.visit_string(x)
+                ParsableStringDeserializer(x).deserialize_any(visitor)
             },
             Level::Invalid(e) => {
                 Err(de::Error::custom(e))
@@ -593,7 +592,20 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
     ) -> Result<V::Value>
         where V: de::Visitor<'de>
     {
-        self.deserialize_seq(visitor)
+        match self.0 {
+            Level::Nested(_) => {
+                self.deserialize_map(visitor)
+            },
+            Level::Sequence(_) => {
+                self.deserialize_seq(visitor)
+            },
+            Level::Flat(_) => {
+                self.deserialize_seq(visitor)
+            },
+            Level::Invalid(e) => {
+                Err(de::Error::custom(e))
+            }
+        }
     }
 
     fn deserialize_tuple<V>(
@@ -603,8 +615,20 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
     ) -> Result<V::Value>
         where V: de::Visitor<'de>
     {
-        self.deserialize_seq(visitor)
-
+        match self.0 {
+            Level::Nested(_) => {
+                self.deserialize_map(visitor)
+            },
+            Level::Sequence(_) => {
+                self.deserialize_seq(visitor)
+            },
+            Level::Flat(_) => {
+                self.deserialize_seq(visitor)
+            },
+            Level::Invalid(e) => {
+                Err(de::Error::custom(e))
+            }
+        }
     }
     fn deserialize_tuple_struct<V>(
         self, 
@@ -614,8 +638,20 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
     ) -> Result<V::Value>
         where V: de::Visitor<'de>
     {
-        self.deserialize_seq(visitor)
-    }
+        match self.0 {
+            Level::Nested(_) => {
+                self.deserialize_map(visitor)
+            },
+            Level::Sequence(_) => {
+                self.deserialize_seq(visitor)
+            },
+            Level::Flat(_) => {
+                self.deserialize_seq(visitor)
+            },
+            Level::Invalid(e) => {
+                Err(de::Error::custom(e))
+            }
+        }    }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
         where V: de::Visitor<'de>
@@ -704,7 +740,6 @@ impl<'de> de::Deserializer<'de> for ParsableStringDeserializer {
     {
         self.0.into_deserializer().deserialize_any(visitor)
     }
-
 
     forward_to_deserialize_any! {
         map
