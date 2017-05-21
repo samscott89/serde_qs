@@ -570,10 +570,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
             Level::Nested(_) => {
                 self.deserialize_map(visitor)
             },
-            Level::Sequence(_) => {
-                self.deserialize_seq(visitor)
-            },
-            Level::Flat(_) => {
+            Level::Sequence(_) | Level::Flat(_) => {
                 self.deserialize_seq(visitor)
             },
             Level::Invalid(e) => {
@@ -593,10 +590,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
             Level::Nested(_) => {
                 self.deserialize_map(visitor)
             },
-            Level::Sequence(_) => {
-                self.deserialize_seq(visitor)
-            },
-            Level::Flat(_) => {
+            Level::Sequence(_) | Level::Flat(_) => {
                 self.deserialize_seq(visitor)
             },
             Level::Invalid(e) => {
@@ -616,10 +610,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
             Level::Nested(_) => {
                 self.deserialize_map(visitor)
             },
-            Level::Sequence(_) => {
-                self.deserialize_seq(visitor)
-            },
-            Level::Flat(_) => {
+            Level::Sequence(_) | Level::Flat(_) => {
                 self.deserialize_seq(visitor)
             },
             Level::Invalid(e) => {
