@@ -60,12 +60,12 @@ fn main() {
     // In this form, can also simply use `serde_urlencoded`:
     let encoded = urlencoded::to_string(&map).unwrap();
     println!("`serde_urlencoded` to_string for map:\n\t{}", encoded);
+    println!("");
 
     // Given this encoded string, you can recover the original map
     // as a list of pairs using serde_urlencoded:
     let pairs: Vec<(String, String)> = urlencoded::from_str(&encoded).unwrap();
     println!("`serde_urlencoded` from_str to pairs:\n\t{:?}", pairs);
-
     // However, the best way is to use serde_qs to deserialize the entire thing
     // into a struct:
     let params: QueryParams = qs::from_str(&encoded).unwrap();
@@ -75,6 +75,8 @@ fn main() {
     // Similarly, we can serialize this structure using `serde_qs`:
     let encoded = qs::to_string(&params).unwrap();
     println!("`serde_qs` to_string for struct:\n\t{:?}", encoded);
+    println!("");
+
 
     // One nice feature is that this gives deterministic encodings:
     let encoded2 = qs::to_string(&params).unwrap();
@@ -128,11 +130,11 @@ fn main() {
     let params: QueryParams = qs::from_str(encoded).unwrap();
     assert_eq!(params, example_params);
 
-    // Enums are supported, but only adjacently tagged enums
-    // (see https://serde.rs/enum-representations.html for more information).
+    // Enums are now fully supported! Most formats should work with varying
+    // results.
     #[derive(Deserialize, Debug, PartialEq, Serialize)]
-    // #[serde(tag = "type", content = "value")]
     enum AdjTaggedEnum {
+        A,
         B(bool),
         S(String),
         V { id: u8, v: String },
@@ -147,9 +149,22 @@ fn main() {
         e: AdjTaggedEnum::B(false),
     };
     // encodes as:
-    //   "e[type]=B&e[value]=false"
+    //   "e[B]=false"
     let encoded = qs::to_string(&example_params).unwrap();
     println!("`serde_qs` to_string for enum:\n\t{:?}", encoded);
     let params: EnumQuery = qs::from_str(&encoded).unwrap();
     println!("`serde_qs` from_str for enum:\n\t{:?}", params);
+    println!("");
+
+    let example_params = EnumQuery {
+        e: AdjTaggedEnum::A,
+    };
+    // encodes as:
+    //   "e=A"
+    let encoded = qs::to_string(&example_params).unwrap();
+    println!("`serde_qs` to_string for enum:\n\t{:?}", encoded);
+    let params: EnumQuery = qs::from_str(&encoded).unwrap();
+    println!("`serde_qs` from_str for enum:\n\t{:?}", params);
+    println!("");
+
 }

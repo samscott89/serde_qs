@@ -12,8 +12,15 @@
 //! recommended that the `serde_urlencoded` crate is used instead, which
 //! will almost certainly perform better for deserializing simple inputs.
 //!
-//! The serialization implementation of this library is adapted from
-//! `serde_urlencoded`.
+//! ## Supported Types
+//!
+//! At the **top level**, `serde_qs` only supports `struct`, `map`, and `enum`.
+//! These are the only top-level structs which can be de/serialized since
+//! Querystrings rely on having a (key, value) pair for each field, which
+//! necessitates this kind of structure.
+//!
+//! However, after the top level you should find all supported types can be
+//! de/serialized.
 //!
 //! ## Usage
 //!
@@ -72,7 +79,7 @@ pub mod de;
 pub mod ser;
 
 #[doc(inline)]
-pub use de::{Deserializer, from_bytes, from_reader, from_str};
+pub use de::{QsDeserializer, from_bytes, from_reader, from_str};
 #[doc(inline)]
 pub use de::Config;
 #[doc(inline)]

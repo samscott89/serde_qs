@@ -367,4 +367,12 @@ fn deserialize_enum() {
     let params = "e[S]=other&u=1";
     let rec_params: Query = qs::from_str(params).unwrap();
     assert_eq!(rec_params, Query { e: E::S("other".to_string()), v: None, u: NewU8(1) });
+
+    let params = "B=";
+    let rec_params: E = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, E::B);
+
+    let params = "S=Hello+World";
+    let rec_params: E = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, E::S("Hello World".to_string()));
 }

@@ -10,6 +10,8 @@ use super::*;
 /// to prevent denial of service attacks by providing incredibly deeply nested
 /// inputs.
 ///
+/// The default value for `max_depth` is 5.
+///
 /// ```
 /// use serde_qs::de::Config;
 /// use std::collections::HashMap;
@@ -53,7 +55,7 @@ impl Config {
     pub fn deserialize_bytes<'de, T: de::Deserialize<'de>>(&self,
                                                  input: &[u8])
                                                  -> Result<T> {
-        T::deserialize(Deserializer::with_config(self, input))
+        T::deserialize(QsDeserializer::with_config(self, input))
     }
 
     pub fn deserialize_str<'de, T: de::Deserialize<'de>>(&self,
@@ -129,7 +131,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
         }
     }
 
-    pub fn to_deserializer(mut self) -> Deserializer {
+    pub fn to_deserializer(mut self) -> QsDeserializer {
         let map = BTreeMap::default();
         let mut root = Level::Nested(map);
         while let Ok(x) = self.parse(&mut root) {
@@ -141,7 +143,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
             Level::Nested(map) => map.into_iter(),
             _ => panic!(""),
         };
-        Deserializer {
+        QsDeserializer {
             iter: iter,
             value: None,
         }

@@ -5,11 +5,9 @@ mod parse;
 pub use de::parse::Config;
 
 use data_encoding;
-use data_encoding::base64;
 
 use serde::de;
 use serde::de::IntoDeserializer;
-use serde::de::value::MapDeserializer;
 
 use url::percent_encoding;
 
@@ -118,7 +116,7 @@ pub fn from_reader<'de, T, R>(mut reader: R) -> Result<T>
 /// A deserializer for the querystring format.
 ///
 /// Supported top-level outputs are structs and maps.
-pub struct Deserializer {
+pub struct QsDeserializer {
     iter: IntoIter<String, Level>,
     value: Option<Level>,
 }
@@ -131,15 +129,15 @@ pub enum Level {
     Invalid(&'static str),
 }
 
-impl Deserializer {
+impl QsDeserializer {
     fn with_map(map: BTreeMap<String, Level>) -> Self {
-        Deserializer {
+        QsDeserializer {
             iter: map.into_iter(),
             value: None,
         }
     }
 
-    /// Returns a new `Deserializer`.
+    /// Returns a new `QsDeserializer`.
     fn with_config(config: &Config, input: &[u8]) -> Self {
         let decoded = percent_encoding::percent_decode(input);
         parse::Parser::new(decoded, vec![], None, config.max_depth()).to_deserializer()
@@ -147,7 +145,7 @@ impl Deserializer {
     }
 }
 
-impl<'de> de::Deserializer<'de> for Deserializer {
+impl<'de> de::Deserializer<'de> for QsDeserializer {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
@@ -266,7 +264,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 // use serde::de::IntoDeserializer;
 // use serde::de::value::SeqDeserializer;
 
-impl<'de> de::MapAccess<'de> for Deserializer {
+impl<'de> de::MapAccess<'de> for QsDeserializer {
     type Error = Error;
 
 
@@ -292,7 +290,7 @@ impl<'de> de::MapAccess<'de> for Deserializer {
     }
 }
 
-impl<'de> de::EnumAccess<'de> for Deserializer {
+impl<'de> de::EnumAccess<'de> for QsDeserializer {
     type Error =  Error;
     type Variant = LevelDeserializer;
 
@@ -406,16 +404,16 @@ macro_rules! deserialize_primitive {
 }
 
 impl LevelDeserializer {
-    fn to_deserializer(self) -> Result<Deserializer> {
+    fn to_deserializer(self) -> Result<QsDeserializer> {
         match self.0 {
             Level::Nested(map) => {
-                Ok(Deserializer::with_map(map))
+                Ok(QsDeserializer::with_map(map))
             },
             Level::Invalid(e) => {
                 Err(de::Error::custom(e))
             }
             l => {
-                Err(de::Error::custom(format!("could not convert {:?} to Deserializer", l)))
+                Err(de::Error::custom(format!("could not convert {:?} to QsDeserializer", l)))
             },
         }
     }
@@ -429,7 +427,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
     {
         match self.0 {
             Level::Nested(_) => {
-                // Deserializer::with_map(map).deserialize_map(visitor)
+                // QsDeserializer::with_map(map).deserialize_map(visitor)
                 self.deserialize_map(visitor)
             },
             Level::Sequence(_) => {
@@ -487,7 +485,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
     {
         match self.0 {
             Level::Nested(map) => {
-                 Deserializer::with_map(map).deserialize_enum(name, variants, visitor)
+                 QsDeserializer::with_map(map).deserialize_enum(name, variants, visitor)
             },
             Level::Flat(_) => {
                 visitor.visit_enum(self)
