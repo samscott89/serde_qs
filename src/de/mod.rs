@@ -41,8 +41,8 @@
 mod parse;
 
 pub use de::parse::Config;
+use error::*;
 
-use data_encoding;
 use data_encoding::base64url as base64;
 
 use serde::de;
@@ -51,33 +51,7 @@ use serde::de::IntoDeserializer;
 use url::percent_encoding;
 
 use std::collections::btree_map::{BTreeMap, Entry, IntoIter};
-use std::io::{self,Read};
-use std::fmt::Display;
-use std::string;
-
-error_chain! {
-    errors { Custom(msg: String) }
-    foreign_links {
-        Decoding(data_encoding::decode::Error);
-        Io(io::Error);
-        Utf8(string::FromUtf8Error);
-    }
-}
-
-impl Error {
-    fn top_level(object: &'static str) -> Self {
-        ErrorKind::Custom(format!("cannot deserialize {} at the top level.\
-                           Try deserializing into a struct.", object)).into()
-
-    }
-}
-
-impl de::Error for Error {
-    fn custom<T>(msg: T) -> Self 
-        where T: Display {
-            ErrorKind::Custom(msg.to_string()).into()
-    }
-}
+use std::io::Read;
 
 /// Deserializes a querystring from a `&[u8]`.
 ///
@@ -316,7 +290,7 @@ impl<'de> de::MapAccess<'de> for QsDeserializer {
 }
 
 impl<'de> de::EnumAccess<'de> for QsDeserializer {
-    type Error =  Error;
+    type Error = Error;
     type Variant = Self;
 
     fn variant_seed<V>(mut self, seed: V) -> Result<(V::Value, Self::Variant)>
@@ -379,7 +353,7 @@ impl<'de> de::VariantAccess<'de> for QsDeserializer {
 }
 
 impl<'de> de::EnumAccess<'de> for LevelDeserializer {
-    type Error =  Error;
+    type Error = Error;
     type Variant = Self;
 
     fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant)>

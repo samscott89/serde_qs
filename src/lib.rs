@@ -125,7 +125,10 @@ extern crate serde;
 extern crate url;
 
 mod de;
+mod error;
 mod ser;
+
+pub use error::Error;
 
 #[doc(inline)]
 pub use de::{QsDeserializer, from_bytes, from_reader, from_str};

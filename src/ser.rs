@@ -10,6 +10,8 @@ use std::fmt::Display;
 use std::borrow::Cow;
 use std::str;
 
+use error::*;
+
 /// Serializes a value into a querystring.
 ///
 /// ```
@@ -73,13 +75,6 @@ impl<'a, Target: 'a + UrlEncodedTarget> QsSerializer<'a, Target> {
         } else {
             Err(Error::no_key())
         }
-    }
-}
-
-error_chain!{
-    errors { 
-        Custom(msg: String)
-        Unsupported
     }
 }
 
