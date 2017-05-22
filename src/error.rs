@@ -3,6 +3,7 @@ use serde::de;
 
 use std::fmt::Display;
 use std::io;
+use std::num;
 use std::string;
 
 error_chain! {
@@ -14,6 +15,7 @@ error_chain! {
     foreign_links {
         Decoding(data_encoding::decode::Error);
         Io(io::Error);
+        Parse(num::ParseIntError);
         Utf8(string::FromUtf8Error);
     }
 }

@@ -121,10 +121,31 @@ fn insert_into_map(node: &mut Level, key: String, value: String) {
                 let _ = vm.insert(Level::Flat(value));
             },
         }
-    } else {
+    } else  {
+        // To reach here, node is either an Nested or nothing.
         let mut map = BTreeMap::default();
         let _ = map.insert(key, Level::Flat(value));
         *node = Level::Nested(map);
+    }
+}
+
+fn insert_into_ord_seq(node: &mut Level, key: usize, value: String) {
+    if let Level::OrderedSeq(ref mut map) = *node {
+        match map.entry(key) {
+            Entry::Occupied(mut o) => {
+                // Throw away old result; map is now invalid anyway.
+                let _ = o.insert(Level::Invalid("Multiple values for one key"));
+            },
+            Entry::Vacant(vm) => {
+                // Map is empty, result is None
+                let _ = vm.insert(Level::Flat(value));
+            },
+        }
+    } else {
+        // To reach here, node is either an OrderedSeq or nothing.
+        let mut map = BTreeMap::default();
+        let _ = map.insert(key, Level::Flat(value));
+        *node = Level::OrderedSeq(map);
     }
 }
 
@@ -182,7 +203,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                             self.acc.push(x);
                             self.peeked = Some(x);
                         }
-                        return res.map_err(|_| de::Error::custom("blah"));
+                        return res.map_err(Error::from);
                     },
                     b'=' => {
                         // Allow the '=' byte when parsing keys within []
@@ -196,7 +217,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                             self.acc.push(b'=');
                             self.peeked = Some(b'=');
 
-                            return res.map_err(|_| de::Error::custom("blah"));
+                            return res.map_err(Error::from);
                         }
                     },
                     b' ' => {
@@ -207,7 +228,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                         self.acc.clear();
                         self.acc.push(b'&');
                         self.peeked = Some(b'&');
-                        return res.map_err(|_| de::Error::custom("blah"));
+                        return res.map_err(Error::from);
                     },
                     x @ 0x20...0x7e => {
                         self.acc.push(x);
@@ -218,10 +239,9 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                     },
                 }
             } else {
-                // End of string.
                 let res = String::from_utf8(self.acc.split_off(0));
                 self.acc.clear();
-                return res.map_err(|_| de::Error::custom("blah"));
+                return res.map_err(Error::from);
             }
         }
     }
@@ -283,8 +303,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                 for b in self.inner.by_ref().take_while(|b| b != &b'&') {
                     self.acc.push(b);
                 }
-                let value = String::from_utf8(self.acc.split_off(0))
-                    .map(|s| s.into());
+                let value = String::from_utf8(self.acc.split_off(0));
                 let value = value.map_err(Error::from)?;
                 // Reached the end of the key string
                 if let Level::Sequence(ref mut seq) = *node {
@@ -303,12 +322,59 @@ impl<I: Iterator<Item = u8>> Parser<I> {
         }
     }
 
+    fn parse_ord_seq_value(&mut self, key: usize, node: &mut Level) -> Result<()> {
+        if let Some(x) = self.peek() {
+            match x {
+                b'=' => {
+                    self.acc.clear();
+                    for b in self.inner.by_ref().take_while(|b| b != &b'&') {
+                        if b == b'+' {
+                            self.acc.push(b' ');
+                        } else {
+                            self.acc.push(b);
+                        }
+                    }
+                    let value = String::from_utf8(self.acc.split_off(0));
+                    let value = value.map_err(Error::from)?;
+                    // Reached the end of the key string
+                    insert_into_ord_seq(node, key, value);
+                    Ok(())
+                },
+                b'&' => {
+                    insert_into_ord_seq(node, key, "".to_string());
+                    Ok(())
+                },
+                b'[' => {
+                    if let Level::Invalid(_) = *node {
+                        *node = Level::Nested(BTreeMap::default());
+                    }
+                    if let Level::OrderedSeq(ref mut map) = *node {
+                        self.depth -= 1;
+                        self.parse(map.entry(key)
+                                .or_insert(Level::Invalid("uninitialised")))?;
+                        Ok(())
+                    } else {
+                        Err(de::Error::custom(format!("tried to insert a \
+                                                       new key into {:?}",
+                                                      node)))
+                    }
+                },
+                _ => {
+                    Err(de::Error::custom("Unexpected character found when parsing"))
+                },
+            }
+        } else {
+            insert_into_ord_seq(node, key, "".to_string());
+            Ok(())
+        }
+    }
+
 
     fn parse(&mut self, node: &mut Level) -> Result<bool> {
         // First character determines parsing type
         if self.depth == 0 {
             let key = self.parse_key(b'\x00', true)?;
-            self.parse_map_value(key.into(), node)?;
+            self.parse_map_value(key, node)?;
             self.depth += 1;
             return Ok(true);
         }
@@ -317,7 +383,6 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                 match x {
                     b'[' => {
                         self.acc.clear();
-                        // let _ = self.next();
                         match tu!(self.peek()) {
                             // key is of the form "[...", not really allowed.
                             b'[' => {
@@ -332,13 +397,20 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                                 Ok(true)
 
                             },
-                            // Key is "[a..." so parse up to the closing "]"
-                            0x20...0x5a | 0x5c | 0x5e...0x7e => {
+                            // First character is an integer, attempt to parse it as an integer key
+                            0x30...0x39 => {
                                 let key = self.parse_key(b']', true)?;
-                                self.parse_map_value(key.into(), node)?;
+                                let key = usize::from_str_radix(&key, 10).map_err(Error::from)?;
+                                self.parse_ord_seq_value(key, node)?;
                                 self.depth += 1;
                                 Ok(true)
-
+                            }
+                            // Key is "[a..." so parse up to the closing "]"
+                            0x20...0x2f | 0x3a...0x5a | 0x5c | 0x5e...0x7e => {
+                                let key = self.parse_key(b']', true)?;
+                                self.parse_map_value(key, node)?;
+                                self.depth += 1;
+                                Ok(true)
                             },
                             c => {
                                 Err(de::Error::custom(format!("unexpected character: {}", c)))
@@ -349,7 +421,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                     // of the form "abc" or "abc[...]"
                     0x20...0x5a | 0x5c...0x7e => {
                         let key = self.parse_key(b'[', false)?;
-                        self.parse_map_value(key.into(), node)?;
+                        self.parse_map_value(key, node)?;
                         self.depth += 1;
                         Ok(true)
                     },

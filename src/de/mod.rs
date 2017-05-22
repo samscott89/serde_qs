@@ -32,8 +32,8 @@
 //! be thought of as similar to the `serde_json::Value` enum.
 //!
 //! Each `Level` can be deserialized through `LevelDeserializer`. This will
-//! recursively call back to the top level `QsDeserializer`, or when `Level` is
-//! a flat value it will attempt to deserialize it to a primitive via
+//! recursively call back to the top level `QsDeserializer` for maps, or when
+//! `Level` is a flat value it will attempt to deserialize it to a primitive via
 //! `ParsableStringDeserializer`.
 
 
@@ -42,8 +42,6 @@ mod parse;
 
 pub use de::parse::Config;
 use error::*;
-
-use data_encoding::base64url as base64;
 
 use serde::de;
 use serde::de::IntoDeserializer;
@@ -135,6 +133,7 @@ pub struct QsDeserializer {
 #[derive(Debug)]
 enum Level {
     Nested(BTreeMap<String, Level>),
+    OrderedSeq(BTreeMap<usize, Level>),
     Sequence(Vec<Level>),
     Flat(String),
     Invalid(&'static str),
@@ -436,6 +435,10 @@ macro_rules! deserialize_primitive {
                     Err(de::Error::custom(format!("Expected: {:?}, got a Map",
                                                   stringify!($ty))))
                 },
+                Level::OrderedSeq(_) => {
+                    Err(de::Error::custom(format!("Expected: {:?}, got an OrderedSequence",
+                                                  stringify!($ty))))
+                },
                 Level::Sequence(_) => {
                     Err(de::Error::custom(format!("Expected: {:?}, got a Sequence",
                                                   stringify!($ty))))
@@ -459,7 +462,7 @@ impl LevelDeserializer {
             },
             Level::Invalid(e) => {
                 Err(de::Error::custom(e))
-            }
+            },
             l => {
                 Err(de::Error::custom(format!("could not convert {:?} to QsDeserializer", l)))
             },
@@ -475,11 +478,13 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
     {
         match self.0 {
             Level::Nested(_) => {
-                self.deserialize_map(visitor)
+                self.into_deserializer()?.deserialize_map(visitor)
             },
-            Level::Sequence(_) => {
-                self.deserialize_seq(visitor)
-
+            Level::OrderedSeq(map) => {
+                visitor.visit_seq(LevelSeq(map.into_iter().map(|(_k, v)| v)))
+            },
+            Level::Sequence(seq) => {
+                visitor.visit_seq(LevelSeq(seq.into_iter()))
             },
             Level::Flat(x) => {
                 visitor.visit_string(x)
@@ -487,25 +492,6 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
             Level::Invalid(e) => {
                 Err(de::Error::custom(e))
             }
-        }
-    }
-
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
-        where V: de::Visitor<'de>,
-    {
-        match self.0 {
-            Level::Nested(map) => {
-                visitor.visit_seq(LevelSeq(map.into_iter().map(|(_k, v)| v)))
-            },
-            Level::Sequence(x) => {
-                visitor.visit_seq(LevelSeq(x.into_iter()))
-            },
-            Level::Invalid(e) => {
-                Err(de::Error::custom(e))
-            },
-            x => {
-                visitor.visit_seq(LevelSeq(vec![x].into_iter()))
-            },
         }
     }
 
@@ -543,23 +529,6 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
         }
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
-        where V: de::Visitor<'de>,
-    {
-        self.into_deserializer()?.deserialize_map(visitor)
-
-    }
-
-    fn deserialize_struct<V>(self,
-                             name: &'static str,
-                             fields: &'static [&'static str],
-                             visitor: V)
-                             -> Result<V::Value>
-        where V: de::Visitor<'de>,
-    {
-        self.into_deserializer()?.deserialize_struct(name, fields, visitor)
-    }
-
     fn deserialize_newtype_struct<V>(
         self, 
         _name: &'static str, 
@@ -567,41 +536,20 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
     ) -> Result<V::Value>
         where V: de::Visitor<'de>
     {
-        self.deserialize_seq(visitor)
-    }
-
-    fn deserialize_tuple<V>(
-        self, 
-        _len: usize, 
-        visitor: V
-    ) -> Result<V::Value>
-        where V: de::Visitor<'de>
-    {
-        self.deserialize_seq(visitor)
-    }
-    fn deserialize_tuple_struct<V>(
-        self, 
-        _name: &'static str, 
-        _len: usize, 
-        visitor: V
-    ) -> Result<V::Value>
-        where V: de::Visitor<'de>
-    {
-        self.deserialize_seq(visitor)
-    }
-
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
-        where V: de::Visitor<'de>
-    {
         match self.0 {
             Level::Nested(_) => {
-                Err(de::Error::custom("Expected: base64-encoded string, got a Map"))
+                self.into_deserializer()?.deserialize_map(visitor)
             },
-            Level::Sequence(_) => {
-                Err(de::Error::custom("Expected: base64-encoded string, got a Sequence"))
+            Level::OrderedSeq(map) => {
+                visitor.visit_seq(LevelSeq(map.into_iter().map(|(_k, v)| v)))
             },
-            Level::Flat(x) => {
-                visitor.visit_byte_buf(base64::decode_nopad(x.as_bytes())?)   
+            Level::Sequence(seq) => {
+                visitor.visit_seq(LevelSeq(seq.into_iter()))
+            },
+            Level::Flat(_) => {
+                // For a newtype_struct, attempt to deserialize a flat value as a 
+                // single element sequence.
+                visitor.visit_seq(LevelSeq(vec![self.0].into_iter()))
             },
             Level::Invalid(e) => {
                 Err(de::Error::custom(e))
@@ -609,24 +557,6 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
         }
     }
 
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
-        where V: de::Visitor<'de>
-    {
-        match self.0 {
-            Level::Nested(_) => {
-                Err(de::Error::custom("Expected: base64-encoded string, got a Map"))
-            },
-            Level::Sequence(_) => {
-                Err(de::Error::custom("Expected: base64-encoded string, got a Sequence"))
-            },
-            Level::Flat(x) => {
-                visitor.visit_byte_buf(base64::decode_nopad(x.as_bytes())?)   
-            },
-            Level::Invalid(e) => {
-                Err(de::Error::custom(e))
-            }
-        }
-    }
 
     deserialize_primitive!(bool, deserialize_bool, visit_bool);
     deserialize_primitive!(i8,  deserialize_i8, visit_i8);
@@ -645,10 +575,18 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
         char
         str
         string
+        bytes
+        byte_buf
         unit
         unit_struct
+        // newtype_struct
+        tuple_struct
+        struct
         identifier
+        tuple
         ignored_any
+        seq
+        map
     }
 }
 
