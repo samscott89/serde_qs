@@ -1,11 +1,7 @@
-extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-#[macro_use]
-extern crate serde_json as json;
 extern crate serde_qs as qs;
 
-use std::fmt;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -379,71 +375,4 @@ fn deserialize_enum() {
     let params = "S=Hello+World";
     let rec_params: E = qs::from_str(params).unwrap();
     assert_eq!(rec_params, E::S("Hello World".to_string()));
-}
-
-
-#[test]
-fn deserialize_custom() {
-    use serde::de::{self, Deserialize, Visitor, Deserializer};
-
-    #[derive(Deserialize, Debug, Clone, Copy, PartialEq, Serialize)]
-    #[serde(rename_all = "lowercase")]
-    enum TestEnum { Foo, Bar }
-
-    #[derive(Deserialize, Debug, Serialize, PartialEq)]
-    struct TestStruct {
-        e: TestEnum,
-    }
-
-    #[derive(Deserialize, Debug, PartialEq)]
-    struct NestedStruct {
-        ts: Vec<TupleStruct>,
-    }
-
-    #[derive(Debug, PartialEq)]
-    struct TupleStruct(TestEnum, TestStruct);
-
-    impl<'de> serde::de::Deserialize<'de> for TupleStruct {
-        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where D: Deserializer<'de>
-        {
-            deserializer.deserialize_tuple_struct(
-                "TupleStruct", 2, TupleStructVisitor)
-        }
-    }
-
-    struct TupleStructVisitor;
-    impl<'de> Visitor<'de> for TupleStructVisitor {
-        type Value = TupleStruct;
-
-        fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-            write!(fmt, "TupleStruct representation")
-        }
-
-        fn visit_map<V>(self, map: V) -> Result<Self::Value, V::Error>
-            where V: de::MapAccess<'de>
-        {
-            let inner_de = de::value::MapAccessDeserializer::new(map);
-            let test_struct: TestStruct = Deserialize::deserialize(inner_de)?;
-
-            let result = TupleStruct(test_struct.e, test_struct);
-            Ok(result)
-        }
-    }
-
-
-    let expected = NestedStruct {
-        ts: vec![TupleStruct(TestEnum::Bar, TestStruct { e: TestEnum::Bar}), TupleStruct(TestEnum::Foo, TestStruct { e: TestEnum::Foo})],
-    };
-
-    let json_struct: NestedStruct =  json::from_str(&json!({
-        "ts": [{"e": "bar"}, {"e": "foo"}],
-    }).to_string()).unwrap();
-
-    let qs_struct: NestedStruct = qs::from_str(
-        "ts[0][e]=bar&ts[1][e]=foo"
-    ).unwrap();
-
-    assert_eq!(qs_struct, json_struct);
-    assert_eq!(qs_struct, expected);
 }
