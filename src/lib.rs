@@ -22,6 +22,10 @@
 //! However, after the top level you should find all supported types can be
 //! de/serialized.
 //!
+//! Note that integer keys are reserved for array indices. That is, a string of
+//! the form `a[0]=1&a[1]=3` will deserialize to the ordered sequence `a =
+//! [1,3]`.
+//!
 //! ## Usage
 //!
 //! See the examples folder for a more detailed introduction.
