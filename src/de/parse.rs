@@ -346,7 +346,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                 },
                 b'[' => {
                     if let Level::Invalid(_) = *node {
-                        *node = Level::Nested(BTreeMap::default());
+                        *node = Level::OrderedSeq(BTreeMap::default());
                     }
                     if let Level::OrderedSeq(ref mut map) = *node {
                         self.depth -= 1;
@@ -398,7 +398,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
 
                             },
                             // First character is an integer, attempt to parse it as an integer key
-                            0x30...0x39 => {
+                            b'0'...b'9' => {
                                 let key = self.parse_key(b']', true)?;
                                 let key = usize::from_str_radix(&key, 10).map_err(Error::from)?;
                                 self.parse_ord_seq_value(key, node)?;
@@ -419,6 +419,8 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                     },
                     // This means the key should be a root key
                     // of the form "abc" or "abc[...]"
+                    // We do actually allow integer keys here since they cannot
+                    // be confused with sequences
                     0x20...0x5a | 0x5c...0x7e => {
                         let key = self.parse_key(b'[', false)?;
                         self.parse_map_value(key, node)?;

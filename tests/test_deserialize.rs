@@ -360,3 +360,22 @@ fn deserialize_enum() {
     let rec_params: E = qs::from_str(params).unwrap();
     assert_eq!(rec_params, E::S("Hello World".to_string()));
 }
+
+#[test]
+fn seq_of_struct() {
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Test {
+        a: u8
+    }
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        b: Vec<Test>,
+    }
+
+    let params = "b[0][a]=1&b[1][a]=2";
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params,
+        Query { b: vec![Test { a: 1 }, Test { a: 2 }] }
+    );
+}
