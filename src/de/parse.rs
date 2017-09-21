@@ -277,7 +277,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                     }
                     if let Level::Nested(ref mut map) = *node {
                         self.depth -= 1;
-                        self.parse(map.entry(key)
+                        let _ = self.parse(map.entry(key)
                                 .or_insert(Level::Invalid("uninitialised")))?;
                         Ok(())
                     } else {
@@ -301,7 +301,11 @@ impl<I: Iterator<Item = u8>> Parser<I> {
             b'=' => {
                 self.acc.clear();
                 for b in self.inner.by_ref().take_while(|b| b != &b'&') {
-                    self.acc.push(b);
+                    if b == b'+' {
+                        self.acc.push(b' ');
+                    } else {
+                        self.acc.push(b);
+                    }
                 }
                 let value = String::from_utf8(self.acc.split_off(0));
                 let value = value.map_err(Error::from)?;
@@ -350,7 +354,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                     }
                     if let Level::OrderedSeq(ref mut map) = *node {
                         self.depth -= 1;
-                        self.parse(map.entry(key)
+                        let _ = self.parse(map.entry(key)
                                 .or_insert(Level::Invalid("uninitialised")))?;
                         Ok(())
                     } else {
