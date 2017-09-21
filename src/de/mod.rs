@@ -523,8 +523,8 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
             Level::Flat(_) => {
                 visitor.visit_enum(self)
             },
-            _ => {
-                Err(de::Error::custom("value does not appear to be a sequence"))
+            x => {
+                Err(de::Error::custom(format!("{:?} does not appear to be an enum", x)))
             },
         }
     }

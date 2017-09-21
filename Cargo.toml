@@ -7,7 +7,8 @@ keywords = ["serde", "serialization", "querystring"]
 license = "MIT/Apache-2.0"
 name = "serde_qs"
 repository = "https://github.com/samscott89/serde_qs"
-version = "0.2.1"
+readme = "README.md"
+version = "0.2.2"
 
 [badges]
 
