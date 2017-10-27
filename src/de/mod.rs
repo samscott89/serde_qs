@@ -139,6 +139,14 @@ enum Level {
     Invalid(&'static str),
 }
 
+impl Level {
+    fn decode_to_string(bytes: &[u8]) -> String {
+        let decoded = percent_encoding::percent_decode(bytes);
+        decoded.decode_utf8_lossy().into_owned()
+    }
+}
+
+
 impl QsDeserializer {
     fn with_map(map: BTreeMap<String, Level>) -> Self {
         QsDeserializer {
@@ -149,8 +157,7 @@ impl QsDeserializer {
 
     /// Returns a new `QsDeserializer`.
     pub fn with_config(config: &Config, input: &[u8]) -> Self {
-        let decoded = percent_encoding::percent_decode(input);
-        parse::Parser::new(decoded, vec![], None, config.max_depth()).as_deserializer()
+        parse::Parser::new(input, vec![], None, config.max_depth()).as_deserializer()
 
     }
 }
