@@ -1,4 +1,5 @@
 use serde::de;
+use std::io::Cursor;
 
 use super::*;
 
@@ -93,43 +94,45 @@ macro_rules! tu {
 use std::iter::Iterator;
 use std::str;
 
-pub struct Parser<I: Iterator<Item = u8>> {
-    inner: I,
+pub struct Parser<'a> {
+    inner: Cursor<&'a [u8]>,
     acc: Vec<u8>,
     peeked: Option<u8>,
     depth: usize,
 }
 
-impl<I: Iterator<Item = u8>> Iterator for Parser<I> {
+impl<'a> Iterator for Parser<'a> {
     type Item = u8;
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+        let pos = self.inner.position();
+        let out = self.inner.get_ref().get(pos as usize).map(|x| *x);
+        self.inner.set_position(pos + 1);
+        out
     }
 }
 
-
-fn insert_into_map(node: &mut Level, key: String, value: String) {
+fn insert_into_map(node: &mut Level, key: Vec<u8>, value: Vec<u8>) {
     if let Level::Nested(ref mut map) = *node {
-        match map.entry(key) {
+        match map.entry(Level::decode_to_string(&key)) {
             Entry::Occupied(mut o) => {
                 // Throw away old result; map is now invalid anyway.
                 let _ = o.insert(Level::Invalid("Multiple values for one key"));
             },
             Entry::Vacant(vm) => {
                 // Map is empty, result is None
-                let _ = vm.insert(Level::Flat(value));
+                let _ = vm.insert(Level::Flat(Level::decode_to_string(&value)));
             },
         }
     } else  {
         // To reach here, node is either an Nested or nothing.
         let mut map = BTreeMap::default();
-        let _ = map.insert(key, Level::Flat(value));
+        let _ = map.insert(Level::decode_to_string(&key), Level::Flat(Level::decode_to_string(&value)));
         *node = Level::Nested(map);
     }
 }
 
-fn insert_into_ord_seq(node: &mut Level, key: usize, value: String) {
+fn insert_into_ord_seq(node: &mut Level, key: usize, value: Vec<u8>) {
     if let Level::OrderedSeq(ref mut map) = *node {
         match map.entry(key) {
             Entry::Occupied(mut o) => {
@@ -138,21 +141,21 @@ fn insert_into_ord_seq(node: &mut Level, key: usize, value: String) {
             },
             Entry::Vacant(vm) => {
                 // Map is empty, result is None
-                let _ = vm.insert(Level::Flat(value));
+                let _ = vm.insert(Level::Flat(Level::decode_to_string(&value)));
             },
         }
     } else {
         // To reach here, node is either an OrderedSeq or nothing.
         let mut map = BTreeMap::default();
-        let _ = map.insert(key, Level::Flat(value));
+        let _ = map.insert(key, Level::Flat(Level::decode_to_string(&value)));
         *node = Level::OrderedSeq(map);
     }
 }
 
-impl<I: Iterator<Item = u8>> Parser<I> {
-    pub fn new(inner: I, acc: Vec<u8>, peeked: Option<u8>, depth: usize) -> Self {
+impl<'a> Parser<'a> {
+    pub fn new(inner: &'a [u8], acc: Vec<u8>, peeked: Option<u8>, depth: usize) -> Self {
         Parser {
-            inner, acc, peeked, depth
+            inner: Cursor::new(inner), acc, peeked, depth
         }
     }
 
@@ -178,7 +181,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
     fn peek(&mut self) -> Option<<Self as Iterator>::Item> {
         if !self.acc.is_empty() {
             self.peeked
-        } else if let Some(x) = self.inner.next() {
+        } else if let Some(x) = self.next() {
             self.acc.push(x);
             self.peeked = Some(x);
             Some(x)
@@ -190,45 +193,39 @@ impl<I: Iterator<Item = u8>> Parser<I> {
     fn parse_key(&mut self,
                  end_on: u8,
                  consume: bool)
-                 -> Result<String> {
+                 -> Result<Vec<u8>> {
         loop {
             if let Some(x) = self.next() {
                 match x {
                     x if x == end_on => {
-                        let res = String::from_utf8(self.acc.split_off(0));
-                        self.acc.clear();
-
+                        let res = self.acc.split_off(0);
                         // Add this character back to the buffer for peek.
                         if !consume {
                             self.acc.push(x);
                             self.peeked = Some(x);
                         }
-                        return res.map_err(Error::from);
+                        return Ok(res);
                     },
                     b'=' => {
                         // Allow the '=' byte when parsing keys within []
                         if end_on == b']' {
                             self.acc.push(b'=');
                         } else {
-                            let res = String::from_utf8(self.acc.split_off(0));
-                            self.acc.clear();
-
+                            let res = self.acc.split_off(0);
                             // Add this character back to the buffer for peek.
                             self.acc.push(b'=');
                             self.peeked = Some(b'=');
-
-                            return res.map_err(Error::from);
+                            return Ok(res);
                         }
                     },
                     b' ' => {
                         self.acc.push(b' ');
                     },
                     b'&' => {
-                        let res = String::from_utf8(self.acc.split_off(0));
-                        self.acc.clear();
+                        let res = self.acc.split_off(0);
                         self.acc.push(b'&');
                         self.peeked = Some(b'&');
-                        return res.map_err(Error::from);
+                        return Ok(res);
                     },
                     x @ 0x20...0x7e => {
                         self.acc.push(x);
@@ -239,36 +236,36 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                     },
                 }
             } else {
-                let res = String::from_utf8(self.acc.split_off(0));
-                self.acc.clear();
-                return res.map_err(Error::from);
+                let res = self.acc.split_off(0);
+                return Ok(res);
             }
         }
     }
 
     fn parse_map_value(&mut self,
-                       key: String,
+                       key: Vec<u8>,
                        node: &mut Level)
                        -> Result<()> {
         if let Some(x) = self.peek() {
             match x {
                 b'=' => {
                     self.acc.clear();
-                    for b in self.inner.by_ref().take_while(|b| b != &b'&') {
+
+                    let mut value = Vec::new();
+
+                    for b in self.take_while(|b| b != &b'&') {
                         if b == b'+' {
-                            self.acc.push(b' ');
+                            value.push(b' ');
                         } else {
-                            self.acc.push(b);
+                            value.push(b);
                         }
                     }
-                    let value = String::from_utf8(self.acc.split_off(0));
-                    let value = value.map_err(Error::from)?;
                     // Reached the end of the key string
                     insert_into_map(node, key, value);
                     Ok(())
                 },
                 b'&' => {
-                    insert_into_map(node, key, "".to_string());
+                    insert_into_map(node, key, Vec::new());
                     Ok(())
                 },
                 b'[' => {
@@ -277,7 +274,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                     }
                     if let Level::Nested(ref mut map) = *node {
                         self.depth -= 1;
-                        let _ = self.parse(map.entry(key)
+                        let _ = self.parse(map.entry(Level::decode_to_string(&key))
                                 .or_insert(Level::Invalid("uninitialised")))?;
                         Ok(())
                     } else {
@@ -291,7 +288,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                 },
             }
         } else {
-            insert_into_map(node, key, "".to_string());
+            insert_into_map(node, key, Vec::new());
             Ok(())
         }
     }
@@ -300,21 +297,23 @@ impl<I: Iterator<Item = u8>> Parser<I> {
         match tu!(self.peek()) {
             b'=' => {
                 self.acc.clear();
-                for b in self.inner.by_ref().take_while(|b| b != &b'&') {
+
+                let mut value = Vec::new();
+
+                for b in self.take_while(|b| b != &b'&') {
                     if b == b'+' {
-                        self.acc.push(b' ');
+                        value.push(b' ');
                     } else {
-                        self.acc.push(b);
+                        value.push(b);
                     }
                 }
-                let value = String::from_utf8(self.acc.split_off(0));
-                let value = value.map_err(Error::from)?;
+
                 // Reached the end of the key string
                 if let Level::Sequence(ref mut seq) = *node {
-                    seq.push(Level::Flat(value));
+                    seq.push(Level::Flat(Level::decode_to_string(&value)));
                 } else {
                     let mut seq = Vec::new();
-                    seq.push(Level::Flat(value));
+                    seq.push(Level::Flat(Level::decode_to_string(&value)));
                     *node = Level::Sequence(seq);
                 }
                 Ok(())
@@ -331,21 +330,23 @@ impl<I: Iterator<Item = u8>> Parser<I> {
             match x {
                 b'=' => {
                     self.acc.clear();
-                    for b in self.inner.by_ref().take_while(|b| b != &b'&') {
+                    
+                    let mut value = Vec::new();
+                    
+                    for b in self.take_while(|b| b != &b'&') {
                         if b == b'+' {
-                            self.acc.push(b' ');
+                            value.push(b' ');
                         } else {
-                            self.acc.push(b);
+                            value.push(b);
                         }
                     }
-                    let value = String::from_utf8(self.acc.split_off(0));
-                    let value = value.map_err(Error::from)?;
+
                     // Reached the end of the key string
                     insert_into_ord_seq(node, key, value);
                     Ok(())
                 },
                 b'&' => {
-                    insert_into_ord_seq(node, key, "".to_string());
+                    insert_into_ord_seq(node, key, Vec::new());
                     Ok(())
                 },
                 b'[' => {
@@ -368,7 +369,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                 },
             }
         } else {
-            insert_into_ord_seq(node, key, "".to_string());
+            insert_into_ord_seq(node, key, Vec::new());
             Ok(())
         }
     }
@@ -404,6 +405,7 @@ impl<I: Iterator<Item = u8>> Parser<I> {
                             // First character is an integer, attempt to parse it as an integer key
                             b'0'...b'9' => {
                                 let key = self.parse_key(b']', true)?;
+                                let key = String::from_utf8(key)?;
                                 let key = usize::from_str_radix(&key, 10).map_err(Error::from)?;
                                 self.parse_ord_seq_value(key, node)?;
                                 self.depth += 1;

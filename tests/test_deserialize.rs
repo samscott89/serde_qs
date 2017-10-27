@@ -172,6 +172,12 @@ fn qs_test_simple() {
     );
     // st.end();
     // });
+
+    map_test!("foo=%24", "foo"["$"]);
+
+    map_test!("foo=%26", "foo"["&"]);
+
+    
 }
 
 
