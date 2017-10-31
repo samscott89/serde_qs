@@ -379,3 +379,10 @@ fn seq_of_struct() {
         Query { b: vec![Test { a: 1 }, Test { a: 2 }] }
     );
 }
+
+#[test]
+fn correct_decoding() {
+    map_test!("foo=%24", "foo"["$"]);
+    
+    map_test!("foo=%26", "foo"["&"]);
+}

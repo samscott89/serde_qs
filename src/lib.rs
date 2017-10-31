@@ -78,7 +78,6 @@
     dead_code,
     deprecated,
     exceeding_bitshifts,
-    fat_ptr_transmutes,
     improper_ctypes,
     missing_docs,
     mutable_transmutes,
@@ -124,6 +123,7 @@
 extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
+extern crate percent_encoding;
 #[macro_use]
 extern crate serde;
 extern crate url;
@@ -135,7 +135,7 @@ mod ser;
 pub use error::Error;
 
 #[doc(inline)]
-pub use de::{QsDeserializer, from_bytes, from_reader, from_str};
+pub use de::{QsDeserializer, from_bytes, from_str};
 #[doc(inline)]
 pub use de::Config;
 #[doc(inline)]

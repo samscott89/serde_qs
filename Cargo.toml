@@ -21,9 +21,10 @@ error-chain = "0.11.0"
 dtoa = "0.4.0"
 fnv = "1.0.3"
 itoa = "0.3.0"
+percent-encoding = "1.0.0"
 serde = "1.0.1"
 serde_derive = "1.0.1"
-url = "1.0.0"
+url = "1.4.0"
 
 [dev-dependencies]
 csv = "0.15"

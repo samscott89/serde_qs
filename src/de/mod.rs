@@ -46,10 +46,8 @@ use error::*;
 use serde::de;
 use serde::de::IntoDeserializer;
 
-use url::percent_encoding;
-
+use std::borrow::Cow;
 use std::collections::btree_map::{BTreeMap, Entry, IntoIter};
-use std::io::Read;
 
 /// Deserializes a querystring from a `&[u8]`.
 ///
@@ -77,7 +75,7 @@ use std::io::Read;
 ///     ).unwrap(), q);
 /// # }
 /// ```
-pub fn from_bytes<'de, T: de::Deserialize<'de>>(input: &[u8]) -> Result<T> {
+pub fn from_bytes<'de, T: de::Deserialize<'de>>(input: &'de [u8]) -> Result<T> {
     Config::default().deserialize_bytes(input)
 }
 
@@ -106,56 +104,43 @@ pub fn from_bytes<'de, T: de::Deserialize<'de>>(input: &[u8]) -> Result<T> {
 ///     q);
 /// # }
 /// ```
-pub fn from_str<'de, T: de::Deserialize<'de>>(input: &str) -> Result<T> {
+pub fn from_str<'de, T: de::Deserialize<'de>>(input: &'de str) -> Result<T> {
     from_bytes(input.as_bytes())
-}
-
-/// Convenience function that reads all bytes from `reader` and deserializes
-/// them with `from_bytes`.
-pub fn from_reader<'de, T, R>(mut reader: R) -> Result<T>
-    where T: de::Deserialize<'de>,
-          R: Read,
-{
-    let mut buf = vec![];
-    let _ = reader.read_to_end(&mut buf)
-        .map_err(Error::from)?;
-    from_bytes(&buf)
 }
 
 /// A deserializer for the querystring format.
 ///
 /// Supported top-level outputs are structs and maps.
-pub struct QsDeserializer {
-    iter: IntoIter<String, Level>,
-    value: Option<Level>,
+pub struct QsDeserializer<'a> {
+    iter: IntoIter<Cow<'a, str>, Level<'a>>,
+    value: Option<Level<'a>>,
 }
 
 #[derive(Debug)]
-enum Level {
-    Nested(BTreeMap<String, Level>),
-    OrderedSeq(BTreeMap<usize, Level>),
-    Sequence(Vec<Level>),
-    Flat(String),
+enum Level<'a> {
+    Nested(BTreeMap<Cow<'a, str>, Level<'a>>),
+    OrderedSeq(BTreeMap<usize, Level<'a>>),
+    Sequence(Vec<Level<'a>>),
+    Flat(Cow<'a, str>),
     Invalid(&'static str),
+    Uninitialised,
 }
 
-impl QsDeserializer {
-    fn with_map(map: BTreeMap<String, Level>) -> Self {
+impl<'a> QsDeserializer<'a> {
+    fn with_map(map: BTreeMap<Cow<'a, str>, Level<'a>>) -> Self {
         QsDeserializer {
             iter: map.into_iter(),
             value: None,
         }
     }
 
-    /// Returns a new `QsDeserializer`.
-    pub fn with_config(config: &Config, input: &[u8]) -> Self {
-        let decoded = percent_encoding::percent_decode(input);
-        parse::Parser::new(decoded, vec![], None, config.max_depth()).as_deserializer()
-
+    /// Returns a new `QsDeserializer<'a>`.
+    pub fn with_config(config: &Config, input: &'a [u8]) -> Self {
+        parse::Parser::new(input, config.max_depth()).as_deserializer()
     }
 }
 
-impl<'de> de::Deserializer<'de> for QsDeserializer {
+impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     type Error = Error;
 
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
@@ -263,7 +248,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer {
     }
 }
 
-impl<'de> de::MapAccess<'de> for QsDeserializer {
+impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
@@ -288,7 +273,7 @@ impl<'de> de::MapAccess<'de> for QsDeserializer {
     }
 }
 
-impl<'de> de::EnumAccess<'de> for QsDeserializer {
+impl<'de> de::EnumAccess<'de> for QsDeserializer<'de> {
     type Error = Error;
     type Variant = Self;
 
@@ -304,7 +289,7 @@ impl<'de> de::EnumAccess<'de> for QsDeserializer {
     }
 }
 
-impl<'de> de::VariantAccess<'de> for QsDeserializer {
+impl<'de> de::VariantAccess<'de> for QsDeserializer<'de> {
     type Error = Error;
     fn unit_variant(self) -> Result<()> {
         Ok(())
@@ -351,7 +336,7 @@ impl<'de> de::VariantAccess<'de> for QsDeserializer {
     }
 }
 
-impl<'de> de::EnumAccess<'de> for LevelDeserializer {
+impl<'de> de::EnumAccess<'de> for LevelDeserializer<'de> {
     type Error = Error;
     type Variant = Self;
 
@@ -370,7 +355,7 @@ impl<'de> de::EnumAccess<'de> for LevelDeserializer {
     }
 }
 
-impl<'de> de::VariantAccess<'de> for LevelDeserializer {
+impl<'de> de::VariantAccess<'de> for LevelDeserializer<'de> {
     type Error = Error;
     fn unit_variant(self) -> Result<()> {
         Ok(())
@@ -406,9 +391,9 @@ impl<'de> de::VariantAccess<'de> for LevelDeserializer {
     }
 }
 
-struct LevelSeq<I: Iterator<Item=Level>>(I);
+struct LevelSeq<'a, I: Iterator<Item=Level<'a>>>(I);
 
-impl<'de, I: Iterator<Item=Level>> de::SeqAccess<'de> for LevelSeq<I> {
+impl<'de, I: Iterator<Item=Level<'de>>> de::SeqAccess<'de> for LevelSeq<'de, I> {
     type Error = Error;
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
         where T: de::DeserializeSeed<'de>
@@ -423,7 +408,7 @@ impl<'de, I: Iterator<Item=Level>> de::SeqAccess<'de> for LevelSeq<I> {
 
 
 
-struct LevelDeserializer(Level);
+struct LevelDeserializer<'a>(Level<'a>);
 
 macro_rules! deserialize_primitive {
     ($ty:ident, $method:ident, $visit_method:ident) => (
@@ -448,14 +433,17 @@ macro_rules! deserialize_primitive {
                 },
                 Level::Invalid(e) => {
                     Err(de::Error::custom(e))
-                }
+                },
+                Level::Uninitialised => {
+                    Err(de::Error::custom("attempted to deserialize unitialised value"))
+                },
             }
         }
     )
 }
 
-impl LevelDeserializer {
-    fn into_deserializer(self) -> Result<QsDeserializer> {
+impl<'a> LevelDeserializer<'a> {
+    fn into_deserializer(self) -> Result<QsDeserializer<'a>> {
         match self.0 {
             Level::Nested(map) => {
                 Ok(QsDeserializer::with_map(map))
@@ -464,13 +452,13 @@ impl LevelDeserializer {
                 Err(de::Error::custom(e))
             },
             l => {
-                Err(de::Error::custom(format!("could not convert {:?} to QsDeserializer", l)))
+                Err(de::Error::custom(format!("could not convert {:?} to QsDeserializer<'a>", l)))
             },
         }
     }
 }
 
-impl<'de> de::Deserializer<'de> for LevelDeserializer {
+impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
@@ -487,10 +475,16 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
                 visitor.visit_seq(LevelSeq(seq.into_iter()))
             },
             Level::Flat(x) => {
-                visitor.visit_string(x)
+                match x {
+                    Cow::Owned(s) => visitor.visit_string(s),
+                    Cow::Borrowed(s) => visitor.visit_borrowed_str(s),
+                }
             },
             Level::Invalid(e) => {
                 Err(de::Error::custom(e))
+            },
+            Level::Uninitialised => {
+                Err(de::Error::custom("attempted to deserialize unitialised value"))
             }
         }
     }
@@ -553,7 +547,10 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer {
             },
             Level::Invalid(e) => {
                 Err(de::Error::custom(e))
-            }
+            },
+            Level::Uninitialised => {
+                Err(de::Error::custom("attempted to deserialize unitialised value"))
+            },
         }
     }
 
@@ -605,9 +602,9 @@ macro_rules! forward_parsable_to_deserialize_any {
 }
 
 
-struct ParsableStringDeserializer(String);
+struct ParsableStringDeserializer<'a>(Cow<'a, str>);
 
-impl<'de> de::Deserializer<'de> for ParsableStringDeserializer {
+impl<'de> de::Deserializer<'de> for ParsableStringDeserializer<'de> {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
