@@ -386,3 +386,23 @@ fn correct_decoding() {
     
     map_test!("foo=%26", "foo"["&"]);
 }
+
+#[test]
+fn returns_errors() {
+    #[derive(Debug,Serialize,Deserialize,PartialEq)]
+    struct Query {
+        vec: Vec<u32>
+    }
+
+    let params: Result<Query, _> = qs::from_str("vec[[]=a&vec[]=2");
+    assert!(params.is_err());
+    println!("{}", params.unwrap_err());
+
+    let params: Result<Query, _> = qs::from_str("vec[\x00[]=a&vec[]=2");
+    assert!(params.is_err());
+    println!("{}", params.unwrap_err());
+
+    let params: Result<Query, _> = qs::from_str("vec[0]=a&vec[0]=2");
+    assert!(params.is_err());
+    println!("{}", params.unwrap_err());
+}

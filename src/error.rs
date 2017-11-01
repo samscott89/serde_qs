@@ -10,6 +10,10 @@ use std::string;
 error_chain! {
     errors { 
         Custom(msg: String)
+        Parse(msg: String, pos: (usize, usize)) {
+            description("parsing failure")
+            display("parsing failed with error: '{}' at position: {:?}", msg, pos)
+        }
         Unsupported
     }
 
@@ -17,17 +21,23 @@ error_chain! {
         Decoding(data_encoding::decode::Error);
         FromUtf8(string::FromUtf8Error);
         Io(io::Error);
-        Parse(num::ParseIntError);
+        ParseInt(num::ParseIntError);
         Utf8(str::Utf8Error);
     }
 }
 
 impl Error {
     /// Generate error to show top-level type cannot be deserialized.
-    pub fn top_level(object: &'static str) -> Error {
+    pub fn top_level(object: &'static str) -> Self {
         ErrorKind::Custom(format!("cannot deserialize {} at the top level.\
                            Try deserializing into a struct.", object)).into()
 
+    }
+
+    /// Generate a parsing error message with position.
+    pub fn parse_err<T>(msg: T, position: (usize, usize)) -> Self
+        where T: Display {
+        ErrorKind::Parse(msg.to_string(), position).into()
     }
 }
 
