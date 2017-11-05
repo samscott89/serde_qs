@@ -18,7 +18,7 @@ error_chain! {
     }
 
     foreign_links {
-        Decoding(data_encoding::decode::Error);
+        Decoding(data_encoding::DecodeError);
         FromUtf8(string::FromUtf8Error);
         Io(io::Error);
         ParseInt(num::ParseIntError);

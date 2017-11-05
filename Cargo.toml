@@ -16,7 +16,7 @@ version = "0.3.0"
 repository = "samscott89/serde_qs"
 
 [dependencies]
-data-encoding = "1.2"
+data-encoding = "2.0"
 error-chain = "0.11.0"
 dtoa = "0.4.0"
 fnv = "1.0.3"
