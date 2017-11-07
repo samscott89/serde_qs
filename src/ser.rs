@@ -1,7 +1,7 @@
 
 //! Serialization support for querystrings.
 
-use data_encoding::base64url as base64;
+use data_encoding::BASE64URL_NOPAD as BASE64;
 use serde::ser;
 use url::form_urlencoded::Serializer as UrlEncodedSerializer;
 use url::form_urlencoded::Target as UrlEncodedTarget;
@@ -131,7 +131,7 @@ impl<'a, Target: 'a + UrlEncodedTarget> ser::Serializer for &'a mut QsSerializer
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok> {
-        self.write_value(&base64::encode_nopad(value))
+        self.write_value(&BASE64.encode(value))
     }
 
 
@@ -436,7 +436,7 @@ impl ser::Serializer for StringSerializer {
 
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok> {
-        Ok(base64::encode_nopad(value))
+        Ok(BASE64.encode(value))
     }
 
     /// Returns an error.
