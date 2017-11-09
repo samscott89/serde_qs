@@ -143,9 +143,7 @@ fn main() {
         e: AdjTaggedEnum,
     }
 
-    let example_params = EnumQuery {
-        e: AdjTaggedEnum::B(false),
-    };
+    let example_params = EnumQuery { e: AdjTaggedEnum::B(false) };
     // encodes as:
     //   "e[B]=false"
     let encoded = qs::to_string(&example_params).unwrap();
@@ -154,9 +152,7 @@ fn main() {
     println!("`serde_qs` from_str for enum:\n\t{:?}", params);
     println!("");
 
-    let example_params = EnumQuery {
-        e: AdjTaggedEnum::A,
-    };
+    let example_params = EnumQuery { e: AdjTaggedEnum::A };
     // encodes as:
     //   "e=A"
     let encoded = qs::to_string(&example_params).unwrap();

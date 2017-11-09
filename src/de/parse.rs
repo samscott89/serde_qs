@@ -1,3 +1,5 @@
+use super::*;
+
 use percent_encoding;
 use serde::de;
 
@@ -5,8 +7,6 @@ use std::borrow::Cow;
 use std::iter::Iterator;
 use std::slice::Iter;
 use std::str;
-
-use super::*;
 
 
 macro_rules! tu {
@@ -29,19 +29,21 @@ impl<'a> Level<'a> {
             match map.entry(key) {
                 Entry::Occupied(mut o) => {
                     // Throw away old result; map is now invalid anyway.
-                    let _ = o.insert(Level::Invalid("Multiple values for one key"));
+                    let _ =
+                        o.insert(Level::Invalid("Multiple values for one key"));
                 },
                 Entry::Vacant(vm) => {
                     // Map is empty, result is None
                     let _ = vm.insert(Level::Flat(value));
                 },
             }
-        } else if let Level::Uninitialised = *self  {
+        } else if let Level::Uninitialised = *self {
             let mut map = BTreeMap::default();
             let _ = map.insert(key, Level::Flat(value));
             *self = Level::Nested(map);
         } else {
-            *self = Level::Invalid("Attempted to insert map value into non-map structure");
+            *self = Level::Invalid("Attempted to insert map value into \
+                                    non-map structure");
         }
     }
 
@@ -51,20 +53,22 @@ impl<'a> Level<'a> {
             match map.entry(key) {
                 Entry::Occupied(mut o) => {
                     // Throw away old result; map is now invalid anyway.
-                    let _ = o.insert(Level::Invalid("Multiple values for one key"));
+                    let _ =
+                        o.insert(Level::Invalid("Multiple values for one key"));
                 },
                 Entry::Vacant(vm) => {
                     // Map is empty, result is None
                     let _ = vm.insert(Level::Flat(value));
                 },
             }
-        } else if let Level::Uninitialised = *self  {
+        } else if let Level::Uninitialised = *self {
             // To reach here, self is either an OrderedSeq or nothing.
             let mut map = BTreeMap::default();
             let _ = map.insert(key, Level::Flat(value));
             *self = Level::OrderedSeq(map);
         } else {
-            *self = Level::Invalid("Attempted to insert seq value into non-seq structure");
+            *self = Level::Invalid("Attempted to insert seq value into \
+                                    non-seq structure");
         }
     }
 
@@ -81,7 +85,8 @@ impl<'a> Level<'a> {
             seq.push(Level::Flat(value));
             *self = Level::Sequence(seq);
         } else {
-            *self = Level::Invalid("Attempted to insert seq value into non-seq structure");
+            *self = Level::Invalid("Attempted to insert seq value into \
+                                    non-seq structure");
         }
     }
 }
@@ -113,10 +118,10 @@ impl<'a> Iterator for Parser<'a> {
                     self.index += 1;
                     self.acc.1 += 1;
                     self.iter.next()
-                }
+                },
             }
         } else {
-            // in non-strict mode, we will happily decode any bracket 
+            // in non-strict mode, we will happily decode any bracket
             match self.peeked.take() {
                 Some(v) => Some(v),
                 None => {
@@ -139,15 +144,13 @@ impl<'a> Iterator for Parser<'a> {
                                     self.index += 2;
                                     Some(&b']')
                                 },
-                                _ => {
-                                    Some(v)
-                                }
+                                _ => Some(v),
                             }
-                        }
+                        },
                         Some(v) => Some(v),
                         None => None,
                     }
-                }
+                },
             }
         }
     }
@@ -180,8 +183,9 @@ fn replace_plus(input: Cow<str>) -> Cow<str> {
                     *byte = b' ';
                 }
             }
-            Cow::Owned(String::from_utf8(replaced).expect("replacing '+' with ' ' cannot panic"))
-        }
+            Cow::Owned(String::from_utf8(replaced)
+                .expect("replacing '+' with ' ' cannot panic"))
+        },
     }
 }
 
@@ -193,8 +197,8 @@ impl<'a> Parser<'a> {
             acc: (0, 0),
             index: 0,
             peeked: None,
-            depth,
-            strict,
+            depth: depth,
+            strict: strict,
         }
     }
 
@@ -204,11 +208,13 @@ impl<'a> Parser<'a> {
     }
 
     /// Extracts a string from the internal byte slice from the range tracked by
-    /// the parser. 
+    /// the parser.
     /// Avoids allocations when neither percent encoded, nor `'+'` values are
     /// present.
     fn collect_str(&mut self) -> Result<Cow<'a, str>> {
-        let res: Cow<'a, str> = percent_encoding::percent_decode(&self.inner[self.acc.0..self.acc.1 - 1]).decode_utf8()?;
+        let res: Cow<'a, str> =
+            percent_encoding::percent_decode(&self.inner[self.acc.0..
+                                              self.acc.1 - 1]).decode_utf8()?;
         let res: Result<Cow<'a, str>> = Ok(replace_plus(res));
         self.clear_acc();
         res.map_err(Error::from)
@@ -221,11 +227,11 @@ impl<'a> Parser<'a> {
         let mut root = Level::Nested(map);
 
         // Parses all top level nodes into the `root` map.
-        while self.parse(&mut root)? { }
+        while self.parse(&mut root)? {}
 
         let iter = match root {
             Level::Nested(map) => map.into_iter(),
-            _ => BTreeMap::default().into_iter()
+            _ => BTreeMap::default().into_iter(),
         };
         Ok(QsDeserializer {
             iter: iter,
@@ -258,7 +264,7 @@ impl<'a> Parser<'a> {
                                 b'[' => {
                                     // If we're in strict mode, error, otherwise just ignore it.
                                     if self.strict {
-                                        return Err(super::Error::parse_err("found another opening bracket before the closed bracket", self.index))
+                                        return Err(super::Error::parse_err("found another opening bracket before the closed bracket", self.index));
                                     } else {
                                         let _ = self.next();
                                     }
@@ -277,16 +283,17 @@ impl<'a> Parser<'a> {
                                     let key = usize::from_str_radix(&key, 10).map_err(Error::from)?;
                                     self.parse_ord_seq_value(key, node)?;
                                     return Ok(true);
-                                }
+                                },
                                 // Key is "[a..." so parse up to the closing "]"
-                                0x20...0x2f | 0x3a...0x5a | 0x5c | 0x5e...0x7e => {
+                                0x20...0x2f | 0x3a...0x5a | 0x5c |
+                                0x5e...0x7e => {
                                     let key = self.parse_key(b']', true)?;
                                     self.parse_map_value(key, node)?;
                                     return Ok(true);
                                 },
                                 c => {
                                     if self.strict {
-                                        return Err(super::Error::parse_err(&format!("unexpected character: {}", String::from_utf8_lossy(&[c])), self.index))
+                                        return Err(super::Error::parse_err(&format!("unexpected character: {}", String::from_utf8_lossy(&[c])), self.index));
                                     } else {
                                         let _ = self.next();
                                     }
@@ -319,14 +326,11 @@ impl<'a> Parser<'a> {
     /// or `']'` when the key is a nested key. In the former case, `'='` will
     /// also finish the key parsing.
     ///
-    /// The `consume` flag determines whether the end character should be 
+    /// The `consume` flag determines whether the end character should be
     /// returned to the buffer to be peeked. This is important when
-    /// parsing keys like `abc[def][ghi]` since the `'['` character is 
+    /// parsing keys like `abc[def][ghi]` since the `'['` character is
     /// needed to for the next iteration of `parse`.
-    fn parse_key(&mut self,
-                 end_on: u8,
-                 consume: bool)
-                 -> Result<Cow<'a, str>> {
+    fn parse_key(&mut self, end_on: u8, consume: bool) -> Result<Cow<'a, str>> {
         loop {
             if let Some(x) = self.next() {
                 match *x {
@@ -401,22 +405,22 @@ impl<'a> Parser<'a> {
                             // Either take the existing entry, or add a new
                             // unitialised level
                             // Use this new node to keep parsing
-                            let _ = self.parse(
-                                map.entry(key).or_insert(Level::Uninitialised)
-                            )?;
+                            let _ = self.parse(map.entry(key)
+                                    .or_insert(Level::Uninitialised))?;
                             break Ok(());
                         } else {
                             // We expected to parse into a map here.
                             break Err(super::Error::parse_err(&format!("tried to insert a \
                                                            new key into {:?}",
-                                                          node), self.index));
+                                                                       node),
+                                                              self.index));
                         }
                     },
                     c => {
                         // Anything else is unexpected since we just finished
                         // parsing a key.
                         if self.strict {
-                            break Err(super::Error::parse_err(format!("Unexpected character: '{}' found when parsing", String::from_utf8_lossy(&[c])), self.index))
+                            break Err(super::Error::parse_err(format!("Unexpected character: '{}' found when parsing", String::from_utf8_lossy(&[c])), self.index));
                         } else {
                             let _ = self.next();
                         }
@@ -429,7 +433,7 @@ impl<'a> Parser<'a> {
             }
         };
         // We have finished parsing this level, so go back up a level.
-        self.depth +=1;
+        self.depth += 1;
         res
     }
 
@@ -437,7 +441,10 @@ impl<'a> Parser<'a> {
     /// ordered sequence.
     /// Basically the same as the above, but we insert into `OrderedSeq`
     /// Can potentially be merged?
-    fn parse_ord_seq_value(&mut self, key: usize, node: &mut Level<'a>) -> Result<()> {
+    fn parse_ord_seq_value(&mut self,
+                           key: usize,
+                           node: &mut Level<'a>)
+                           -> Result<()> {
         let res = loop {
             if let Some(x) = self.peek() {
                 match *x {
@@ -448,12 +455,12 @@ impl<'a> Parser<'a> {
                         let value = self.collect_str()?;
                         // Reached the end of the key string
                         node.insert_ord_seq_value(key, value);
-                        break Ok(())
+                        break Ok(());
                     },
                     b'&' => {
                         // No value
                         node.insert_ord_seq_value(key, Cow::Borrowed(""));
-                        break Ok(())
+                        break Ok(());
                     },
                     b'[' => {
                         // The key continues to another level of nested.
@@ -469,19 +476,22 @@ impl<'a> Parser<'a> {
                                 // unitialised level
                                 // Use this new node to keep parsing
                                 map.entry(key).or_insert(Level::Uninitialised))?;
-                            break Ok(())
+                            break Ok(());
                         } else {
                             // We expected to parse into a seq here.
                             break Err(super::Error::parse_err(&format!("tried to insert a \
                                                            new key into {:?}",
-                                                          node), self.index))
+                                                                       node),
+                                                              self.index));
                         }
                     },
                     c => {
                         // Anything else is unexpected since we just finished
                         // parsing a key.
                         if self.strict {
-                            break Err(super::Error::parse_err(format!("Unexpected character: {:?} found when parsing", c), self.index))
+                            break Err(super::Error::parse_err(format!("Unexpected character: {:?} found when parsing",
+                                                                      c),
+                                                              self.index));
                         } else {
                             let _ = self.next();
                         }
@@ -490,7 +500,7 @@ impl<'a> Parser<'a> {
             } else {
                 // The string has ended, so the value is empty.
                 node.insert_ord_seq_value(key, Cow::Borrowed(""));
-                break Ok(())
+                break Ok(());
             }
         };
         // We have finished parsing this level, so go back up a level.
@@ -503,35 +513,36 @@ impl<'a> Parser<'a> {
     /// This must be the final level of nesting, so assume we have a value
     fn parse_seq_value(&mut self, node: &mut Level<'a>) -> Result<()> {
         let res = match self.peek() {
-            Some(x) => match *x {
-                b'=' => {
-                    // Key is finished, parse up until the '&' as the value
-                    self.clear_acc();
-                    for _ in self.take_while(|b| *b != &b'&') {}
-                    let value = self.collect_str()?;
-                    node.insert_seq_value(value);
-                    Ok(())
-                },
-                b'&' => {
-                    // key value is empty
-                    node.insert_seq_value(Cow::Borrowed(""));
-                    Ok(())
+            Some(x) => {
+                match *x {
+                    b'=' => {
+                        // Key is finished, parse up until the '&' as the value
+                        self.clear_acc();
+                        for _ in self.take_while(|b| *b != &b'&') {}
+                        let value = self.collect_str()?;
+                        node.insert_seq_value(value);
+                        Ok(())
+                    },
+                    b'&' => {
+                        // key value is empty
+                        node.insert_seq_value(Cow::Borrowed(""));
+                        Ok(())
+                    },
+                    _ => {
+                        Err(super::Error::parse_err("non-indexed sequence of \
+                                                     structs not supported",
+                                                    self.index))
+                    },
                 }
-                _ => {
-                    Err(super::Error::parse_err("non-indexed sequence of structs not \
-                                           supported", self.index))
-                },
             },
             None => {
                 // The string has ended, so the value is empty.
                 node.insert_seq_value(Cow::Borrowed(""));
                 Ok(())
-            }
+            },
         };
         // We have finished parsing this level, so go back up a level.
         self.depth += 1;
         res
     }
-
-
 }

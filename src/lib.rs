@@ -131,12 +131,11 @@ mod de;
 mod error;
 mod ser;
 
-pub use error::Error;
 
 #[doc(inline)]
 pub use de::{from_bytes, from_str};
 #[doc(inline)]
 pub use de::Config;
+pub use error::Error;
 #[doc(inline)]
 pub use ser::{QsSerializer, to_string};
-

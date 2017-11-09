@@ -31,7 +31,8 @@ fn serialize_struct() {
         user_ids: vec![1, 2, 3, 4],
     };
 
-    assert_eq!(qs::to_string(&params).unwrap(),"\
+    assert_eq!(qs::to_string(&params).unwrap(),
+               "\
         id=42&name=Acme&phone=12345&address[city]=Carrot+City&\
         address[postcode]=12345&user_ids[0]=1&user_ids[1]=2&\
         user_ids[2]=3&user_ids[3]=4");
@@ -45,16 +46,12 @@ fn serialize_option() {
     }
 
     let params = "";
-    let query = Query {
-        vec: None,
-    };
+    let query = Query { vec: None };
     let rec_params = qs::to_string(&query).unwrap();
     assert_eq!(rec_params, params);
 
     let params = "vec[0]=1&vec[1]=2";
-    let query = Query {
-        vec: Some(vec![1,2]),
-    };
+    let query = Query { vec: Some(vec![1, 2]) };
     let rec_params = qs::to_string(&query).unwrap();
     assert_eq!(rec_params, params);
 }
@@ -66,7 +63,7 @@ fn serialize_enum() {
     enum TestEnum {
         A,
         B(bool),
-        C { x: u8, y: u8},       
+        C { x: u8, y: u8 },
         D(u8, u8),
     }
 
@@ -76,30 +73,22 @@ fn serialize_enum() {
     }
 
     let params = "e=a";
-    let query = Query {
-        e: TestEnum::A,
-    };
+    let query = Query { e: TestEnum::A };
     let rec_params = qs::to_string(&query).unwrap();
     assert_eq!(rec_params, params);
 
-   let params = "e[b]=true";
-   let query = Query {
-       e: TestEnum::B(true),
-   };
-   let rec_params = qs::to_string(&query).unwrap();
-   assert_eq!(rec_params, params);
+    let params = "e[b]=true";
+    let query = Query { e: TestEnum::B(true) };
+    let rec_params = qs::to_string(&query).unwrap();
+    assert_eq!(rec_params, params);
 
-   let params = "e[c][x]=2&e[c][y]=3";
-   let query = Query {
-       e: TestEnum::C { x: 2, y: 3 },
-   };
-   let rec_params = qs::to_string(&query).unwrap();
-   assert_eq!(rec_params, params);
+    let params = "e[c][x]=2&e[c][y]=3";
+    let query = Query { e: TestEnum::C { x: 2, y: 3 } };
+    let rec_params = qs::to_string(&query).unwrap();
+    assert_eq!(rec_params, params);
 
-   let params = "e[d][0]=128&e[d][1]=1";
-   let query = Query {
-       e: TestEnum::D(128, 1),
-   };
-   let rec_params = qs::to_string(&query).unwrap();
-   assert_eq!(rec_params, params);
+    let params = "e[d][0]=128&e[d][1]=1";
+    let query = Query { e: TestEnum::D(128, 1) };
+    let rec_params = qs::to_string(&query).unwrap();
+    assert_eq!(rec_params, params);
 }
