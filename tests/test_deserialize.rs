@@ -443,4 +443,21 @@ fn strict_mode() {
 
     let params: Result<Query, _> = loose_config.deserialize_str("vec%5B0%5D%5Ba%5D]=1&vec[1][a]=2");
     assert_eq!(params.unwrap(), Query { vec: vec![Test { a: 1 }, Test { a: 2 }] });
+
+    #[derive(Deserialize,Serialize,Debug, PartialEq)]
+    struct OddTest {
+        #[serde(rename="[but&why=?]")]
+        a: u8
+    }
+
+    let params = OddTest { a: 12 };
+    let enc_params = qs::to_string(&params).unwrap();
+    println!("Enocded as: {}", enc_params);
+    let rec_params: Result<OddTest, _> = strict_config.deserialize_str(&enc_params);
+    assert_eq!(rec_params.unwrap(), params);
+
+    // Non-strict decoding cannot necessarily handle these weird scenerios.
+    let rec_params: Result<OddTest, _> = loose_config.deserialize_str(&enc_params);
+    assert!(rec_params.is_err());
+    println!("{}", rec_params.unwrap_err());
 }

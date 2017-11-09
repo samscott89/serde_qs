@@ -2,15 +2,28 @@
 //! Serialization support for querystrings.
 
 use data_encoding::BASE64URL_NOPAD as BASE64;
+use percent_encoding::{percent_encode, EncodeSet};
 use serde::ser;
-use url::form_urlencoded::Serializer as UrlEncodedSerializer;
-use url::form_urlencoded::Target as UrlEncodedTarget;
 
-use std::fmt::Display;
 use std::borrow::Cow;
+use std::fmt::Display;
+use std::io::Write;
 use std::str;
 
 use error::*;
+
+#[allow(non_camel_case_types)]
+#[derive(Clone)]
+struct QS_ENCODE_SET;
+
+impl EncodeSet for QS_ENCODE_SET {
+    fn contains(&self, byte: u8) -> bool {
+        match byte {
+            b' ' | b'*' | b'-' | b'.' | b'0' ... b'9' | b'A' ... b'Z' | b'_' | b'a' ... b'z' => false,
+            _ => true
+        }
+    }
+}
 
 /// Serializes a value into a querystring.
 ///
@@ -39,9 +52,10 @@ use error::*;
 /// # }
 /// ```
 pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
-    let mut urlencoder = UrlEncodedSerializer::new("".to_owned());
-    input.serialize(&mut QsSerializer { key: None, urlencoder: &mut urlencoder })?;
-    Ok(urlencoder.finish())
+    let mut buffer = Vec::new();
+    let mut first = true;
+    input.serialize(&mut QsSerializer { writer: &mut buffer, key: None, first: &mut first  })?;
+    String::from_utf8(buffer).map_err(Error::from)
 }
 
 /// A serializer for the querystring format.
@@ -52,28 +66,59 @@ pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
 ///   sequences. Sequences are serialized with an incrementing key index.
 ///
 /// * Newtype structs defer to their inner values.
-pub struct QsSerializer<'a, Target: 'a + UrlEncodedTarget> {
+pub struct QsSerializer<'a, W: 'a + Write> {
     key: Option<Cow<'static, str>>,
-    urlencoder: &'a mut UrlEncodedSerializer<Target>,
+    writer: &'a mut W,
+    first: &'a mut bool,
 }
 
-impl<'a, Target: 'a + UrlEncodedTarget> QsSerializer<'a, Target> {
+fn replace_space(input: &str) -> Cow<str> {
+    match input.as_bytes().iter().position(|&b| b == b' ') {
+        None => Cow::Borrowed(input),
+        Some(first_position) => {
+            let mut replaced = input.as_bytes().to_owned();
+            replaced[first_position] = b'+';
+            for byte in &mut replaced[first_position + 1..] {
+                if *byte == b' ' {
+                    *byte = b'+';
+                }
+            }
+            Cow::Owned(String::from_utf8(replaced).expect("replacing ' ' with '+' cannot panic"))
+        }
+    }
+}
+
+impl<'a, W: 'a + Write> QsSerializer<'a, W> {
     fn extend_key(&mut self, newkey: &str) {
+        let newkey = percent_encode(replace_space(newkey).as_bytes(), QS_ENCODE_SET).collect::<Cow<str>>();
         let key = if let Some(ref key) = self.key {
             format!("{}[{}]", key, newkey).into()
         } else {
-            newkey.to_owned().into()
+            newkey.to_owned()
         };
         self.key = Some(key)
     }
 
     fn write_value(&mut self, value: &str) -> Result<()> {
         if let Some(ref key) = self.key {
-            // returns &Self back anyway
-            let _ = self.urlencoder.append_pair(key, value);
-            Ok(())
+            write!(self.writer, "{}{}={}",
+                if *self.first { *self.first = false; "" } else { "&" },
+                key,
+                percent_encode(value.as_bytes(), QS_ENCODE_SET).map(replace_space).collect::<String>()
+            ).map_err(Error::from)
         } else {
             Err(Error::no_key())
+        }
+    }
+
+    /// Creates a new `QsSerializer` with a distinct key, but `writer` and
+    ///`first` referring to the original data.
+    fn new_from_ref<'b: 'a>(other: &'a mut QsSerializer<'b, W>) -> QsSerializer<'a, W>
+    {
+        Self {
+            key: other.key.clone(),
+            writer: other.writer,
+            first: other.first,
         }
     }
 }
@@ -102,14 +147,14 @@ macro_rules! serialize_as_string {
     };
 }
 
-impl<'a, Target: 'a + UrlEncodedTarget> ser::Serializer for &'a mut QsSerializer<'a, Target> {
+impl<'a, W: Write> ser::Serializer for &'a mut QsSerializer<'a, W> {
     type Ok = ();
     type Error = Error;
-    type SerializeSeq = QsSeq<'a, Target>;
-    type SerializeTuple = QsSeq<'a, Target>;
-    type SerializeTupleStruct = QsSeq<'a, Target>;
-    type SerializeTupleVariant = QsSeq<'a, Target>;
-    type SerializeMap = QsMap<'a, Target>;
+    type SerializeSeq = QsSeq<'a, W>;
+    type SerializeTuple = QsSeq<'a, W>;
+    type SerializeTupleStruct = QsSeq<'a, W>;
+    type SerializeTupleVariant = QsSeq<'a, W>;
+    type SerializeMap = QsMap<'a, W>;
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
@@ -257,17 +302,17 @@ impl ser::Error for Error {
     }
 }
 
-pub struct QsSeq<'a, Target: 'a + UrlEncodedTarget>(&'a mut QsSerializer<'a, Target>, usize);
-pub struct QsMap<'a, Target: 'a + UrlEncodedTarget>(&'a mut QsSerializer<'a, Target>, Option<Cow<'a, str>>);
+pub struct QsSeq<'a, W: 'a + Write>(&'a mut QsSerializer<'a, W>, usize);
+pub struct QsMap<'a, W: 'a + Write>(&'a mut QsSerializer<'a, W>, Option<Cow<'a, str>>);
 
 
-impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeTuple for QsSeq<'a, Target> {
+impl<'a, W: Write> ser::SerializeTuple for QsSeq<'a, W> {
     type Ok = ();
     type Error = Error;
     fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
         where T: ser::Serialize
     {
-        let mut serializer = QsSerializer { key: self.0.key.clone(), urlencoder: self.0.urlencoder };
+        let mut serializer = QsSerializer::new_from_ref(self.0);
         serializer.extend_key(&self.1.to_string());
         self.1 += 1;
         value.serialize(&mut serializer)
@@ -279,13 +324,13 @@ impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeTuple for QsSeq<'a, Target
     }
 }
 
-impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeSeq for QsSeq<'a, Target> {
+impl<'a, W: Write> ser::SerializeSeq for QsSeq<'a, W> {
     type Ok = ();
     type Error = Error;
     fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
         where T: ser::Serialize
     {
-        let mut serializer = QsSerializer { key: self.0.key.clone(), urlencoder: self.0.urlencoder };
+        let mut serializer = QsSerializer::new_from_ref(self.0);
         serializer.extend_key(&self.1.to_string());
         self.1 += 1;
         value.serialize(&mut serializer)
@@ -296,13 +341,13 @@ impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeSeq for QsSeq<'a, Target> 
     }
 }
 
-impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeStruct for &'a mut QsSerializer<'a, Target>  {
+impl<'a, W: Write> ser::SerializeStruct for &'a mut QsSerializer<'a, W>  {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<()>
         where T: ser::Serialize
     {
-        let mut serializer = QsSerializer { key: self.key.clone(), urlencoder: self.urlencoder };
+        let mut serializer = QsSerializer::new_from_ref(self);
         serializer.extend_key(key);
         value.serialize(&mut serializer)
     }
@@ -311,14 +356,14 @@ impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeStruct for &'a mut QsSeria
     }
 }
 
-impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeStructVariant for &'a mut QsSerializer<'a, Target> {
+impl<'a, W: Write> ser::SerializeStructVariant for &'a mut QsSerializer<'a, W> {
     type Ok = ();
     type Error = Error;
 
     fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<()>
         where T: ser::Serialize
     {
-        let mut serializer = QsSerializer { key: self.key.clone(), urlencoder: self.urlencoder };
+        let mut serializer = QsSerializer::new_from_ref(self);
         serializer.extend_key(key);
         value.serialize(&mut serializer)
     }
@@ -329,14 +374,14 @@ impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeStructVariant for &'a mut 
 
 }
 
-impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeTupleVariant for QsSeq<'a, Target> {
+impl<'a, W: Write> ser::SerializeTupleVariant for QsSeq<'a, W> {
     type Ok = ();
     type Error = Error;
 
     fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
         where T: ser::Serialize
     {
-        let mut serializer = QsSerializer { key: self.0.key.clone(), urlencoder: self.0.urlencoder };
+        let mut serializer = QsSerializer::new_from_ref(self.0);
         serializer.extend_key(&self.1.to_string());
         self.1 += 1;
         value.serialize(&mut serializer)
@@ -348,14 +393,14 @@ impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeTupleVariant for QsSeq<'a,
 
 }
 
-impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeTupleStruct for QsSeq<'a, Target> {
+impl<'a, W: Write> ser::SerializeTupleStruct for QsSeq<'a, W> {
     type Ok = ();
     type Error = Error;
 
     fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
         where T: ser::Serialize
     {
-        let mut serializer = QsSerializer { key: self.0.key.clone(), urlencoder: self.0.urlencoder };
+        let mut serializer = QsSerializer::new_from_ref(self.0);
         serializer.extend_key(&self.1.to_string());
         self.1 += 1;
         value.serialize(&mut serializer)
@@ -367,7 +412,7 @@ impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeTupleStruct for QsSeq<'a, 
 
 }
 
-impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeMap for QsMap<'a, Target> {
+impl<'a, W: Write> ser::SerializeMap for QsMap<'a, W> {
     type Ok = ();
     type Error = Error;
 
@@ -381,7 +426,7 @@ impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeMap for QsMap<'a, Target> 
     fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<()>
         where T: ser::Serialize
     {
-        let mut serializer = QsSerializer { key: self.0.key.clone(), urlencoder: self.0.urlencoder };
+        let mut serializer = QsSerializer::new_from_ref(self.0);
         if let Some(ref key) = self.1 {
             serializer.extend_key(key);
         } else {
@@ -398,7 +443,7 @@ impl<'a, Target: 'a + UrlEncodedTarget> ser::SerializeMap for QsMap<'a, Target> 
     fn serialize_entry<K: ?Sized, V: ?Sized>(&mut self, key: &K, value: &V) -> Result<()>
         where K: ser::Serialize, V: ser::Serialize,
     {
-        let mut serializer = QsSerializer { key: self.0.key.clone(), urlencoder: self.0.urlencoder };
+        let mut serializer = QsSerializer::new_from_ref(self.0);
         serializer.extend_key(&key.serialize(StringSerializer)?);
         value.serialize(&mut serializer)
     }

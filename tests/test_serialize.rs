@@ -31,15 +31,10 @@ fn serialize_struct() {
         user_ids: vec![1, 2, 3, 4],
     };
 
-    assert_eq!(qs::to_string(&params).unwrap(),
-               urlencode("\
+    assert_eq!(qs::to_string(&params).unwrap(),"\
         id=42&name=Acme&phone=12345&address[city]=Carrot+City&\
         address[postcode]=12345&user_ids[0]=1&user_ids[1]=2&\
-        user_ids[2]=3&user_ids[3]=4"));
-}
-
-fn urlencode(input: &str) -> String {
-    str::replace(&str::replace(input, "[", "%5B"), "]", "%5D")
+        user_ids[2]=3&user_ids[3]=4");
 }
 
 #[test]
@@ -56,7 +51,7 @@ fn serialize_option() {
     let rec_params = qs::to_string(&query).unwrap();
     assert_eq!(rec_params, params);
 
-    let params = urlencode("vec[0]=1&vec[1]=2");
+    let params = "vec[0]=1&vec[1]=2";
     let query = Query {
         vec: Some(vec![1,2]),
     };
@@ -80,33 +75,31 @@ fn serialize_enum() {
         e: TestEnum,
     }
 
-    let params = urlencode("e=a");
+    let params = "e=a";
     let query = Query {
         e: TestEnum::A,
     };
     let rec_params = qs::to_string(&query).unwrap();
     assert_eq!(rec_params, params);
 
-   let params = urlencode("e[b]=true");
+   let params = "e[b]=true";
    let query = Query {
        e: TestEnum::B(true),
    };
    let rec_params = qs::to_string(&query).unwrap();
    assert_eq!(rec_params, params);
 
-   let params = urlencode("e[c][x]=2&e[c][y]=3");
+   let params = "e[c][x]=2&e[c][y]=3";
    let query = Query {
        e: TestEnum::C { x: 2, y: 3 },
    };
    let rec_params = qs::to_string(&query).unwrap();
    assert_eq!(rec_params, params);
 
-   let params = urlencode("e[d][0]=128&e[d][1]=1");
+   let params = "e[d][0]=128&e[d][1]=1";
    let query = Query {
        e: TestEnum::D(128, 1),
    };
    let rec_params = qs::to_string(&query).unwrap();
    assert_eq!(rec_params, params);
-
-   
 }

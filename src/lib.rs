@@ -126,7 +126,6 @@ extern crate error_chain;
 extern crate percent_encoding;
 #[macro_use]
 extern crate serde;
-extern crate url;
 
 mod de;
 mod error;
