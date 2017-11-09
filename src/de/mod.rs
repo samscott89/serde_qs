@@ -52,23 +52,32 @@ use std::collections::btree_map::{BTreeMap, Entry, IntoIter};
 /// To override the default serialization parameters, first construct a new
 /// Config.
 ///
+/// The `strict` parameter controls whether the deserializer will tolerate
+/// encoded brackets as part of the key. For example, serializing the field
+/// `a = vec![12]` might give `a[0]=12`. In strict mode, the only string accepted
+/// will be this string, whereas in non-strict mode, this can also be deserialized
+/// from `a%5B0%5D=12`. Strict mode is more accurate for cases where it a field
+/// may contain square brackets.
+/// In non-strict mode, the deserializer will generally tolerate unexpected
+/// characters.
+///
 /// A `max_depth` of 0 implies no nesting: the result will be a flat map.
 /// This is mostly useful when the maximum nested depth is known beforehand,
 /// to prevent denial of service attacks by providing incredibly deeply nested
 /// inputs.
 ///
-/// The default value for `max_depth` is 5.
+/// The default value for `max_depth` is 5, and the default mode is `strict=true`.
 ///
 /// ```
 /// use serde_qs::Config;
 /// use std::collections::HashMap;
 ///
-/// let config = Config::with_max_depth(0);
+/// let config = Config::new(0, true);
 /// let map: HashMap<String, String> = config.deserialize_str("a[b][c]=1")
 ///                                          .unwrap();
 /// assert_eq!(map.get("a[b][c]").unwrap(), "1");
 ///
-/// let config = Config::with_max_depth(10);
+/// let config = Config::new(10, true);
 /// let map: HashMap<String, HashMap<String, HashMap<String, String>>> =
 ///             config.deserialize_str("a[b][c]=1").unwrap();
 /// assert_eq!(map.get("a").unwrap().get("b").unwrap().get("c").unwrap(), "1");
@@ -78,24 +87,27 @@ pub struct Config {
     /// Specifies the maximum depth key that `serde_qs` will attempt to
     /// deserialize. Default is 5.
     max_depth: usize,
+    /// Strict deserializing mode will not tolerate encoded brackets.
+    strict: bool,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Config { max_depth: 5 }
+        Self::new(5, true)
     }
 }
 
 impl Config {
-    /// Construct a new `Config` with the specified maximum depth of nesting.
-    pub fn with_max_depth(depth: usize) -> Config {
-        Config {
-            max_depth: depth
+    /// Create a new `Config` with the specified `max_depth` and `strict` mode.
+    pub fn new(max_depth: usize, strict: bool) -> Self {
+        Self {
+            max_depth,
+            strict
         }
     }
 
     /// Get maximum depth parameter.
-    pub fn max_depth(&self) -> usize {
+    fn max_depth(&self) -> usize {
         self.max_depth
     }
 }
@@ -104,9 +116,19 @@ impl Config {
     /// Deserializes a querystring from a `&[u8]` using this `Config`.
     pub fn deserialize_bytes<'de, T: de::Deserialize<'de>>(&self,
                                                  input: &'de [u8])
-                                                 -> Result<T> {
+                                                 -> Result<T>
+    {
         T::deserialize(QsDeserializer::with_config(self, input)?)
     }
+
+    // pub fn deserialize_bytes_sloppy<T: de::DeserializeOwned>(&self, input: &[u8])
+    //     -> Result<T>
+    // {
+    //     let buf = String::from_utf8(input.to_vec())?;
+    //     let buf = buf.replace("%5B", "[").replace("%5D", "]").into_bytes();
+    //     let deser = QsDeserializer::with_config(self, &buf)?;
+    //     T::deserialize(deser)
+    // }
 
     /// Deserializes a querystring from a `&str` using this `Config`.
     pub fn deserialize_str<'de, T: de::Deserialize<'de>>(&self,
@@ -178,7 +200,7 @@ pub fn from_str<'de, T: de::Deserialize<'de>>(input: &'de str) -> Result<T> {
 /// A deserializer for the querystring format.
 ///
 /// Supported top-level outputs are structs and maps.
-pub struct QsDeserializer<'a> {
+pub(crate) struct QsDeserializer<'a> {
     iter: IntoIter<Cow<'a, str>, Level<'a>>,
     value: Option<Level<'a>>,
 }
@@ -202,8 +224,8 @@ impl<'a> QsDeserializer<'a> {
     }
 
     /// Returns a new `QsDeserializer<'a>`.
-    pub fn with_config(config: &Config, input: &'a [u8]) -> Result<Self> {
-        parse::Parser::new(input, config.max_depth()).as_deserializer()
+    fn with_config(config: &Config, input: &'a [u8]) -> Result<Self> {
+        parse::Parser::new(input, config.max_depth(), config.strict).as_deserializer()
     }
 }
 

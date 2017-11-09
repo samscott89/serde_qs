@@ -135,7 +135,7 @@ mod ser;
 pub use error::Error;
 
 #[doc(inline)]
-pub use de::{QsDeserializer, from_bytes, from_str};
+pub use de::{from_bytes, from_str};
 #[doc(inline)]
 pub use de::Config;
 #[doc(inline)]

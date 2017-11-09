@@ -9,10 +9,13 @@ use std::string;
 
 error_chain! {
     errors { 
-        Custom(msg: String)
-        Parse(msg: String, pos: (usize, usize)) {
+        Custom(msg: String) {
+            description("miscellaneous failure")
+            display("failed with reason: {}", msg)
+        }
+        Parse(msg: String, pos: usize) {
             description("parsing failure")
-            display("parsing failed with error: '{}' at position: {:?}", msg, pos)
+            display("parsing failed with error: '{}' at position: {}", msg, pos)
         }
         Unsupported
     }
@@ -35,7 +38,7 @@ impl Error {
     }
 
     /// Generate a parsing error message with position.
-    pub fn parse_err<T>(msg: T, position: (usize, usize)) -> Self
+    pub fn parse_err<T>(msg: T, position: usize) -> Self
         where T: Display {
         ErrorKind::Parse(msg.to_string(), position).into()
     }

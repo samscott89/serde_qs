@@ -23,9 +23,11 @@ struct QueryParams {
 // qs::from_str. All types are inferred by the compiler.
 macro_rules! map_test {
     ($string:expr, $($mapvars:tt)*) => {
-        let expected_map = hash_to_map!(New $($mapvars)*);
-        let testmap: HashMap<_, _> = qs::from_str($string).unwrap();
-        assert_eq!(expected_map, testmap);
+        for config in vec![qs::Config::new(5, true), qs::Config::new(5, false)] {
+            let expected_map = hash_to_map!(New $($mapvars)*);
+            let testmap: HashMap<_, _> = config.deserialize_str($string).unwrap();
+            assert_eq!(expected_map, testmap);
+        }
     }
 }
 
@@ -79,29 +81,31 @@ fn deserialize_struct() {
         user_ids: vec![1, 2, 3, 4],
     };
 
-    // standard parameters
-    let rec_params: QueryParams = qs::from_str("\
-        name=Acme&id=42&phone=12345&address[postcode]=12345&\
-        address[city]=Carrot+City&user_ids[0]=1&user_ids[1]=2&\
-        user_ids[2]=3&user_ids[3]=4")
-        .unwrap();
-    assert_eq!(rec_params, params);
+    for config in vec![qs::Config::new(5, true), qs::Config::new(5, false)] {
+        // standard parameters
+        let rec_params: QueryParams = config.deserialize_str("\
+            name=Acme&id=42&phone=12345&address[postcode]=12345&\
+            address[city]=Carrot+City&user_ids[0]=1&user_ids[1]=2&\
+            user_ids[2]=3&user_ids[3]=4")
+            .unwrap();
+        assert_eq!(rec_params, params);
 
-    // unindexed arrays
-    let rec_params: QueryParams = qs::from_str("\
-        name=Acme&id=42&phone=12345&address[postcode]=12345&\
-        address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
-        user_ids[]=3&user_ids[]=4")
-        .unwrap();
-    assert_eq!(rec_params, params);
+        // unindexed arrays
+        let rec_params: QueryParams = config.deserialize_str("\
+            name=Acme&id=42&phone=12345&address[postcode]=12345&\
+            address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
+            user_ids[]=3&user_ids[]=4")
+            .unwrap();
+        assert_eq!(rec_params, params);
 
-    // ordering doesn't matter
-    let rec_params: QueryParams = qs::from_str("\
-        address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
-        name=Acme&id=42&phone=12345&address[postcode]=12345&\
-        user_ids[]=3&user_ids[]=4")
-        .unwrap();
-    assert_eq!(rec_params, params);
+        // ordering doesn't matter
+        let rec_params: QueryParams = config.deserialize_str("\
+            address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
+            name=Acme&id=42&phone=12345&address[postcode]=12345&\
+            user_ids[]=3&user_ids[]=4")
+            .unwrap();
+        assert_eq!(rec_params, params);
+    }
 
 }
 
@@ -394,15 +398,49 @@ fn returns_errors() {
         vec: Vec<u32>
     }
 
-    let params: Result<Query, _> = qs::from_str("vec[[]=a&vec[]=2");
+    let params: Result<Query, _> = qs::from_str("vec[[]=1&vec[]=2");
     assert!(params.is_err());
     println!("{}", params.unwrap_err());
 
-    let params: Result<Query, _> = qs::from_str("vec[\x00[]=a&vec[]=2");
+    let params: Result<Query, _> = qs::from_str("vec[\x00[]=1&vec[]=2");
     assert!(params.is_err());
     println!("{}", params.unwrap_err());
 
-    let params: Result<Query, _> = qs::from_str("vec[0]=a&vec[0]=2");
+    let params: Result<Query, _> = qs::from_str("vec[0]=1&vec[0]=2");
     assert!(params.is_err());
     println!("{}", params.unwrap_err());
+}
+
+
+#[test]
+fn strict_mode() {
+    #[derive(Deserialize,Serialize,Debug, PartialEq)]
+    struct Test {
+        a: u8
+    }
+    #[derive(Debug,Serialize,Deserialize,PartialEq)]
+    #[serde(deny_unknown_fields)]
+    struct Query {
+        vec: Vec<Test>
+    }
+
+    let strict_config = qs::Config::default();
+
+    let params: Result<Query, _> = strict_config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
+    assert!(params.is_err());
+    println!("{}", params.unwrap_err());
+
+    let loose_config = qs::Config::new(5, false);
+
+    let params: Result<Query, _> = loose_config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
+    assert_eq!(params.unwrap(), Query { vec: vec![Test { a: 1 }, Test { a: 2 }] });
+
+    let params: Result<Query, _> = loose_config.deserialize_str("vec[%5B0%5D%5Ba%5D]=1&vec[1][a]=2");
+    assert_eq!(params.unwrap(), Query { vec: vec![Test { a: 1 }, Test { a: 2 }] });
+
+    let params: Result<Query, _> = loose_config.deserialize_str("vec[%5B0%5D%5Ba%5D=1&vec[1][a]=2");
+    assert_eq!(params.unwrap(), Query { vec: vec![Test { a: 1 }, Test { a: 2 }] });
+
+    let params: Result<Query, _> = loose_config.deserialize_str("vec%5B0%5D%5Ba%5D]=1&vec[1][a]=2");
+    assert_eq!(params.unwrap(), Query { vec: vec![Test { a: 1 }, Test { a: 2 }] });
 }
