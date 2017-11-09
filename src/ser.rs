@@ -63,6 +63,42 @@ pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
     String::from_utf8(buffer).map_err(Error::from)
 }
 
+/// Serializes a value into a generic writer object.
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate serde_derive;
+/// # extern crate serde_qs;
+/// #[derive(Deserialize, Serialize)]
+/// struct Query {
+///     name: String,
+///     age: u8,
+///     occupation: String,
+/// }
+///
+/// # fn main(){
+/// let q =  Query {
+///     name: "Alice".to_owned(),
+///     age: 24,
+///     occupation: "Student".to_owned(),
+/// };
+///
+/// let mut buffer = Vec::new();
+/// serde_qs::to_writer(&q, &mut buffer).unwrap();
+/// assert_eq!(
+///     String::from_utf8(buffer).unwrap(),
+///     "name=Alice&age=24&occupation=Student");
+/// # }
+/// ```
+pub fn to_writer<T: ser::Serialize, W: Write>(input: &T, writer: &mut W) -> Result<()> {
+    let mut first = true;
+    input.serialize(&mut QsSerializer {
+            writer: writer,
+            key: None,
+            first: &mut first,
+        })
+}
+
 /// A serializer for the querystring format.
 ///
 /// * Supported top-level inputs are structs and maps.
