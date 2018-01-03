@@ -24,9 +24,9 @@ struct QueryParams {
 macro_rules! map_test {
     ($string:expr, $($mapvars:tt)*) => {
         for config in vec![qs::Config::new(5, true), qs::Config::new(5, false)] {
-            let expected_map = hash_to_map!(New $($mapvars)*);
             let testmap: HashMap<_, _> = config.deserialize_str($string).unwrap();
-            assert_eq!(expected_map, testmap);
+            let expected_map = hash_to_map!(New $($mapvars)*);
+            assert_eq!(testmap, expected_map);
         }
     }
 }
