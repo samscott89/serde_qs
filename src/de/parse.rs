@@ -105,22 +105,27 @@ pub struct Parser<'a> {
     peeked: Option<&'a u8>,
     depth: usize, // stores the current depth, for use in bounded-depth parsing
     strict: bool,
+    state: ParsingState,
+}
+
+/// The parsing logic varies slightly based on whether it is a key or a value
+/// (determines how encoded brackets are parse in non-strict mode)
+/// This tracks the state.
+enum ParsingState {
+    Init,
+    Key,
+    Value,
 }
 
 impl<'a> Iterator for Parser<'a> {
     type Item = &'a u8;
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.strict {
-            match self.peeked.take() {
-                Some(v) => Some(v),
-                None => {
-                    self.index += 1;
-                    self.acc.1 += 1;
-                    self.iter.next()
-                },
-            }
-        } else {
+        let preparse_brackets = match self.state {
+            ParsingState::Value => false,
+            _ => !self.strict,
+        };
+        if preparse_brackets {
             // in non-strict mode, we will happily decode any bracket
             match self.peeked.take() {
                 Some(v) => Some(v),
@@ -150,6 +155,15 @@ impl<'a> Iterator for Parser<'a> {
                         Some(v) => Some(v),
                         None => None,
                     }
+                },
+            }
+        } else {
+            match self.peeked.take() {
+                Some(v) => Some(v),
+                None => {
+                    self.index += 1;
+                    self.acc.1 += 1;
+                    self.iter.next()
                 },
             }
         }
@@ -199,6 +213,7 @@ impl<'a> Parser<'a> {
             peeked: None,
             depth: depth,
             strict: strict,
+            state: ParsingState::Init,
         }
     }
 
@@ -228,7 +243,6 @@ impl<'a> Parser<'a> {
 
         // Parses all top level nodes into the `root` map.
         while self.parse(&mut root)? {}
-
         let iter = match root {
             Level::Nested(map) => map.into_iter(),
             _ => BTreeMap::default().into_iter(),
@@ -331,6 +345,7 @@ impl<'a> Parser<'a> {
     /// parsing keys like `abc[def][ghi]` since the `'['` character is
     /// needed to for the next iteration of `parse`.
     fn parse_key(&mut self, end_on: u8, consume: bool) -> Result<Cow<'a, str>> {
+        self.state = ParsingState::Key;
         loop {
             if let Some(x) = self.next() {
                 match *x {
@@ -339,7 +354,6 @@ impl<'a> Parser<'a> {
                         if !consume {
                             self.peeked = Some(x);
                         }
-
                         return self.collect_str();
                     },
                     b'=' => {
@@ -377,12 +391,14 @@ impl<'a> Parser<'a> {
                        key: Cow<'a, str>,
                        node: &mut Level<'a>)
                        -> Result<()> {
+        self.state = ParsingState::Key;
         let res = loop {
             if let Some(x) = self.peek() {
                 match *x {
                     b'=' => {
                         // Key is finished, parse up until the '&' as the value
                         self.clear_acc();
+                        self.state = ParsingState::Value;
                         for _ in self.take_while(|b| *b != &b'&') {}
                         let value: Cow<'a, str> = self.collect_str()?;
                         node.insert_map_value(key, value);
@@ -445,12 +461,14 @@ impl<'a> Parser<'a> {
                            key: usize,
                            node: &mut Level<'a>)
                            -> Result<()> {
+        self.state = ParsingState::Key;
         let res = loop {
             if let Some(x) = self.peek() {
                 match *x {
                     b'=' => {
                         // Key is finished, parse up until the '&' as the value
                         self.clear_acc();
+                        self.state = ParsingState::Value;
                         for _ in self.take_while(|b| *b != &b'&') {}
                         let value = self.collect_str()?;
                         // Reached the end of the key string
@@ -512,12 +530,14 @@ impl<'a> Parser<'a> {
     /// unordered sequence.
     /// This must be the final level of nesting, so assume we have a value
     fn parse_seq_value(&mut self, node: &mut Level<'a>) -> Result<()> {
+        self.state = ParsingState::Key;
         let res = match self.peek() {
             Some(x) => {
                 match *x {
                     b'=' => {
                         // Key is finished, parse up until the '&' as the value
                         self.clear_acc();
+                        self.state = ParsingState::Value;
                         for _ in self.take_while(|b| *b != &b'&') {}
                         let value = self.collect_str()?;
                         node.insert_seq_value(value);

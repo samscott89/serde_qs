@@ -474,3 +474,8 @@ fn strict_mode() {
     assert!(rec_params.is_err());
     println!("{}", rec_params.unwrap_err());
 }
+
+#[test]
+fn square_brackets_in_values() {
+    map_test!("foo=%5BHello%5D", "foo"["[Hello]"]);
+}
