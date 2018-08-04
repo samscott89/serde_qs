@@ -72,7 +72,7 @@ fn main() {
     //
     // (For this round trip to work, it's necessary to parse the query string
     // in non-strict mode, to allow parsing of url_encoded square brackets
-    // in the key).
+    // in the key. See the lib.rs documentation for why).
     let qs_non_strict = Config::new(5, false);
     let params: QueryParams = qs_non_strict.deserialize_str(&encoded).unwrap();
     assert_eq!(params, example_params);
