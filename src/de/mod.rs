@@ -101,8 +101,8 @@ impl Config {
     /// Create a new `Config` with the specified `max_depth` and `strict` mode.
     pub fn new(max_depth: usize, strict: bool) -> Self {
         Self {
-            max_depth: max_depth,
-            strict: strict,
+            max_depth,
+            strict,
         }
     }
 

@@ -211,8 +211,8 @@ impl<'a> Parser<'a> {
             acc: (0, 0),
             index: 0,
             peeked: None,
-            depth: depth,
-            strict: strict,
+            depth,
+            strict,
             state: ParsingState::Init,
         }
     }
@@ -248,7 +248,7 @@ impl<'a> Parser<'a> {
             _ => BTreeMap::default().into_iter(),
         };
         Ok(QsDeserializer {
-            iter: iter,
+            iter,
             value: None,
         })
     }

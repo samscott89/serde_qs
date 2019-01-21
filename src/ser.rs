@@ -93,7 +93,7 @@ pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
 pub fn to_writer<T: ser::Serialize, W: Write>(input: &T, writer: &mut W) -> Result<()> {
     let mut first = true;
     input.serialize(&mut QsSerializer {
-            writer: writer,
+            writer,
             key: None,
             first: &mut first,
         })

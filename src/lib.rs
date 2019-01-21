@@ -89,8 +89,6 @@
     overflowing_literals,
     path_statements,
     plugin_as_library,
-    private_no_mangle_fns,
-    private_no_mangle_statics,
     stable_features,
     trivial_casts,
     trivial_numeric_casts,
