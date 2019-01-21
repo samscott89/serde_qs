@@ -18,16 +18,13 @@ repository = "samscott89/serde_qs"
 [dependencies]
 data-encoding = "2.1.2"
 error-chain = "0.12.0"
-dtoa = "0.4.3"
-fnv = "1.0.6"
-itoa = "0.4.3"
 percent-encoding = "1.0.1"
 serde = "1.0.85"
-serde_derive = "1.0.85"
 
 [dev-dependencies]
 csv = "1.0.5"
 rand = "0.6.4"
+serde_derive = "1.0.85"
 serde_urlencoded = "0.5.4"
 
 [lib]
