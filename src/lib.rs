@@ -70,6 +70,34 @@
 //! assert_eq!(rec_params, params);
 //!
 //! # }
+//! ```
+//!
+//! ## Strict vs Non-Strict modes
+//!
+//! `serde_qs` supports two operating modes, which can be specified using
+//! [`Config`](struct.Config.html), and is all about how `serde_qs` handles square brackets.
+//!
+//! Techncially, square brackets should be encoded in URLs as `%5B` and `%5D`.
+//! However, they are often used in their raw format to specify querystrings
+//! such as `a[b]=123`.
+//!
+//! In strict mode, `serde_qs` will only tolerate unencoded square brackets
+//! to denote nested keys. So `a[b]=123` will decode as `{"a": {"b": 123}}`.
+//! This means that encoded square brackets can actually be part of the key.
+//! `a[b%5Bc%5D]=123` becomes `{"a": {"b[c]": 123}}`.
+//!
+//! However, since some implementations will automatically encode everything
+//! in the URL, we also have a non-strict mode. This means that `serde_qs`
+//! will assume that any encoded square brackets in the string were meant to
+//! be taken as nested keys. From the example before, `a[b%5Bc%5D]=123` will 
+//! now become `{"a": {"b": {"c": 123 }}}`.
+//!
+//! Non-strict mode can be useful when, as said before, some middleware
+//! automatically encodes the brackets. But care must be taken to avoid
+//! using keys with square brackets in them, or unexpected things can
+//! happen.
+//!
+//! 
 
 #![allow(
 )]

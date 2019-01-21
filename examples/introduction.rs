@@ -7,6 +7,8 @@ extern crate serde_urlencoded as urlencoded;
 use rand::Rng;
 use std::collections::HashMap;
 
+use qs::Config;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct Address {
     city: String,
@@ -64,9 +66,15 @@ fn main() {
     // as a list of pairs using serde_urlencoded:
     let pairs: Vec<(String, String)> = urlencoded::from_str(&encoded).unwrap();
     println!("`serde_urlencoded` from_str to pairs:\n\t{:?}", pairs);
+
     // However, the best way is to use serde_qs to deserialize the entire thing
     // into a struct:
-    let params: QueryParams = qs::from_str(&encoded).unwrap();
+    //
+    // (For this round trip to work, it's necessary to parse the query string
+    // in non-strict mode, to allow parsing of url_encoded square brackets
+    // in the key. See the lib.rs documentation for why).
+    let qs_non_strict = Config::new(5, false);
+    let params: QueryParams = qs_non_strict.deserialize_str(&encoded).unwrap();
     assert_eq!(params, example_params);
     println!("`serde_qs` from_str to struct:\n\t{:?}", params);
 
