@@ -10,7 +10,7 @@ use std::str;
 use std::string;
 
 error_chain! {
-    errors { 
+    errors {
         Custom(msg: String) {
             description("miscellaneous failure")
             display("failed with reason: {}", msg)
@@ -34,16 +34,18 @@ error_chain! {
 impl Error {
     /// Generate error to show top-level type cannot be deserialized.
     pub fn top_level(object: &'static str) -> Self {
-        ErrorKind::Custom(format!("cannot deserialize {} at the top level.\
-                           Try deserializing into a struct.",
-                                  object))
-            .into()
-
+        ErrorKind::Custom(format!(
+            "cannot deserialize {} at the top level.\
+             Try deserializing into a struct.",
+            object
+        ))
+        .into()
     }
 
     /// Generate a parsing error message with position.
     pub fn parse_err<T>(msg: T, position: usize) -> Self
-        where T: Display,
+    where
+        T: Display,
     {
         ErrorKind::Parse(msg.to_string(), position).into()
     }
@@ -51,7 +53,8 @@ impl Error {
 
 impl de::Error for Error {
     fn custom<T>(msg: T) -> Self
-        where T: Display,
+    where
+        T: Display,
     {
         ErrorKind::Custom(msg.to_string()).into()
     }

@@ -10,7 +10,7 @@ use std::default::Default;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Query {
-    #[serde(deserialize_with="from_csv")]
+    #[serde(deserialize_with = "from_csv")]
     r: Vec<u8>,
     s: u8,
 }
@@ -21,10 +21,10 @@ fn main() {
     println!("{:?}", q);
 }
 
-
 fn from_csv<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
-    where D: serde::Deserializer<'de>,
-          T: DeserializeOwned
+where
+    D: serde::Deserializer<'de>,
+    T: DeserializeOwned,
 {
     deserializer.deserialize_str(CSVVecVisitor::<T>::default())
 }
@@ -41,19 +41,26 @@ impl<T: DeserializeOwned> Default for CSVVecVisitor<T> {
 impl<'de, T: DeserializeOwned> serde::de::Visitor<'de> for CSVVecVisitor<T> {
     type Value = Vec<T>;
 
-    fn expecting(&self,
-                 formatter: &mut std::fmt::Formatter)
-                 -> std::fmt::Result {
+    fn expecting(
+        &self,
+        formatter: &mut std::fmt::Formatter,
+    ) -> std::fmt::Result {
         write!(formatter, "a str")
     }
 
     fn visit_str<E>(self, s: &str) -> std::result::Result<Self::Value, E>
-        where E: serde::de::Error,
+    where
+        E: serde::de::Error,
     {
         let mut output = Vec::new();
         let mut items = csv::Reader::from_reader(s.as_bytes());
         for res in items.deserialize() {
-            let item: T = res.map_err(|e| E::custom(format!("could not deserialize sequence value: {:?}", e)))?;
+            let item: T = res.map_err(|e| {
+                E::custom(format!(
+                    "could not deserialize sequence value: {:?}",
+                    e
+                ))
+            })?;
             output.push(item);
         }
 

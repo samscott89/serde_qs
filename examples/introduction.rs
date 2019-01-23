@@ -24,7 +24,6 @@ struct QueryParams {
     user_ids: Vec<u8>,
 }
 
-
 fn main() {
     // Encodes as:
     // "user_ids%5B3%5D=4&user_ids%5B2%5D=3&address%5Bcity%5D=Carrot+City&\
@@ -83,7 +82,6 @@ fn main() {
     println!("`serde_qs` to_string for struct:\n\t{:?}", encoded);
     println!("");
 
-
     // One nice feature is that this gives deterministic encodings:
     let encoded2 = qs::to_string(&params).unwrap();
     assert_eq!(encoded, encoded2);
@@ -91,15 +89,17 @@ fn main() {
     // An advantage of `serde_qs` for deserializing, is that it is robust
     // against different orderings of inputs:
 
-    let mut inputs = vec!["id=42",
-                          "name=Acme",
-                          "phone=12345",
-                          "address[city]=Carrot+City",
-                          "address[postcode]=12345",
-                          "user_ids[0]=1",
-                          "user_ids[1]=2",
-                          "user_ids[2]=3",
-                          "user_ids[3]=4"];
+    let mut inputs = vec![
+        "id=42",
+        "name=Acme",
+        "phone=12345",
+        "address[city]=Carrot+City",
+        "address[postcode]=12345",
+        "user_ids[0]=1",
+        "user_ids[1]=2",
+        "user_ids[2]=3",
+        "user_ids[3]=4",
+    ];
 
     let mut rng = rand::thread_rng();
     for _ in 0..10 {
@@ -151,7 +151,9 @@ fn main() {
         e: AdjTaggedEnum,
     }
 
-    let example_params = EnumQuery { e: AdjTaggedEnum::B(false) };
+    let example_params = EnumQuery {
+        e: AdjTaggedEnum::B(false),
+    };
     // encodes as:
     //   "e[B]=false"
     let encoded = qs::to_string(&example_params).unwrap();
@@ -160,7 +162,9 @@ fn main() {
     println!("`serde_qs` from_str for enum:\n\t{:?}", params);
     println!("");
 
-    let example_params = EnumQuery { e: AdjTaggedEnum::A };
+    let example_params = EnumQuery {
+        e: AdjTaggedEnum::A,
+    };
     // encodes as:
     //   "e=A"
     let encoded = qs::to_string(&example_params).unwrap();
@@ -168,5 +172,4 @@ fn main() {
     let params: EnumQuery = qs::from_str(&encoded).unwrap();
     println!("`serde_qs` from_str for enum:\n\t{:?}", params);
     println!("");
-
 }

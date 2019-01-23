@@ -8,15 +8,17 @@ use std::iter::Iterator;
 use std::slice::Iter;
 use std::str;
 
-
 macro_rules! tu {
-    ($x:expr) => (
+    ($x:expr) => {
         match $x {
             Some(x) => *x,
-            None => return Err(
-                de::Error::custom("query string ended before expected"))
+            None => {
+                return Err(de::Error::custom(
+                    "query string ended before expected",
+                ))
+            },
         }
-    )
+    };
 }
 
 impl<'a> Level<'a> {
@@ -42,8 +44,10 @@ impl<'a> Level<'a> {
             let _ = map.insert(key, Level::Flat(value));
             *self = Level::Nested(map);
         } else {
-            *self = Level::Invalid("Attempted to insert map value into \
-                                    non-map structure");
+            *self = Level::Invalid(
+                "Attempted to insert map value into \
+                 non-map structure",
+            );
         }
     }
 
@@ -67,8 +71,10 @@ impl<'a> Level<'a> {
             let _ = map.insert(key, Level::Flat(value));
             *self = Level::OrderedSeq(map);
         } else {
-            *self = Level::Invalid("Attempted to insert seq value into \
-                                    non-seq structure");
+            *self = Level::Invalid(
+                "Attempted to insert seq value into \
+                 non-seq structure",
+            );
         }
     }
 
@@ -85,12 +91,13 @@ impl<'a> Level<'a> {
             seq.push(Level::Flat(value));
             *self = Level::Sequence(seq);
         } else {
-            *self = Level::Invalid("Attempted to insert seq value into \
-                                    non-seq structure");
+            *self = Level::Invalid(
+                "Attempted to insert seq value into \
+                 non-seq structure",
+            );
         }
     }
 }
-
 
 /// The `Parser` struct is a stateful querystring parser.
 /// It iterates over a slice of bytes, with a range to track the current
@@ -197,8 +204,10 @@ fn replace_plus(input: Cow<str>) -> Cow<str> {
                     *byte = b' ';
                 }
             }
-            Cow::Owned(String::from_utf8(replaced)
-                .expect("replacing '+' with ' ' cannot panic"))
+            Cow::Owned(
+                String::from_utf8(replaced)
+                    .expect("replacing '+' with ' ' cannot panic"),
+            )
         },
     }
 }
@@ -227,9 +236,10 @@ impl<'a> Parser<'a> {
     /// Avoids allocations when neither percent encoded, nor `'+'` values are
     /// present.
     fn collect_str(&mut self) -> Result<Cow<'a, str>> {
-        let res: Cow<'a, str> =
-            percent_encoding::percent_decode(&self.inner[self.acc.0..
-                                              self.acc.1 - 1]).decode_utf8()?;
+        let res: Cow<'a, str> = percent_encoding::percent_decode(
+            &self.inner[self.acc.0..self.acc.1 - 1],
+        )
+        .decode_utf8()?;
         let res: Result<Cow<'a, str>> = Ok(replace_plus(res));
         self.clear_acc();
         res.map_err(Error::from)
@@ -247,10 +257,7 @@ impl<'a> Parser<'a> {
             Level::Nested(map) => map.into_iter(),
             _ => BTreeMap::default().into_iter(),
         };
-        Ok(QsDeserializer {
-            iter,
-            value: None,
-        })
+        Ok(QsDeserializer { iter, value: None })
     }
 
     /// This is the top level parsing function. It checks the first character to
@@ -294,20 +301,29 @@ impl<'a> Parser<'a> {
                                 // First character is an integer, attempt to parse it as an integer key
                                 b'0'...b'9' => {
                                     let key = self.parse_key(b']', true)?;
-                                    let key = usize::from_str_radix(&key, 10).map_err(Error::from)?;
+                                    let key = usize::from_str_radix(&key, 10)
+                                        .map_err(Error::from)?;
                                     self.parse_ord_seq_value(key, node)?;
                                     return Ok(true);
                                 },
                                 // Key is "[a..." so parse up to the closing "]"
-                                0x20...0x2f | 0x3a...0x5a | 0x5c |
-                                0x5e...0x7e => {
+                                0x20...0x2f
+                                | 0x3a...0x5a
+                                | 0x5c
+                                | 0x5e...0x7e => {
                                     let key = self.parse_key(b']', true)?;
                                     self.parse_map_value(key, node)?;
                                     return Ok(true);
                                 },
                                 c => {
                                     if self.strict {
-                                        return Err(super::Error::parse_err(&format!("unexpected character: {}", String::from_utf8_lossy(&[c])), self.index));
+                                        return Err(super::Error::parse_err(
+                                            &format!(
+                                                "unexpected character: {}",
+                                                String::from_utf8_lossy(&[c])
+                                            ),
+                                            self.index,
+                                        ));
                                     } else {
                                         let _ = self.next();
                                     }
@@ -320,9 +336,7 @@ impl<'a> Parser<'a> {
                     // We do actually allow integer keys here since they cannot
                     // be confused with sequences
                     _ => {
-                        let key = {
-                            self.parse_key(b'[', false)?
-                        };
+                        let key = { self.parse_key(b'[', false)? };
                         // Root keys are _always_ map values
                         self.parse_map_value(key, node)?;
                         Ok(true)
@@ -333,7 +347,6 @@ impl<'a> Parser<'a> {
             None => Ok(false),
         }
     }
-
 
     /// The iterator is currently pointing at a key, so parse up until the
     /// `end_on` value. This will either be `'['` when the key is the root key,
@@ -387,10 +400,11 @@ impl<'a> Parser<'a> {
 
     /// The `(key,value)` pair is determined to be corresponding to a map entry,
     /// so parse it as such. The first part of the `key` has been parsed.
-    fn parse_map_value(&mut self,
-                       key: Cow<'a, str>,
-                       node: &mut Level<'a>)
-                       -> Result<()> {
+    fn parse_map_value(
+        &mut self,
+        key: Cow<'a, str>,
+        node: &mut Level<'a>,
+    ) -> Result<()> {
         self.state = ParsingState::Key;
         let res = loop {
             if let Some(x) = self.peek() {
@@ -421,15 +435,20 @@ impl<'a> Parser<'a> {
                             // Either take the existing entry, or add a new
                             // unitialised level
                             // Use this new node to keep parsing
-                            let _ = self.parse(map.entry(key)
-                                    .or_insert(Level::Uninitialised))?;
+                            let _ = self.parse(
+                                map.entry(key).or_insert(Level::Uninitialised),
+                            )?;
                             break Ok(());
                         } else {
                             // We expected to parse into a map here.
-                            break Err(super::Error::parse_err(&format!("tried to insert a \
-                                                           new key into {:?}",
-                                                                       node),
-                                                              self.index));
+                            break Err(super::Error::parse_err(
+                                &format!(
+                                    "tried to insert a \
+                                     new key into {:?}",
+                                    node
+                                ),
+                                self.index,
+                            ));
                         }
                     },
                     c => {
@@ -457,10 +476,11 @@ impl<'a> Parser<'a> {
     /// ordered sequence.
     /// Basically the same as the above, but we insert into `OrderedSeq`
     /// Can potentially be merged?
-    fn parse_ord_seq_value(&mut self,
-                           key: usize,
-                           node: &mut Level<'a>)
-                           -> Result<()> {
+    fn parse_ord_seq_value(
+        &mut self,
+        key: usize,
+        node: &mut Level<'a>,
+    ) -> Result<()> {
         self.state = ParsingState::Key;
         let res = loop {
             if let Some(x) = self.peek() {
@@ -493,14 +513,19 @@ impl<'a> Parser<'a> {
                                 // Either take the existing entry, or add a new
                                 // unitialised level
                                 // Use this new node to keep parsing
-                                map.entry(key).or_insert(Level::Uninitialised))?;
+                                map.entry(key).or_insert(Level::Uninitialised),
+                            )?;
                             break Ok(());
                         } else {
                             // We expected to parse into a seq here.
-                            break Err(super::Error::parse_err(&format!("tried to insert a \
-                                                           new key into {:?}",
-                                                                       node),
-                                                              self.index));
+                            break Err(super::Error::parse_err(
+                                &format!(
+                                    "tried to insert a \
+                                     new key into {:?}",
+                                    node
+                                ),
+                                self.index,
+                            ));
                         }
                     },
                     c => {
@@ -548,11 +573,11 @@ impl<'a> Parser<'a> {
                         node.insert_seq_value(Cow::Borrowed(""));
                         Ok(())
                     },
-                    _ => {
-                        Err(super::Error::parse_err("non-indexed sequence of \
-                                                     structs not supported",
-                                                    self.index))
-                    },
+                    _ => Err(super::Error::parse_err(
+                        "non-indexed sequence of \
+                         structs not supported",
+                        self.index,
+                    )),
                 }
             },
             None => {

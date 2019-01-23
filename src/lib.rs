@@ -89,7 +89,7 @@
 //! However, since some implementations will automatically encode everything
 //! in the URL, we also have a non-strict mode. This means that `serde_qs`
 //! will assume that any encoded square brackets in the string were meant to
-//! be taken as nested keys. From the example before, `a[b%5Bc%5D]=123` will 
+//! be taken as nested keys. From the example before, `a[b%5Bc%5D]=123` will
 //! now become `{"a": {"b": {"c": 123 }}}`.
 //!
 //! Non-strict mode can be useful when, as said before, some middleware
@@ -113,7 +113,7 @@
 //! extern crate serde_qs as qs;
 //!
 //! use serde::de::Error;
-//! 
+//!
 //! fn from_str<'de, D, S>(deserializer: D) -> Result<S, D::Error>
 //!     where D: serde::Deserializer<'de>,
 //!           S: std::str::FromStr
@@ -147,8 +147,7 @@
 //! }
 //! ```
 
-#![allow(
-)]
+#![allow()]
 #![deny(
     const_err,
     dead_code,
@@ -190,7 +189,7 @@
     unused_unsafe,
     unused_variables,
     variant_size_differences,
-    while_true,
+    while_true
 )]
 
 extern crate data_encoding;
@@ -204,11 +203,10 @@ mod de;
 mod error;
 mod ser;
 
-
-#[doc(inline)]
-pub use de::{from_bytes, from_str};
 #[doc(inline)]
 pub use de::Config;
+#[doc(inline)]
+pub use de::{from_bytes, from_str};
 pub use error::Error;
 #[doc(inline)]
-pub use ser::{QsSerializer, to_string, to_writer};
+pub use ser::{to_string, to_writer, QsSerializer};
