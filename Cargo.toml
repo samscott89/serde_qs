@@ -8,7 +8,7 @@ license = "MIT/Apache-2.0"
 name = "serde_qs"
 repository = "https://github.com/samscott89/serde_qs"
 readme = "README.md"
-version = "0.4.3"
+version = "0.4.4"
 
 [badges]
 
