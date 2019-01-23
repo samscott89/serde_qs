@@ -1,3 +1,4 @@
+extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_qs as qs;
@@ -478,4 +479,62 @@ fn strict_mode() {
 #[test]
 fn square_brackets_in_values() {
     map_test!("foo=%5BHello%5D", "foo"["[Hello]"]);
+}
+
+#[test]
+#[ignore]
+fn deserialize_flatten() {
+    #[derive(Deserialize,Serialize,Debug, PartialEq)]
+    struct Query {
+        a: u8,
+        #[serde(flatten)]
+        common: CommonParams,
+    }
+
+    #[derive(Deserialize,Serialize,Debug, PartialEq)]
+    struct CommonParams {
+        limit: u64,
+        offset: u64,
+        remaining: bool,
+    }
+
+    let params = "a=1&limit=100&offset=50&remaining=true";
+    let query = Query { a: 1, common: CommonParams { limit: 100, offset: 50, remaining: true } };
+    let rec_query: Result<Query, _> = qs::from_str(params);
+    assert_eq!(rec_query.unwrap(), query);
+}
+
+#[test]
+fn deserialize_flatten_workaround() {
+    #[derive(Deserialize,Serialize,Debug, PartialEq)]
+    struct Query {
+        a: u8,
+        #[serde(flatten)]
+        common: CommonParams,
+    }
+
+    #[derive(Deserialize,Serialize,Debug, PartialEq)]
+    struct CommonParams {
+        #[serde(deserialize_with="from_str")]
+        limit: u64,
+        #[serde(deserialize_with="from_str")]
+        offset: u64,
+        #[serde(deserialize_with="from_str")]
+        remaining: bool,
+    }
+
+    let params = "a=1&limit=100&offset=50&remaining=true";
+    let query = Query { a: 1, common: CommonParams { limit: 100, offset: 50, remaining: true } };
+    let rec_query: Result<Query, _> = qs::from_str(params);
+    assert_eq!(rec_query.unwrap(), query);
+}
+
+use serde::de::Error;
+
+fn from_str<'de, D, S>(deserializer: D) -> Result<S, D::Error>
+    where D: serde::Deserializer<'de>,
+          S: std::str::FromStr
+{
+    let s = <&str as serde::Deserialize>::deserialize(deserializer)?;
+    S::from_str(&s).map_err(|_| D::Error::custom("could not parse string"))
 }

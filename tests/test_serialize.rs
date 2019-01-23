@@ -92,3 +92,24 @@ fn serialize_enum() {
     let rec_params = qs::to_string(&query).unwrap();
     assert_eq!(rec_params, params);
 }
+
+#[test]
+fn serialize_flatten() {
+    #[derive(Deserialize,Serialize,Debug, PartialEq)]
+    struct Query {
+        a: u8,
+        #[serde(flatten)]
+        common: CommonParams,
+    }
+
+    #[derive(Deserialize,Serialize,Debug, PartialEq)]
+    struct CommonParams {
+        limit: u64,
+        offset: u64,
+    }
+
+    let params = "a=1&limit=100&offset=50";
+    let query = Query { a: 1, common: CommonParams { limit: 100, offset: 50 } };
+    let rec_params = qs::to_string(&query).unwrap();
+    assert_eq!(rec_params, params);
+}
