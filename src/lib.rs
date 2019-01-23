@@ -146,6 +146,17 @@
 //!     assert_eq!(rec_query.unwrap(), query);
 //! }
 //! ```
+//!
+//! ## Use with `actix_web` extractors
+//!
+//! The `actix` feature enables the use of `serde_qs::actix::QsQuery`, which
+//! is a direct substitute for the `actix_web::Query` and can be used as an extractor:
+//!
+//! ```ignore
+//! fn index(info: QsQuery<Info>) -> Result<String> {
+//!     Ok(format!("Welcome {}!", info.username))
+//! }
+//! ```
 
 #![allow()]
 #![deny(
@@ -192,6 +203,8 @@
     while_true
 )]
 
+#[cfg(feature = "actix")]
+extern crate actix_web;
 extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
@@ -199,6 +212,8 @@ extern crate percent_encoding;
 #[macro_use]
 extern crate serde;
 
+#[cfg(feature = "actix")]
+pub mod actix;
 mod de;
 mod error;
 mod ser;

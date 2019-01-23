@@ -16,6 +16,7 @@ version = "0.4.4"
 repository = "samscott89/serde_qs"
 
 [dependencies]
+actix-web = { version ="0.7", optional = true }
 data-encoding = "2.1.2"
 error-chain = "0.12.0"
 percent-encoding = "1.0.1"
@@ -27,11 +28,10 @@ rand = "0.6.4"
 serde_derive = "1.0.85"
 serde_urlencoded = "0.5.4"
 
-[lib]
-test = false
+[features]
+default = []
+actix = ["actix-web"]
 
-[profile]
-
-[profile.release]
-debug = true
-lto = false
+[package.metadata.docs.rs]
+features = [ "actix" ]
+all-features = true
