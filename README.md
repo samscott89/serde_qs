@@ -1,5 +1,12 @@
-Serde Querystrings
-===================================
+# Serde Querystrings [![Build Status]][travis] [![Latest Version]][crates.io] [![Documentation]][docs-rs] 
+
+
+[Build Status]: https://api.travis-ci.org/samscott89/serde_qs.svg?branch=master
+[travis]: https://travis-ci.org/samscott89/serde_qs
+[Latest Version]: https://img.shields.io/crates/v/serde_qs.svg
+[crates.io]: https://crates.io/crates/serde\_qs
+[Documentation]: https://docs.rs/serde_qs/badge.svg
+[docs-rs]: https://docs.rs/serde_qs/
 
 This crate is a Rust library for serialising to and deserialising from
 querystrings. This crate is designed to extend [`serde_urlencoded`][urlencoded]
