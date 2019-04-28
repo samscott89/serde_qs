@@ -595,3 +595,14 @@ where
     let s = <&str as serde::Deserialize>::deserialize(deserializer)?;
     S::from_str(&s).map_err(|_| D::Error::custom("could not parse string"))
 }
+
+#[test]
+fn deserialize_plus() {
+    #[derive(Deserialize)]
+    struct Test {
+        email: String,
+    }
+
+    let test: Test = serde_qs::from_str("email=a%2Bb%40c.com").unwrap();
+    assert_eq!(test.email, "a+b@c.com");
+}
