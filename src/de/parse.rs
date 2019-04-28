@@ -239,6 +239,8 @@ impl<'a> Parser<'a> {
             Cow::Borrowed(_) => {
                 match replaced {
                     Cow::Borrowed(_) => {
+                        // In this case, neither method made replacements, so we 
+                        // reuse the original bytes
                         let res = str::from_utf8(&self.inner[self.acc.0..self.acc.1 - 1])?;
                         Ok(Cow::Borrowed(res))
                     },
