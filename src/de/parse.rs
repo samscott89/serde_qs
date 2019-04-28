@@ -193,22 +193,20 @@ impl<'a> Parser<'a> {
 
 /// Replace b'+' with b' '
 /// Copied from [`form_urlencoded`](https://github.com/servo/rust-url/blob/380be29859adb859e861c2d765897c22ec878e01/src/form_urlencoded.rs#L125).
-fn replace_plus(input: Cow<str>) -> Cow<str> {
-    match input.as_bytes().iter().position(|&b| b == b'+') {
-        None => input,
+fn replace_plus(input: &[u8]) -> Cow<[u8]> {
+    match input.iter().position(|&b| b == b'+') {
+        None => Cow::Borrowed(input),
         Some(first_position) => {
-            let mut replaced = input.as_bytes().to_owned();
+            let mut replaced = input.to_owned();
             replaced[first_position] = b' ';
             for byte in &mut replaced[first_position + 1..] {
                 if *byte == b'+' {
                     *byte = b' ';
                 }
             }
-            Cow::Owned(
-                String::from_utf8(replaced)
-                    .expect("replacing '+' with ' ' cannot panic"),
-            )
-        },
+
+            Cow::Owned(replaced)
+        }
     }
 }
 
@@ -236,13 +234,28 @@ impl<'a> Parser<'a> {
     /// Avoids allocations when neither percent encoded, nor `'+'` values are
     /// present.
     fn collect_str(&mut self) -> Result<Cow<'a, str>> {
-        let res: Cow<'a, str> = percent_encoding::percent_decode(
-            &self.inner[self.acc.0..self.acc.1 - 1],
-        )
-        .decode_utf8()?;
-        let res: Result<Cow<'a, str>> = Ok(replace_plus(res));
+        let replaced = replace_plus(&self.inner[self.acc.0..self.acc.1 - 1]);
+        let ret:Result<Cow<'a, str>> = match percent_encoding::percent_decode(&replaced).decode_utf8()? {
+            Cow::Borrowed(_) => {
+                match replaced {
+                    Cow::Borrowed(_) => {
+                        // In this case, neither method made replacements, so we 
+                        // reuse the original bytes
+                        let res = str::from_utf8(&self.inner[self.acc.0..self.acc.1 - 1])?;
+                        Ok(Cow::Borrowed(res))
+                    },
+                    Cow::Owned(owned) => {
+                        let res = String::from_utf8(owned)?;
+                        Ok(Cow::Owned(res))
+                    }
+                }
+            },
+            Cow::Owned(owned) => {
+                Ok(Cow::Owned(owned))
+            }
+        };
         self.clear_acc();
-        res.map_err(Error::from)
+        ret.map_err(Error::from)
     }
 
     /// In some ways the main way to use a `Parser`, this runs the parsing step
