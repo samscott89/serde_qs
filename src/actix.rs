@@ -2,45 +2,47 @@
 //!
 //! Enable with the `actix` feature.
 
-use actix_web::FromRequest;
-use actix_web::HttpRequest;
-use serde::de;
-
-use std::ops::{Deref, DerefMut};
-use std::rc::Rc;
-use std::fmt;
-
+use actix_web::dev::Payload;
+use actix_web::{Error as ActixError, FromRequest, HttpRequest, HttpResponse, ResponseError};
 use error::Error as QsError;
+use serde::de;
+use std::fmt;
+use std::fmt::{Debug, Display};
+use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
+
+impl ResponseError for QsError {
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::BadRequest().finish()
+    }
+}
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 /// Extract typed information from from the request's query.
-/// `serde_qs` equivalent to `actix_web::Query`.
 ///
 /// ## Example
 ///
 /// ```rust
-/// # extern crate actix_web;
-/// # extern crate serde_qs;
 /// #[macro_use] extern crate serde_derive;
-/// use actix_web::{App, http};
+/// extern crate actix_web;
+/// use actix_web::{web, App};
 /// use serde_qs::actix::QsQuery;
 ///
-///#[derive(Deserialize)]
-///pub struct Request {
+/// #[derive(Deserialize)]
+/// pub struct UsersFilter {
 ///    id: Vec<u64>,
-///}
+/// }
 ///
-/// // use `with` extractor for query info
-/// // this handler get called only if request's query contains `username` field
-/// // The correct request for this handler would be `/index.html?id[]=1&id[]=2"`
-/// fn index(info: QsQuery<Request>) -> String {
-///     format!("Request for client with list of ids={:?}", info.id)
+/// // Use `QsQuery` extractor for query information.
+/// // The correct request for this handler would be `/users?id[]=1124&id[]=88"`
+/// fn filter_users(info: QsQuery<UsersFilter>) -> String {
+///     info.id.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", ").into()
 /// }
 ///
 /// fn main() {
-///     let app = App::new().resource(
-///        "/index.html",
-///        |r| r.method(http::Method::GET).with(index)); // <- use `with` extractor
+///     let app = App::new().service(
+///        web::resource("/users")
+///            .route(web::get().to(filter_users)));
 /// }
 /// ```
 pub struct QsQuery<T>(T);
@@ -66,30 +68,53 @@ impl<T> QsQuery<T> {
     }
 }
 
-impl<T, S> FromRequest<S> for QsQuery<T>
-where
-    T: de::DeserializeOwned,
-{
-    type Config = QsQueryConfig<S>;
-    type Result = Result<Self, actix_web::Error>;
-
-    #[inline]
-    fn from_request(req: &HttpRequest<S>, cfg: &Self::Config) -> Self::Result {
-        let req2 = req.clone();
-        let err = Rc::clone(&cfg.ehandler);
-        super::from_str::<T>(req.query_string())
-            .map_err(move |e| (*err)(e, &req2))
-            .map(QsQuery)
+impl<T: Debug> Debug for QsQuery<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
-/// QsQuery extractor configuration
+impl<T: Display> Display for QsQuery<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl<T> FromRequest for QsQuery<T>
+where
+    T: de::DeserializeOwned,
+{
+    type Error = ActixError;
+    type Future = Result<Self, ActixError>;
+    type Config = QsQueryConfig;
+
+    #[inline]
+    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
+        let error_handler = req
+            .app_data::<QsQueryConfig>()
+            .map(|c| c.ehandler.clone())
+            .unwrap_or(None);
+
+        super::from_str::<T>(req.query_string())
+            .map(|val| Ok(QsQuery(val)))
+            .unwrap_or_else(move |e| {
+                let e = if let Some(error_handler) = error_handler {
+                    (error_handler)(e, req)
+                } else {
+                    e.into()
+                };
+
+                Err(e)
+            })
+    }
+}
+
+/// Query extractor configuration
 ///
 /// ```rust
-/// # extern crate actix_web;
-/// # extern crate serde_qs;
 /// #[macro_use] extern crate serde_derive;
-/// use actix_web::{error, http, App, HttpResponse, Result};
+/// extern crate actix_web;
+/// use actix_web::{error, web, App, FromRequest, HttpResponse};
 /// use serde_qs::actix::QsQuery;
 ///
 /// #[derive(Deserialize)]
@@ -97,52 +122,43 @@ where
 ///     username: String,
 /// }
 ///
-/// /// deserialize `Info` from request's body, max payload size is 4kb
-/// fn index(info: QsQuery<Info>) -> Result<String> {
-///     Ok(format!("Welcome {}!", info.username))
+/// /// deserialize `Info` from request's querystring
+/// fn index(info: QsQuery<Info>) -> String {
+///     format!("Welcome {}!", info.username)
 /// }
 ///
 /// fn main() {
-///     let app = App::new().resource("/index.html", |r| {
-///         r.method(http::Method::GET).with_config(index, |cfg| {
-///             cfg.0.error_handler(|err, req| {
-///                 // <- create custom error response
-///                 error::InternalError::from_response(err.description().to_string(), HttpResponse::Conflict().finish()).into()
-///             });
-///         })
-///     });
+///     let app = App::new().service(
+///         web::resource("/index.html").data(
+///             // change query extractor configuration
+///             QsQuery::<Info>::configure(|cfg| {
+///                 cfg.error_handler(|err, req| {  // <- create custom error response
+///                     error::InternalError::from_response(
+///                         err, HttpResponse::Conflict().finish()).into()
+///                 })
+///             }))
+///             .route(web::post().to(index))
+///     );
 /// }
 /// ```
-pub struct QsQueryConfig<S> {
-    ehandler: Rc<Fn(QsError, &HttpRequest<S>) -> actix_web::Error>,
+pub struct QsQueryConfig {
+    ehandler:
+        Option<Arc<Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
 }
-impl<S> QsQueryConfig<S> {
+
+impl QsQueryConfig {
     /// Set custom error handler
-    pub fn error_handler<F>(&mut self, f: F) -> &mut Self
+    pub fn error_handler<F>(mut self, f: F) -> Self
     where
-        F: Fn(QsError, &HttpRequest<S>) -> actix_web::Error + 'static,
+        F: Fn(QsError, &HttpRequest) -> ActixError + Send + Sync + 'static,
     {
-        self.ehandler = Rc::new(f);
+        self.ehandler = Some(Arc::new(f));
         self
     }
 }
 
-impl<S> Default for QsQueryConfig<S> {
+impl Default for QsQueryConfig {
     fn default() -> Self {
-        QsQueryConfig {
-            ehandler: Rc::new(|_, _| actix_web::error::UrlencodedError::Parse.into()),
-        }
-    }
-}
-
-impl<T: fmt::Debug> fmt::Debug for QsQuery<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl<T: fmt::Display> fmt::Display for QsQuery<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        QsQueryConfig { ehandler: None }
     }
 }
