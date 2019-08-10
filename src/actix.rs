@@ -3,7 +3,10 @@
 //! Enable with the `actix` feature.
 
 use actix_web::dev::Payload;
-use actix_web::{Error as ActixError, FromRequest, HttpRequest, HttpResponse, ResponseError};
+use actix_web::{
+    Error as ActixError, FromRequest, HttpRequest, HttpResponse, ResponseError,
+};
+use de::Config as QsConfig;
 use error::Error as QsError;
 use serde::de;
 use std::fmt;
@@ -90,12 +93,18 @@ where
 
     #[inline]
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let error_handler = req
-            .app_data::<QsQueryConfig>()
-            .map(|c| c.ehandler.clone())
-            .unwrap_or(None);
+        let query_config = req.app_data::<QsQueryConfig>();
 
-        super::from_str::<T>(req.query_string())
+        let error_handler =
+            query_config.map(|c| c.ehandler.clone()).unwrap_or(None);
+
+        let default_qsconfig = QsConfig::default();
+        let qsconfig = query_config
+            .map(|c| &c.qs_config)
+            .unwrap_or(&default_qsconfig);
+
+        qsconfig
+            .deserialize_str::<T>(req.query_string())
             .map(|val| Ok(QsQuery(val)))
             .unwrap_or_else(move |e| {
                 let e = if let Some(error_handler) = error_handler {
@@ -116,6 +125,7 @@ where
 /// extern crate actix_web;
 /// use actix_web::{error, web, App, FromRequest, HttpResponse};
 /// use serde_qs::actix::QsQuery;
+/// use serde_qs::Config as QsConfig;
 ///
 /// #[derive(Deserialize)]
 /// struct Info {
@@ -136,14 +146,17 @@ where
 ///                     error::InternalError::from_response(
 ///                         err, HttpResponse::Conflict().finish()).into()
 ///                 })
+///                 .qs_config(QsConfig::default())
 ///             }))
 ///             .route(web::post().to(index))
 ///     );
 /// }
 /// ```
+
 pub struct QsQueryConfig {
     ehandler:
         Option<Arc<Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
+    qs_config: QsConfig,
 }
 
 impl QsQueryConfig {
@@ -155,10 +168,19 @@ impl QsQueryConfig {
         self.ehandler = Some(Arc::new(f));
         self
     }
+
+    /// Set custom serialization parameters
+    pub fn qs_config(mut self, config: QsConfig) -> Self {
+        self.qs_config = config;
+        self
+    }
 }
 
 impl Default for QsQueryConfig {
     fn default() -> Self {
-        QsQueryConfig { ehandler: None }
+        QsQueryConfig {
+            ehandler: None,
+            qs_config: QsConfig::default(),
+        }
     }
 }
