@@ -294,7 +294,7 @@ impl<'a> Parser<'a> {
                             self.clear_acc();
                             // Only peek at the next value to determine the key type.
                             match tu!(self.peek()) {
-                                // key is of the form "[...", not really allowed.
+                                // key is of the form "[..=", not really allowed.
                                 b'[' => {
                                     // If we're in strict mode, error, otherwise just ignore it.
                                     if self.strict {
@@ -312,18 +312,18 @@ impl<'a> Parser<'a> {
                                     return Ok(true);
                                 },
                                 // First character is an integer, attempt to parse it as an integer key
-                                b'0'...b'9' => {
+                                b'0'..=b'9' => {
                                     let key = self.parse_key(b']', true)?;
                                     let key = usize::from_str_radix(&key, 10)
                                         .map_err(Error::from)?;
                                     self.parse_ord_seq_value(key, node)?;
                                     return Ok(true);
                                 },
-                                // Key is "[a..." so parse up to the closing "]"
-                                0x20...0x2f
-                                | 0x3a...0x5a
+                                // Key is "[a..=" so parse up to the closing "]"
+                                0x20..=0x2f
+                                | 0x3a..=0x5a
                                 | 0x5c
-                                | 0x5e...0x7e => {
+                                | 0x5e..=0x7e => {
                                     let key = self.parse_key(b']', true)?;
                                     self.parse_map_value(key, node)?;
                                     return Ok(true);
@@ -345,7 +345,7 @@ impl<'a> Parser<'a> {
                         }
                     },
                     // This means the key should be a root key
-                    // of the form "abc" or "abc[...]"
+                    // of the form "abc" or "abc[..=]"
                     // We do actually allow integer keys here since they cannot
                     // be confused with sequences
                     _ => {
@@ -395,7 +395,7 @@ impl<'a> Parser<'a> {
                     },
                     b'&' => {
                         // important to keep the `&` character so we know the
-                        // key-value is of the form `key&...` (i.e. no value)
+                        // key-value is of the form `key&..=` (i.e. no value)
                         self.peeked = Some(&b'&');
                         return self.collect_str();
                     },
