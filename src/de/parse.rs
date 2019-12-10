@@ -140,7 +140,7 @@ impl<'a> Iterator for Parser<'a> {
                     self.index += 1;
                     self.acc.1 += 1;
                     match self.iter.next() {
-                        Some(v) if v == &b'%' => {
+                        Some(v) if v == &b'%' && self.iter.len() >= 2 => {
                             match &self.iter.as_slice()[..2] {
                                 b"5B" => {
                                     // skip the next two characters

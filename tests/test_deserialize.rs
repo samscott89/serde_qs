@@ -506,7 +506,7 @@ fn strict_mode() {
 
     let params = OddTest { a: 12 };
     let enc_params = qs::to_string(&params).unwrap();
-    println!("Enocded as: {}", enc_params);
+    println!("Encoded as: {}", enc_params);
     let rec_params: Result<OddTest, _> =
         strict_config.deserialize_str(&enc_params);
     assert_eq!(rec_params.unwrap(), params);
@@ -516,6 +516,10 @@ fn strict_mode() {
         loose_config.deserialize_str(&enc_params);
     assert!(rec_params.is_err());
     println!("{}", rec_params.unwrap_err());
+
+    // Test that we don't panic
+    let malformed_params: Result<Query, _> = loose_config.deserialize_str("%");
+    assert!(malformed_params.is_err());
 }
 
 #[test]
