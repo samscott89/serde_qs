@@ -16,7 +16,8 @@ version = "0.5.1"
 repository = "samscott89/serde_qs"
 
 [dependencies]
-actix-web = { version ="2.0.0", optional = true }
+actix-web = { package = "actix-web", version = "1.0.0", optional = true }
+actix-web2 = { package = "actix-web", version = "2.0.0", optional = true }
 futures = { version = "0.3", optional = true }
 data-encoding = "2.1.2"
 error-chain = "0.12.0"
@@ -31,7 +32,8 @@ serde_urlencoded = "0.5.4"
 
 [features]
 default = []
-actix = ["actix-web", "futures"]
+actix = ["actix-web"]
+actix2 = ["actix-web2", "futures"]
 
 [package.metadata.docs.rs]
 features = [ "actix" ]

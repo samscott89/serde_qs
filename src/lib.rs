@@ -205,8 +205,10 @@
 
 #[cfg(feature = "actix")]
 extern crate actix_web;
+#[cfg(feature = "actix2")]
+extern crate actix_web2;
 extern crate data_encoding;
-#[cfg(feature = "actix")]
+#[cfg(feature = "actix2")]
 extern crate futures;
 #[macro_use]
 extern crate error_chain;
@@ -216,6 +218,8 @@ extern crate serde;
 
 #[cfg(feature = "actix")]
 pub mod actix;
+#[cfg(feature = "actix2")]
+pub mod actix2;
 mod de;
 mod error;
 mod ser;
