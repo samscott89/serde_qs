@@ -206,6 +206,8 @@
 #[cfg(feature = "actix")]
 extern crate actix_web;
 extern crate data_encoding;
+#[cfg(feature = "actix")]
+extern crate futures;
 #[macro_use]
 extern crate error_chain;
 extern crate percent_encoding;
