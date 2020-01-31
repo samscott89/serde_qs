@@ -174,7 +174,6 @@
     non_upper_case_globals,
     overflowing_literals,
     path_statements,
-    plugin_as_library,
     stable_features,
     trivial_casts,
     trivial_numeric_casts,
@@ -203,12 +202,8 @@
     while_true
 )]
 
-#[cfg(feature = "actix")]
-extern crate actix_web;
-extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
-extern crate percent_encoding;
 #[macro_use]
 extern crate serde;
 

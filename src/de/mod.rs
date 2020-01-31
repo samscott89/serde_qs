@@ -38,7 +38,7 @@
 
 mod parse;
 
-use error::*;
+use crate::error::*;
 
 use serde::de;
 use serde::de::IntoDeserializer;

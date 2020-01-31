@@ -2,12 +2,14 @@
 //!
 //! Enable with the `actix` feature.
 
+use crate::de::Config as QsConfig;
+use crate::error::Error as QsError;
+
 use actix_web::dev::Payload;
 use actix_web::{
     Error as ActixError, FromRequest, HttpRequest, HttpResponse, ResponseError,
 };
-use de::Config as QsConfig;
-use error::Error as QsError;
+use futures::future::{ready, Ready};
 use serde::de;
 use std::fmt;
 use std::fmt::{Debug, Display};
@@ -88,7 +90,7 @@ where
     T: de::DeserializeOwned,
 {
     type Error = ActixError;
-    type Future = Result<Self, ActixError>;
+    type Future = Ready<Result<Self, ActixError>>;
     type Config = QsQueryConfig;
 
     #[inline]
@@ -103,7 +105,7 @@ where
             .map(|c| &c.qs_config)
             .unwrap_or(&default_qsconfig);
 
-        qsconfig
+        let res = qsconfig
             .deserialize_str::<T>(req.query_string())
             .map(|val| Ok(QsQuery(val)))
             .unwrap_or_else(move |e| {
@@ -114,7 +116,8 @@ where
                 };
 
                 Err(e)
-            })
+            });
+        ready(res)
     }
 }
 
@@ -155,7 +158,7 @@ where
 
 pub struct QsQueryConfig {
     ehandler:
-        Option<Arc<Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
+        Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
     qs_config: QsConfig,
 }
 
