@@ -4,7 +4,7 @@ use data_encoding::BASE64URL_NOPAD as BASE64;
 use percent_encoding::{percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use serde::ser;
 
-use error::*;
+use crate::error::*;
 
 use std::borrow::Cow;
 use std::fmt::Display;

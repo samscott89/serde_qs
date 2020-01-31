@@ -1,6 +1,5 @@
 use super::*;
 
-use percent_encoding;
 use serde::de;
 
 use std::borrow::Cow;
@@ -206,7 +205,7 @@ fn replace_plus(input: &[u8]) -> Cow<[u8]> {
             }
 
             Cow::Owned(replaced)
-        }
+        },
     }
 }
 
@@ -235,25 +234,26 @@ impl<'a> Parser<'a> {
     /// present.
     fn collect_str(&mut self) -> Result<Cow<'a, str>> {
         let replaced = replace_plus(&self.inner[self.acc.0..self.acc.1 - 1]);
-        let ret:Result<Cow<'a, str>> = match percent_encoding::percent_decode(&replaced).decode_utf8()? {
-            Cow::Borrowed(_) => {
-                match replaced {
-                    Cow::Borrowed(_) => {
-                        // In this case, neither method made replacements, so we 
-                        // reuse the original bytes
-                        let res = str::from_utf8(&self.inner[self.acc.0..self.acc.1 - 1])?;
-                        Ok(Cow::Borrowed(res))
-                    },
-                    Cow::Owned(owned) => {
-                        let res = String::from_utf8(owned)?;
-                        Ok(Cow::Owned(res))
+        let ret: Result<Cow<'a, str>> =
+            match percent_encoding::percent_decode(&replaced).decode_utf8()? {
+                Cow::Borrowed(_) => {
+                    match replaced {
+                        Cow::Borrowed(_) => {
+                            // In this case, neither method made replacements, so we
+                            // reuse the original bytes
+                            let res = str::from_utf8(
+                                &self.inner[self.acc.0..self.acc.1 - 1],
+                            )?;
+                            Ok(Cow::Borrowed(res))
+                        },
+                        Cow::Owned(owned) => {
+                            let res = String::from_utf8(owned)?;
+                            Ok(Cow::Owned(res))
+                        },
                     }
-                }
-            },
-            Cow::Owned(owned) => {
-                Ok(Cow::Owned(owned))
-            }
-        };
+                },
+                Cow::Owned(owned) => Ok(Cow::Owned(owned)),
+            };
         self.clear_acc();
         ret.map_err(Error::from)
     }

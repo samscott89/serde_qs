@@ -202,12 +202,8 @@
     while_true
 )]
 
-#[cfg(feature = "actix")]
-extern crate actix_web;
-extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
-extern crate percent_encoding;
 #[macro_use]
 extern crate serde;
 
