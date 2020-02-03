@@ -30,7 +30,7 @@ impl ResponseError for QsError {
 /// ```rust
 /// #[macro_use] extern crate serde_derive;
 /// extern crate actix_web;
-/// use actix_web::{web, App};
+/// use actix_web::{web, App, HttpResponse};
 /// use serde_qs::actix::QsQuery;
 ///
 /// #[derive(Deserialize)]
@@ -40,7 +40,7 @@ impl ResponseError for QsError {
 ///
 /// // Use `QsQuery` extractor for query information.
 /// // The correct request for this handler would be `/users?id[]=1124&id[]=88"`
-/// fn filter_users(info: QsQuery<UsersFilter>) -> String {
+/// fn filter_users(info: QsQuery<UsersFilter>) -> HttpResponse {
 ///     info.id.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", ").into()
 /// }
 ///
@@ -136,13 +136,13 @@ where
 /// }
 ///
 /// /// deserialize `Info` from request's querystring
-/// fn index(info: QsQuery<Info>) -> String {
-///     format!("Welcome {}!", info.username)
+/// fn index(info: QsQuery<Info>) -> HttpResponse {
+///     format!("Welcome {}!", info.username).into()
 /// }
 ///
 /// fn main() {
 ///     let app = App::new().service(
-///         web::resource("/index.html").data(
+///         web::resource("/index.html").app_data(
 ///             // change query extractor configuration
 ///             QsQuery::<Info>::configure(|cfg| {
 ///                 cfg.error_handler(|err, req| {  // <- create custom error response
