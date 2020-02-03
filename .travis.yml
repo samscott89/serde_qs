@@ -6,3 +6,10 @@ rust:
 matrix:
   allow_failures:
     - rust: nightly
+env:
+  - ARGS="--verbose"
+  - ARGS="--verbose --features=actix"
+
+script:
+  - cargo build $ARGS
+  - cargo test $ARGS
