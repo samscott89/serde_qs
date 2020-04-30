@@ -11,7 +11,7 @@
 This crate is a Rust library for serialising to and deserialising from
 querystrings. This crate is designed to extend [`serde_urlencoded`][urlencoded]
 when using nested parameters, similar to those used by [qs][qs] for Node, and
-commonly used by Ruby on Rails via [Rake][Rake].
+commonly used by Ruby on Rails via [Rack][Rack].
 
 The core of the library was inspired by
 [`serde_urlencoded`][urlencoded], which should be preferred
@@ -23,7 +23,7 @@ a URL parser for Rust.
 [Serde]: https://github.com/serde-rs/serde
 [urlencoded]: https://github.com/nox/serde_urlencoded
 [qs]: https://www.npmjs.com/package/qs
-[Rake]: http://www.rubydoc.info/github/rack/rack/Rack/Utils#parse_nested_query-class_method
+[Rack]: http://www.rubydoc.info/github/rack/rack/Rack/Utils#parse_nested_query-class_method
 
 Installation
 ============
