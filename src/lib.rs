@@ -160,10 +160,10 @@
 
 #![allow()]
 #![deny(
+    arithmetic_overflow,
     const_err,
     dead_code,
     deprecated,
-    exceeding_bitshifts,
     improper_ctypes,
     missing_docs,
     mutable_transmutes,
@@ -174,7 +174,6 @@
     non_upper_case_globals,
     overflowing_literals,
     path_statements,
-    plugin_as_library,
     stable_features,
     trivial_casts,
     trivial_numeric_casts,
