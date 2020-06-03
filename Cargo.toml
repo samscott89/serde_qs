@@ -24,7 +24,7 @@ serde = "1.0.85"
 
 [dev-dependencies]
 csv = "1.0.5"
-rand = "0.6.4"
+rand = "0.7.3"
 serde_derive = "1.0.85"
 serde_urlencoded = "0.6.1"
 
