@@ -1,6 +1,3 @@
-#![allow(deprecated)]
-
-use data_encoding;
 use serde::de;
 
 use std::fmt::Display;
