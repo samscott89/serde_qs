@@ -4,7 +4,7 @@ extern crate serde_derive;
 extern crate serde_qs as qs;
 extern crate serde_urlencoded as urlencoded;
 
-use rand::Rng;
+use rand::seq::SliceRandom;
 use std::collections::HashMap;
 
 use qs::Config;
@@ -104,7 +104,7 @@ fn main() {
     let mut rng = rand::thread_rng();
     for _ in 0..10 {
         let mut acc = String::new();
-        rng.shuffle(&mut inputs);
+        inputs.shuffle(&mut rng);
         for input in &inputs {
             acc += input;
             acc += "&";
