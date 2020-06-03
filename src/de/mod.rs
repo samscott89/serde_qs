@@ -108,10 +108,7 @@ impl Config {
 
 impl Config {
     /// Deserializes a querystring from a `&[u8]` using this `Config`.
-    pub fn deserialize_bytes<'de, T: de::Deserialize<'de>>(
-        &self,
-        input: &'de [u8],
-    ) -> Result<T> {
+    pub fn deserialize_bytes<'de, T: de::Deserialize<'de>>(&self, input: &'de [u8]) -> Result<T> {
         T::deserialize(QsDeserializer::with_config(self, input)?)
     }
 
@@ -125,10 +122,7 @@ impl Config {
     // }
 
     /// Deserializes a querystring from a `&str` using this `Config`.
-    pub fn deserialize_str<'de, T: de::Deserialize<'de>>(
-        &self,
-        input: &'de str,
-    ) -> Result<T> {
+    pub fn deserialize_str<'de, T: de::Deserialize<'de>>(&self, input: &'de str) -> Result<T> {
         self.deserialize_bytes(input.as_bytes())
     }
 }
@@ -220,8 +214,7 @@ impl<'a> QsDeserializer<'a> {
 
     /// Returns a new `QsDeserializer<'a>`.
     fn with_config(config: &Config, input: &'a [u8]) -> Result<Self> {
-        parse::Parser::new(input, config.max_depth(), config.strict)
-            .as_deserializer()
+        parse::Parser::new(input, config.max_depth(), config.strict).as_deserializer()
     }
 }
 
@@ -264,11 +257,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
         Err(Error::top_level("sequence"))
     }
 
-    fn deserialize_newtype_struct<V>(
-        self,
-        _name: &'static str,
-        visitor: V,
-    ) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -409,11 +398,7 @@ impl<'de> de::VariantAccess<'de> for QsDeserializer<'de> {
             Err(de::Error::custom("no value to deserialize"))
         }
     }
-    fn struct_variant<V>(
-        self,
-        _fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value>
+    fn struct_variant<V>(self, _fields: &'static [&'static str], visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -468,11 +453,7 @@ impl<'de> de::VariantAccess<'de> for LevelDeserializer<'de> {
     {
         de::Deserializer::deserialize_seq(self, visitor)
     }
-    fn struct_variant<V>(
-        self,
-        _fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value>
+    fn struct_variant<V>(self, _fields: &'static [&'static str], visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -482,9 +463,7 @@ impl<'de> de::VariantAccess<'de> for LevelDeserializer<'de> {
 
 struct LevelSeq<'a, I: Iterator<Item = Level<'a>>>(I);
 
-impl<'de, I: Iterator<Item = Level<'de>>> de::SeqAccess<'de>
-    for LevelSeq<'de, I>
-{
+impl<'de, I: Iterator<Item = Level<'de>>> de::SeqAccess<'de> for LevelSeq<'de, I> {
     type Error = Error;
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
     where
@@ -501,35 +480,32 @@ impl<'de, I: Iterator<Item = Level<'de>>> de::SeqAccess<'de>
 struct LevelDeserializer<'a>(Level<'a>);
 
 macro_rules! deserialize_primitive {
-    ($ty:ident, $method:ident, $visit_method:ident) => (
+    ($ty:ident, $method:ident, $visit_method:ident) => {
         fn $method<V>(self, visitor: V) -> Result<V::Value>
-            where V: de::Visitor<'de>,
+        where
+            V: de::Visitor<'de>,
         {
             match self.0 {
-                Level::Nested(_) => {
-                    Err(de::Error::custom(format!("Expected: {:?}, got a Map",
-                                                  stringify!($ty))))
-                },
-                Level::OrderedSeq(_) => {
-                    Err(de::Error::custom(format!("Expected: {:?}, got an OrderedSequence",
-                                                  stringify!($ty))))
-                },
-                Level::Sequence(_) => {
-                    Err(de::Error::custom(format!("Expected: {:?}, got a Sequence",
-                                                  stringify!($ty))))
-                },
-                Level::Flat(x) => {
-                    ParsableStringDeserializer(x).$method(visitor)
-                },
-                Level::Invalid(e) => {
-                    Err(de::Error::custom(e))
-                },
-                Level::Uninitialised => {
-                    Err(de::Error::custom("attempted to deserialize unitialised value"))
-                },
+                Level::Nested(_) => Err(de::Error::custom(format!(
+                    "Expected: {:?}, got a Map",
+                    stringify!($ty)
+                ))),
+                Level::OrderedSeq(_) => Err(de::Error::custom(format!(
+                    "Expected: {:?}, got an OrderedSequence",
+                    stringify!($ty)
+                ))),
+                Level::Sequence(_) => Err(de::Error::custom(format!(
+                    "Expected: {:?}, got a Sequence",
+                    stringify!($ty)
+                ))),
+                Level::Flat(x) => ParsableStringDeserializer(x).$method(visitor),
+                Level::Invalid(e) => Err(de::Error::custom(e)),
+                Level::Uninitialised => Err(de::Error::custom(
+                    "attempted to deserialize unitialised value",
+                )),
             }
         }
-    )
+    };
 }
 
 impl<'a> LevelDeserializer<'a> {
@@ -554,15 +530,9 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.0 {
-            Level::Nested(_) => {
-                self.into_deserializer()?.deserialize_map(visitor)
-            },
-            Level::OrderedSeq(map) => {
-                visitor.visit_seq(LevelSeq(map.into_iter().map(|(_k, v)| v)))
-            },
-            Level::Sequence(seq) => {
-                visitor.visit_seq(LevelSeq(seq.into_iter()))
-            },
+            Level::Nested(_) => self.into_deserializer()?.deserialize_map(visitor),
+            Level::OrderedSeq(map) => visitor.visit_seq(LevelSeq(map.into_iter().map(|(_k, v)| v))),
+            Level::Sequence(seq) => visitor.visit_seq(LevelSeq(seq.into_iter())),
             Level::Flat(x) => match x {
                 Cow::Owned(s) => visitor.visit_string(s),
                 Cow::Borrowed(s) => visitor.visit_borrowed_str(s),
@@ -595,8 +565,9 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.0 {
-            Level::Nested(map) => QsDeserializer::with_map(map)
-                .deserialize_enum(name, variants, visitor),
+            Level::Nested(map) => {
+                QsDeserializer::with_map(map).deserialize_enum(name, variants, visitor)
+            }
             Level::Flat(_) => visitor.visit_enum(self),
             x => Err(de::Error::custom(format!(
                 "{:?} does not appear to be \
@@ -606,29 +577,19 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         }
     }
 
-    fn deserialize_newtype_struct<V>(
-        self,
-        _name: &'static str,
-        visitor: V,
-    ) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
         match self.0 {
-            Level::Nested(_) => {
-                self.into_deserializer()?.deserialize_map(visitor)
-            },
-            Level::OrderedSeq(map) => {
-                visitor.visit_seq(LevelSeq(map.into_iter().map(|(_k, v)| v)))
-            },
-            Level::Sequence(seq) => {
-                visitor.visit_seq(LevelSeq(seq.into_iter()))
-            },
+            Level::Nested(_) => self.into_deserializer()?.deserialize_map(visitor),
+            Level::OrderedSeq(map) => visitor.visit_seq(LevelSeq(map.into_iter().map(|(_k, v)| v))),
+            Level::Sequence(seq) => visitor.visit_seq(LevelSeq(seq.into_iter())),
             Level::Flat(_) => {
                 // For a newtype_struct, attempt to deserialize a flat value as a
                 // single element sequence.
                 visitor.visit_seq(LevelSeq(vec![self.0].into_iter()))
-            },
+            }
             Level::Invalid(e) => Err(de::Error::custom(e)),
             Level::Uninitialised => Err(de::Error::custom(
                 "attempted to deserialize unitialised \

@@ -41,10 +41,7 @@ impl<T: DeserializeOwned> Default for CSVVecVisitor<T> {
 impl<'de, T: DeserializeOwned> serde::de::Visitor<'de> for CSVVecVisitor<T> {
     type Value = Vec<T>;
 
-    fn expecting(
-        &self,
-        formatter: &mut std::fmt::Formatter,
-    ) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(formatter, "a str")
     }
 
@@ -55,12 +52,8 @@ impl<'de, T: DeserializeOwned> serde::de::Visitor<'de> for CSVVecVisitor<T> {
         let mut output = Vec::new();
         let mut items = csv::Reader::from_reader(s.as_bytes());
         for res in items.deserialize() {
-            let item: T = res.map_err(|e| {
-                E::custom(format!(
-                    "could not deserialize sequence value: {:?}",
-                    e
-                ))
-            })?;
+            let item: T = res
+                .map_err(|e| E::custom(format!("could not deserialize sequence value: {:?}", e)))?;
             output.push(item);
         }
 

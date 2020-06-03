@@ -6,9 +6,7 @@ use crate::de::Config as QsConfig;
 use crate::error::Error as QsError;
 
 use actix_web::dev::Payload;
-use actix_web::{
-    Error as ActixError, FromRequest, HttpRequest, HttpResponse, ResponseError,
-};
+use actix_web::{Error as ActixError, FromRequest, HttpRequest, HttpResponse, ResponseError};
 use futures::future::{ready, Ready};
 use serde::de;
 use std::fmt;
@@ -97,8 +95,7 @@ where
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
         let query_config = req.app_data::<QsQueryConfig>();
 
-        let error_handler =
-            query_config.map(|c| c.ehandler.clone()).unwrap_or(None);
+        let error_handler = query_config.map(|c| c.ehandler.clone()).unwrap_or(None);
 
         let default_qsconfig = QsConfig::default();
         let qsconfig = query_config
@@ -157,8 +154,7 @@ where
 /// ```
 
 pub struct QsQueryConfig {
-    ehandler:
-        Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
+    ehandler: Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
     qs_config: QsConfig,
 }
 

@@ -105,10 +105,9 @@ fn test_composite_querystring_extractor() {
 #[test]
 fn test_default_qs_config() {
     futures::executor::block_on(async {
-        let req = TestRequest::with_uri(
-            "/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true",
-        )
-        .to_srv_request();
+        let req =
+            TestRequest::with_uri("/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true")
+                .to_srv_request();
         let (req, mut pl) = req.into_parts();
 
         let e = QsQuery::<Query>::from_request(&req, &mut pl)
@@ -124,11 +123,10 @@ fn test_default_qs_config() {
 #[test]
 fn test_custom_qs_config() {
     futures::executor::block_on(async {
-        let req = TestRequest::with_uri(
-            "/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true",
-        )
-        .app_data(QsQueryConfig::default().qs_config(QsConfig::new(5, false)))
-        .to_srv_request();
+        let req =
+            TestRequest::with_uri("/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true")
+                .app_data(QsQueryConfig::default().qs_config(QsConfig::new(5, false)))
+                .to_srv_request();
 
         let (req, mut pl) = req.into_parts();
 

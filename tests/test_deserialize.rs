@@ -455,15 +455,13 @@ fn strict_mode() {
 
     let strict_config = qs::Config::default();
 
-    let params: Result<Query, _> =
-        strict_config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
+    let params: Result<Query, _> = strict_config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
     assert!(params.is_err());
     println!("{}", params.unwrap_err());
 
     let loose_config = qs::Config::new(5, false);
 
-    let params: Result<Query, _> =
-        loose_config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
+    let params: Result<Query, _> = loose_config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
     assert_eq!(
         params.unwrap(),
         Query {
@@ -480,8 +478,7 @@ fn strict_mode() {
         }
     );
 
-    let params: Result<Query, _> =
-        loose_config.deserialize_str("vec[%5B0%5D%5Ba%5D=1&vec[1][a]=2");
+    let params: Result<Query, _> = loose_config.deserialize_str("vec[%5B0%5D%5Ba%5D=1&vec[1][a]=2");
     assert_eq!(
         params.unwrap(),
         Query {
@@ -489,8 +486,7 @@ fn strict_mode() {
         }
     );
 
-    let params: Result<Query, _> =
-        loose_config.deserialize_str("vec%5B0%5D%5Ba%5D]=1&vec[1][a]=2");
+    let params: Result<Query, _> = loose_config.deserialize_str("vec%5B0%5D%5Ba%5D]=1&vec[1][a]=2");
     assert_eq!(
         params.unwrap(),
         Query {
@@ -507,13 +503,11 @@ fn strict_mode() {
     let params = OddTest { a: 12 };
     let enc_params = qs::to_string(&params).unwrap();
     println!("Encoded as: {}", enc_params);
-    let rec_params: Result<OddTest, _> =
-        strict_config.deserialize_str(&enc_params);
+    let rec_params: Result<OddTest, _> = strict_config.deserialize_str(&enc_params);
     assert_eq!(rec_params.unwrap(), params);
 
     // Non-strict decoding cannot necessarily handle these weird scenerios.
-    let rec_params: Result<OddTest, _> =
-        loose_config.deserialize_str(&enc_params);
+    let rec_params: Result<OddTest, _> = loose_config.deserialize_str(&enc_params);
     assert!(rec_params.is_err());
     println!("{}", rec_params.unwrap_err());
 
