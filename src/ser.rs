@@ -1,7 +1,7 @@
 //! Serialization support for querystrings.
 
 use data_encoding::BASE64URL_NOPAD as BASE64;
-use percent_encoding::{percent_encode, EncodeSet};
+use percent_encoding::{percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use serde::ser;
 
 use error::*;
@@ -11,25 +11,12 @@ use std::fmt::Display;
 use std::io::Write;
 use std::str;
 
-#[allow(non_camel_case_types)]
-#[derive(Clone)]
-struct QS_ENCODE_SET;
-
-impl EncodeSet for QS_ENCODE_SET {
-    fn contains(&self, byte: u8) -> bool {
-        match byte {
-            b' '
-            | b'*'
-            | b'-'
-            | b'.'
-            | b'0'..=b'9'
-            | b'A'..=b'Z'
-            | b'_'
-            | b'a'..=b'z' => false,
-            _ => true,
-        }
-    }
-}
+const QS_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b' ')
+    .remove(b'*')
+    .remove(b'-')
+    .remove(b'.')
+    .remove(b'_');
 
 /// Serializes a value into a querystring.
 ///
