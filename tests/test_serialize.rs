@@ -5,6 +5,7 @@ extern crate serde_qs as qs;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct Address {
     city: String,
+    street: String,
     postcode: String,
 }
 
@@ -25,6 +26,7 @@ fn serialize_struct() {
         phone: 12345,
         address: Address {
             city: "Carrot City".to_string(),
+            street: "Special-Street* No. 11".to_string(),
             postcode: "12345".to_string(),
         },
         user_ids: vec![1, 2, 3, 4],
@@ -34,6 +36,7 @@ fn serialize_struct() {
         qs::to_string(&params).unwrap(),
         "\
          id=42&name=Acme&phone=12345&address[city]=Carrot+City&\
+         address[street]=Special-Street*+No.+11&\
          address[postcode]=12345&user_ids[0]=1&user_ids[1]=2&\
          user_ids[2]=3&user_ids[3]=4"
     );

@@ -2,12 +2,14 @@
 //!
 //! Enable with the `actix` feature.
 
+use crate::de::Config as QsConfig;
+use crate::error::Error as QsError;
+
 use actix_web::dev::Payload;
 use actix_web::{
     Error as ActixError, FromRequest, HttpRequest, HttpResponse, ResponseError,
 };
-use de::Config as QsConfig;
-use error::Error as QsError;
+use futures::future::{ready, Ready};
 use serde::de;
 use std::fmt;
 use std::fmt::{Debug, Display};
@@ -28,7 +30,7 @@ impl ResponseError for QsError {
 /// ```rust
 /// #[macro_use] extern crate serde_derive;
 /// extern crate actix_web;
-/// use actix_web::{web, App};
+/// use actix_web::{web, App, HttpResponse};
 /// use serde_qs::actix::QsQuery;
 ///
 /// #[derive(Deserialize)]
@@ -38,7 +40,7 @@ impl ResponseError for QsError {
 ///
 /// // Use `QsQuery` extractor for query information.
 /// // The correct request for this handler would be `/users?id[]=1124&id[]=88"`
-/// fn filter_users(info: QsQuery<UsersFilter>) -> String {
+/// fn filter_users(info: QsQuery<UsersFilter>) -> HttpResponse {
 ///     info.id.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", ").into()
 /// }
 ///
@@ -88,7 +90,7 @@ where
     T: de::DeserializeOwned,
 {
     type Error = ActixError;
-    type Future = Result<Self, ActixError>;
+    type Future = Ready<Result<Self, ActixError>>;
     type Config = QsQueryConfig;
 
     #[inline]
@@ -103,7 +105,7 @@ where
             .map(|c| &c.qs_config)
             .unwrap_or(&default_qsconfig);
 
-        qsconfig
+        let res = qsconfig
             .deserialize_str::<T>(req.query_string())
             .map(|val| Ok(QsQuery(val)))
             .unwrap_or_else(move |e| {
@@ -114,7 +116,8 @@ where
                 };
 
                 Err(e)
-            })
+            });
+        ready(res)
     }
 }
 
@@ -133,13 +136,13 @@ where
 /// }
 ///
 /// /// deserialize `Info` from request's querystring
-/// fn index(info: QsQuery<Info>) -> String {
-///     format!("Welcome {}!", info.username)
+/// fn index(info: QsQuery<Info>) -> HttpResponse {
+///     format!("Welcome {}!", info.username).into()
 /// }
 ///
 /// fn main() {
 ///     let app = App::new().service(
-///         web::resource("/index.html").data(
+///         web::resource("/index.html").app_data(
 ///             // change query extractor configuration
 ///             QsQuery::<Info>::configure(|cfg| {
 ///                 cfg.error_handler(|err, req| {  // <- create custom error response
@@ -155,7 +158,7 @@ where
 
 pub struct QsQueryConfig {
     ehandler:
-        Option<Arc<Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
+        Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
     qs_config: QsConfig,
 }
 
