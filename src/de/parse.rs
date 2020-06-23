@@ -333,6 +333,11 @@ impl<'a> Parser<'a> {
                             }
                         }
                     }
+                    // Skip empty byte sequences (e.g. leading `&`, trailing `&`, `&&`, ...)
+                    b'&' => {
+                        self.clear_acc();
+                        Ok(true)
+                    }
                     // This means the key should be a root key
                     // of the form "abc" or "abc[..=]"
                     // We do actually allow integer keys here since they cannot
