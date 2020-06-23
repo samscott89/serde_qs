@@ -124,6 +124,12 @@ fn qs_test_simple() {
     // st.deepEqual(qs.parse('0=foo'), { 0: 'foo' });
     map_test!("0=foo", 0["foo"]);
 
+    // st.deepEqual(qs.parse('&0=foo'), { 0: 'foo' });
+    map_test!("&0=foo", 0["foo"]);
+
+    // st.deepEqual(qs.parse('0=foo&'), { 0: 'foo' });
+    map_test!("0=foo&", 0["foo"]);
+
     // st.deepEqual(qs.parse('foo=c++'), { foo: 'c  ' });
     map_test!("foo=c++", "foo"["c  "]);
 
@@ -158,6 +164,9 @@ fn qs_test_simple() {
 
     // st.deepEqual(qs.parse('foo=bar&bar=baz'), { foo: 'bar', bar: 'baz' });
     map_test!("foo=bar&bar=baz", "foo"["bar"] "bar"["baz"]);
+
+    // st.deepEqual(qs.parse('foo=bar&&bar=baz'), { foo: 'bar', bar: 'baz' });
+    map_test!("foo=bar&&bar=baz", "foo"["bar"] "bar"["baz"]);
 
     // st.deepEqual(qs.parse('foo2=bar2&baz2='), { foo2: 'bar2', baz2: '' });
     map_test!("foo2=bar2&baz2=", "foo2"["bar2"] "baz2"[""]);
