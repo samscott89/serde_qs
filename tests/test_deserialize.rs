@@ -398,18 +398,42 @@ fn seq_of_struct() {
     #[derive(Deserialize, Debug, PartialEq)]
     struct Test {
         a: u8,
+        b: u8
     }
     #[derive(Deserialize, Debug, PartialEq)]
     struct Query {
-        b: Vec<Test>,
+        elements: Vec<Test>,
     }
 
-    let params = "b[0][a]=1&b[1][a]=2";
+    let params = "elements[0][a]=1&elements[0][b]=3&elements[1][a]=2&elements[1][b]=4";
     let rec_params: Query = qs::from_str(params).unwrap();
     assert_eq!(
         rec_params,
         Query {
-            b: vec![Test { a: 1 }, Test { a: 2 }]
+            elements: vec![Test { a: 1, b: 3 }, Test { a: 2, b: 4 }]
+        }
+    );
+}
+
+#[should_panic]
+#[test]
+fn unsupported_seq_of_struct() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Test {
+        a: u8,
+        b: u8
+    }
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        elements: Vec<Test>,
+    }
+
+    let params = "elements[][a]=1&elements[][b]=3&elements[][a]=2&elements[][b]=4";
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(
+        rec_params,
+        Query {
+            elements: vec![Test { a: 1, b: 3 }, Test { a: 2, b: 4 }]
         }
     );
 }
@@ -603,4 +627,9 @@ fn deserialize_plus() {
 
     let test: Test = serde_qs::from_str("email=a%2Bb%40c.com").unwrap();
     assert_eq!(test.email, "a+b@c.com");
+}
+
+#[test]
+fn deserialize_vec_of_structs() {
+
 }
