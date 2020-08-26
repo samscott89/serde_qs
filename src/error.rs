@@ -6,37 +6,50 @@ use std::num;
 use std::str;
 use std::string;
 
-error_chain! {
-    errors {
-        Custom(msg: String) {
-            description("miscellaneous failure")
-            display("failed with reason: {}", msg)
-        }
-        Parse(msg: String, pos: usize) {
-            description("parsing failure")
-            display("parsing failed with error: '{}' at position: {}", msg, pos)
-        }
-        Unsupported
-    }
+/// Error type for `serde_qs`.
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    /// Custom string-based error
+    #[error("failed with reason: {0}")]
+    Custom(String),
 
-    foreign_links {
-        Decoding(data_encoding::DecodeError);
-        FromUtf8(string::FromUtf8Error);
-        Io(io::Error);
-        ParseInt(num::ParseIntError);
-        Utf8(str::Utf8Error);
-    }
+    /// Parse error at a specified position in the query string
+    #[error("parsing failed with error: '{0}' at position: {1}")]
+    Parse(String, usize),
+
+    /// Unsupported type that `serde_qs` can't serialize into a query string
+    #[error("unsupported type for serialization")]
+    Unsupported,
+
+    /// Error decoding `BASE64URL` data
+    #[error(transparent)]
+    Decoding(#[from] data_encoding::DecodeError),
+
+    /// Error proessing UTF-8 for a `String`
+    #[error(transparent)]
+    FromUtf8(#[from] string::FromUtf8Error),
+
+    /// I/O error
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
+    /// Error parsing a number
+    #[error(transparent)]
+    ParseInt(#[from] num::ParseIntError),
+
+    /// Error processing UTF-8 for a `str`
+    #[error(transparent)]
+    Utf8(#[from] str::Utf8Error),
 }
 
 impl Error {
     /// Generate error to show top-level type cannot be deserialized.
     pub fn top_level(object: &'static str) -> Self {
-        ErrorKind::Custom(format!(
+        Self::Custom(format!(
             "cannot deserialize {} at the top level.\
              Try deserializing into a struct.",
             object
         ))
-        .into()
     }
 
     /// Generate a parsing error message with position.
@@ -44,7 +57,7 @@ impl Error {
     where
         T: Display,
     {
-        ErrorKind::Parse(msg.to_string(), position).into()
+        Self::Parse(msg.to_string(), position)
     }
 }
 
@@ -53,6 +66,8 @@ impl de::Error for Error {
     where
         T: Display,
     {
-        ErrorKind::Custom(msg.to_string()).into()
+        Self::Custom(msg.to_string())
     }
 }
+
+pub type Result<T, E = Error> = core::result::Result<T, E>;
