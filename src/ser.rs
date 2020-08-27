@@ -169,7 +169,7 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
 impl Error {
     fn no_key() -> Self {
         let msg = "tried to serialize a value before serializing key";
-        msg.into()
+        Self::Custom(msg.into())
     }
 }
 
@@ -267,7 +267,7 @@ impl<'a, W: Write> ser::Serializer for &'a mut QsSerializer<'a, W> {
     }
 
     fn serialize_some<T: ?Sized + ser::Serialize>(self, value: &T) -> Result<Self::Ok> {
-        // Err(ErrorKind::Unsupported.into())
+        // Err(Error::Unsupported)
         value.serialize(self)
     }
 
@@ -326,7 +326,7 @@ impl ser::Error for Error {
     where
         T: Display,
     {
-        ErrorKind::Custom(msg.to_string()).into()
+        Error::Custom(msg.to_string())
     }
 }
 
@@ -516,12 +516,12 @@ impl ser::Serializer for StringSerializer {
 
     /// Returns an error.
     fn serialize_unit(self) -> Result<Self::Ok> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     /// Returns an error.
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     /// Returns an error.
@@ -531,7 +531,7 @@ impl ser::Serializer for StringSerializer {
         _variant_index: u32,
         _variant: &'static str,
     ) -> Result<Self::Ok> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     /// Returns an error.
@@ -540,7 +540,7 @@ impl ser::Serializer for StringSerializer {
         _name: &'static str,
         _value: &T,
     ) -> Result<Self::Ok> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     /// Returns an error.
@@ -551,26 +551,26 @@ impl ser::Serializer for StringSerializer {
         _variant: &'static str,
         _value: &T,
     ) -> Result<Self::Ok> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     /// Returns an error.
     fn serialize_none(self) -> Result<Self::Ok> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     /// Returns an error.
     fn serialize_some<T: ?Sized + ser::Serialize>(self, _value: &T) -> Result<Self::Ok> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     /// Returns an error.
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     /// Returns an error.
@@ -579,7 +579,7 @@ impl ser::Serializer for StringSerializer {
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     fn serialize_tuple_variant(
@@ -589,15 +589,15 @@ impl ser::Serializer for StringSerializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 
     fn serialize_struct_variant(
@@ -607,6 +607,6 @@ impl ser::Serializer for StringSerializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        Err(ErrorKind::Unsupported.into())
+        Err(Error::Unsupported)
     }
 }
