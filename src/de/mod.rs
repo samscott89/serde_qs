@@ -654,6 +654,18 @@ impl<'de> de::Deserializer<'de> for ParsableStringDeserializer<'de> {
         self.0.into_deserializer().deserialize_any(visitor)
     }
 
+    fn deserialize_enum<V>(
+        self,
+        _: &'static str,
+        _: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        visitor.visit_enum(LevelDeserializer(Level::Flat(self.0)))
+    }
+
     forward_to_deserialize_any! {
         map
         struct
@@ -670,7 +682,6 @@ impl<'de> de::Deserializer<'de> for ParsableStringDeserializer<'de> {
         tuple_struct
         identifier
         tuple
-        enum
         ignored_any
     }
 
