@@ -5,7 +5,7 @@
 * `QaQuery` now has a public representation: `QaQuery(pub T)` that enables
   destructuring.
   
-  From now on, you can instead of:
+  From now on, instead of:
   ```
   fn index(info: QsQuery<Info>) -> Result<String> {
       Ok(format!("Welcome {}!", info.username))
