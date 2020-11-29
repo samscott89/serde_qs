@@ -38,7 +38,7 @@ impl ResponseError for QsError {
 ///
 /// // Use `QsQuery` extractor for query information.
 /// // The correct request for this handler would be `/users?id[]=1124&id[]=88"`
-/// fn filter_users(info: QsQuery<UsersFilter>) -> HttpResponse {
+/// fn filter_users(QsQuery(info): QsQuery<UsersFilter>) -> HttpResponse {
 ///     info.id.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", ").into()
 /// }
 ///
@@ -48,7 +48,7 @@ impl ResponseError for QsError {
 ///            .route(web::get().to(filter_users)));
 /// }
 /// ```
-pub struct QsQuery<T>(T);
+pub struct QsQuery<T>(pub T);
 
 impl<T> Deref for QsQuery<T> {
     type Target = T;
@@ -133,7 +133,7 @@ where
 /// }
 ///
 /// /// deserialize `Info` from request's querystring
-/// fn index(info: QsQuery<Info>) -> HttpResponse {
+/// fn index(QsQuery(info): QsQuery<Info>) -> HttpResponse {
 ///     format!("Welcome {}!", info.username).into()
 /// }
 ///

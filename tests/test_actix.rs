@@ -103,6 +103,24 @@ fn test_composite_querystring_extractor() {
 }
 
 #[test]
+fn test_composite_public_querystring_extractor() {
+    futures::executor::block_on(async {
+        let req = TestRequest::with_uri(
+            "/test?foo=1&bars[]=0&bars[]=1&limit=100&offset=50&remaining=true",
+        )
+        .to_srv_request();
+        let (req, mut pl) = req.into_parts();
+
+        let QsQuery(s) = QsQuery::<Query>::from_request(&req, &mut pl).await.unwrap();
+        assert_eq!(s.foo, 1);
+        assert_eq!(s.bars, vec![0, 1]);
+        assert_eq!(s.common.limit, 100);
+        assert_eq!(s.common.offset, 50);
+        assert_eq!(s.common.remaining, true);
+    })
+}
+
+#[test]
 fn test_default_qs_config() {
     futures::executor::block_on(async {
         let req =

@@ -153,7 +153,7 @@
 //! is a direct substitute for the `actix_web::Query` and can be used as an extractor:
 //!
 //! ```ignore
-//! fn index(info: QsQuery<Info>) -> Result<String> {
+//! fn index(QsQuery(info): QsQuery<Info>) -> Result<String> {
 //!     Ok(format!("Welcome {}!", info.username))
 //! }
 //! ```
