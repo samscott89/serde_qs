@@ -17,9 +17,5 @@ fn double_encoding_keys() {
 
     let encoded = serde_qs::to_string(&human).unwrap();
     print!("{}", encoded);
-    assert_eq!(
-        serde_qs::from_str::<Human>(&encoded)
-            .unwrap(),
-        human
-    );
+    assert_eq!(serde_qs::from_str::<Human>(&encoded).unwrap(), human);
 }

@@ -407,7 +407,7 @@ fn seq_of_struct() {
     #[derive(Deserialize, Debug, PartialEq)]
     struct Test {
         a: u8,
-        b: u8
+        b: u8,
     }
     #[derive(Deserialize, Debug, PartialEq)]
     struct Query {
@@ -430,7 +430,7 @@ fn unsupported_seq_of_struct() {
     #[derive(Deserialize, Debug, PartialEq)]
     struct Test {
         a: u8,
-        b: u8
+        b: u8,
     }
     #[derive(Deserialize, Debug, PartialEq)]
     struct Query {
@@ -639,8 +639,7 @@ fn deserialize_plus() {
 }
 
 #[test]
-fn deserialize_vec_of_structs() {
-}
+fn deserialize_vec_of_structs() {}
 
 #[test]
 fn deserialize_map_with_unit_enum_keys() {
