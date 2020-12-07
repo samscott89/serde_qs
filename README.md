@@ -33,7 +33,7 @@ This crate works with Cargo and can be found on
 
 ```toml
 [dependencies]
-serde_qs = "0.7"
+serde_qs = "0.8"
 ```
 
 [crates.io]: https://crates.io/crates/serde_qs
