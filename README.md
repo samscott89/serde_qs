@@ -1,8 +1,8 @@
-# Serde Querystrings [![Build Status]][travis] [![Latest Version]][crates.io] [![Documentation]][docs-rs] 
+# Serde Querystrings [![badge-ci]][badge-ci-link] [![Latest Version]][crates.io] [![Documentation]][docs-rs] 
 
 
-[Build Status]: https://api.travis-ci.org/samscott89/serde_qs.svg?branch=master
-[travis]: https://travis-ci.org/samscott89/serde_qs
+[badge-ci]: https://github.com/samscott89/serde_qs/workflows/Rust%20CI%20checks/badge.svg
+[badge-ci-link]: https://github.com/samscott89/serde_qs/actions?query=workflow%3A%22Rust+CI+checks%22+branch%3Amain
 [Latest Version]: https://img.shields.io/crates/v/serde_qs.svg
 [crates.io]: https://crates.io/crates/serde\_qs
 [Documentation]: https://docs.rs/serde_qs/badge.svg
