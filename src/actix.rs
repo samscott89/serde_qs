@@ -5,6 +5,11 @@
 use crate::de::Config as QsConfig;
 use crate::error::Error as QsError;
 
+#[cfg(feature = "actix")]
+use actix_web;
+#[cfg(feature = "actix2")]
+use actix_web2 as actix_web;
+
 use actix_web::dev::Payload;
 use actix_web::{Error as ActixError, FromRequest, HttpRequest, HttpResponse, ResponseError};
 use futures::future::{ready, Ready};
@@ -26,8 +31,11 @@ impl ResponseError for QsError {
 /// ## Example
 ///
 /// ```rust
-/// #[macro_use] extern crate serde_derive;
-/// extern crate actix_web;
+/// # #[macro_use] extern crate serde_derive;
+/// # #[cfg(feature = "actix")]
+/// # use actix_web;
+/// # #[cfg(feature = "actix2")]
+/// # use actix_web2 as actix_web;
 /// use actix_web::{web, App, HttpResponse};
 /// use serde_qs::actix::QsQuery;
 ///
@@ -121,8 +129,11 @@ where
 /// Query extractor configuration
 ///
 /// ```rust
-/// #[macro_use] extern crate serde_derive;
-/// extern crate actix_web;
+/// # #[macro_use] extern crate serde_derive;
+/// # #[cfg(feature = "actix")]
+/// # use actix_web;
+/// # #[cfg(feature = "actix2")]
+/// # use actix_web2 as actix_web;
 /// use actix_web::{error, web, App, FromRequest, HttpResponse};
 /// use serde_qs::actix::QsQuery;
 /// use serde_qs::Config as QsConfig;

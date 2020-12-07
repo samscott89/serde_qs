@@ -157,6 +157,8 @@
 //!     Ok(format!("Welcome {}!", info.username))
 //! }
 //! ```
+//!
+//! Support for `actix-web 2.0.0` is available via the `actix2` feature.
 
 #![allow()]
 #![deny(
@@ -205,7 +207,7 @@
 #[macro_use]
 extern crate serde;
 
-#[cfg(feature = "actix")]
+#[cfg(any(feature = "actix", feature = "actix2"))]
 pub mod actix;
 mod de;
 mod error;
