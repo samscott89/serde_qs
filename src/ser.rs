@@ -524,14 +524,13 @@ impl ser::Serializer for StringSerializer {
         Err(Error::Unsupported)
     }
 
-    /// Returns an error.
     fn serialize_unit_variant(
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
+        variant: &'static str,
     ) -> Result<Self::Ok> {
-        Err(Error::Unsupported)
+        Ok(variant.to_string())
     }
 
     /// Returns an error.
