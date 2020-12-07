@@ -166,9 +166,7 @@ fn serialize_bytes() {
         bytes: Bytes,
     }
 
-
-    impl serde::Serialize for Bytes
-    {
+    impl serde::Serialize for Bytes {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer,
