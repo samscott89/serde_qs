@@ -640,3 +640,22 @@ fn deserialize_plus() {
 
 #[test]
 fn deserialize_vec_of_structs() {}
+
+#[test]
+fn deserialize_map_with_unit_enum_keys() {
+    #[derive(Deserialize, Eq, PartialEq, Hash)]
+    enum Operator {
+        Lt,
+        Gt,
+    }
+
+    #[derive(Deserialize)]
+    struct Filter {
+        point: HashMap<Operator, u64>,
+    }
+
+    let test: Filter = serde_qs::from_str("point[Gt]=123&point[Lt]=321").unwrap();
+
+    assert_eq!(test.point[&Operator::Gt], 123);
+    assert_eq!(test.point[&Operator::Lt], 321);
+}

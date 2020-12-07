@@ -131,3 +131,28 @@ fn serialize_flatten() {
     let rec_params = qs::to_string(&query).unwrap();
     assert_eq!(rec_params, params);
 }
+
+#[test]
+fn serialize_map_with_unit_enum_keys() {
+    use std::collections::HashMap;
+
+    #[derive(Serialize, Eq, PartialEq, Hash)]
+    enum Operator {
+        Lt,
+        Gt,
+    }
+
+    #[derive(Serialize)]
+    struct Filter {
+        point: HashMap<Operator, u64>,
+    }
+
+    let mut map = HashMap::new();
+    map.insert(Operator::Gt, 123);
+    map.insert(Operator::Lt, 321);
+    let test = Filter { point: map };
+
+    let query = qs::to_string(&test).unwrap();
+
+    assert!(query == "point[Lt]=321&point[Gt]=123" || query == "point[Gt]=123&point[Lt]=321");
+}

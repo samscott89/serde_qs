@@ -59,7 +59,7 @@ fn main() {
     // In this form, can also simply use `serde_urlencoded`:
     let encoded = urlencoded::to_string(&map).unwrap();
     println!("`serde_urlencoded` to_string for map:\n\t{}", encoded);
-    println!("");
+    println!();
 
     // Given this encoded string, you can recover the original map
     // as a list of pairs using serde_urlencoded:
@@ -80,7 +80,7 @@ fn main() {
     // Similarly, we can serialize this structure using `serde_qs`:
     let encoded = qs::to_string(&params).unwrap();
     println!("`serde_qs` to_string for struct:\n\t{:?}", encoded);
-    println!("");
+    println!();
 
     // One nice feature is that this gives deterministic encodings:
     let encoded2 = qs::to_string(&params).unwrap();
@@ -160,7 +160,7 @@ fn main() {
     println!("`serde_qs` to_string for enum:\n\t{:?}", encoded);
     let params: EnumQuery = qs::from_str(&encoded).unwrap();
     println!("`serde_qs` from_str for enum:\n\t{:?}", params);
-    println!("");
+    println!();
 
     let example_params = EnumQuery {
         e: AdjTaggedEnum::A,
@@ -171,5 +171,5 @@ fn main() {
     println!("`serde_qs` to_string for enum:\n\t{:?}", encoded);
     let params: EnumQuery = qs::from_str(&encoded).unwrap();
     println!("`serde_qs` from_str for enum:\n\t{:?}", params);
-    println!("");
+    println!();
 }

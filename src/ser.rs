@@ -123,8 +123,7 @@ fn replace_space(input: &str) -> Cow<str> {
 
 impl<'a, W: 'a + Write> QsSerializer<'a, W> {
     fn extend_key(&mut self, newkey: &str) {
-        let newkey =
-            percent_encode(replace_space(newkey).as_bytes(), QS_ENCODE_SET).collect::<Cow<str>>();
+        let newkey = percent_encode(newkey.as_bytes(), QS_ENCODE_SET).collect::<Cow<str>>();
         let key = if let Some(ref key) = self.key {
             format!("{}[{}]", key, newkey).into()
         } else {
@@ -524,14 +523,13 @@ impl ser::Serializer for StringSerializer {
         Err(Error::Unsupported)
     }
 
-    /// Returns an error.
     fn serialize_unit_variant(
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
+        variant: &'static str,
     ) -> Result<Self::Ok> {
-        Err(Error::Unsupported)
+        Ok(variant.to_string())
     }
 
     /// Returns an error.
