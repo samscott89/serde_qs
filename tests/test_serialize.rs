@@ -156,3 +156,27 @@ fn serialize_map_with_unit_enum_keys() {
 
     assert!(query == "point[Lt]=321&point[Gt]=123" || query == "point[Gt]=123&point[Lt]=321");
 }
+
+#[test]
+fn serialize_bytes() {
+    struct Bytes(&'static [u8]);
+
+    #[derive(Serialize)]
+    struct Query {
+        bytes: Bytes,
+    }
+
+
+    impl serde::Serialize for Bytes
+    {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            serializer.serialize_bytes(self.0)
+        }
+    }
+    let bytes = Bytes(b"hello, world!");
+    let s = qs::to_string(&Query { bytes }).unwrap();
+    assert_eq!(s, "bytes=hello%2C+world%21");
+}

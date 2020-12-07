@@ -19,7 +19,6 @@ repository = "samscott89/serde_qs"
 [dependencies]
 actix-web = { version = "3.3", optional = true }
 actix-web2 = { package = "actix-web", version = "2.0.0", optional = true }
-data-encoding = "2.3.1"
 futures = { version = "0.3.8", optional = true } 
 percent-encoding = "2.1.0"
 serde = "1.0.118"

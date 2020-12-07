@@ -21,10 +21,6 @@ pub enum Error {
     #[error("unsupported type for serialization")]
     Unsupported,
 
-    /// Error decoding `BASE64URL` data
-    #[error(transparent)]
-    Decoding(#[from] data_encoding::DecodeError),
-
     /// Error proessing UTF-8 for a `String`
     #[error(transparent)]
     FromUtf8(#[from] string::FromUtf8Error),

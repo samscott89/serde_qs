@@ -639,9 +639,6 @@ fn deserialize_plus() {
 }
 
 #[test]
-fn deserialize_vec_of_structs() {}
-
-#[test]
 fn deserialize_map_with_unit_enum_keys() {
     #[derive(Deserialize, Eq, PartialEq, Hash)]
     enum Operator {

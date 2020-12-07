@@ -160,50 +160,6 @@
 //!
 //! Support for `actix-web 2.0.0` is available via the `actix2` feature.
 
-#![allow()]
-#![deny(
-    arithmetic_overflow,
-    const_err,
-    dead_code,
-    deprecated,
-    improper_ctypes,
-    missing_docs,
-    mutable_transmutes,
-    no_mangle_const_items,
-    non_camel_case_types,
-    non_shorthand_field_patterns,
-    non_snake_case,
-    non_upper_case_globals,
-    overflowing_literals,
-    path_statements,
-    stable_features,
-    trivial_casts,
-    trivial_numeric_casts,
-    unconditional_recursion,
-    unknown_crate_types,
-    unknown_lints,
-    unreachable_code,
-    unsafe_code,
-    unstable_features,
-    unused_allocation,
-    unused_assignments,
-    unused_attributes,
-    unused_comparisons,
-    unused_extern_crates,
-    unused_features,
-    unused_imports,
-    unused_import_braces,
-    unused_must_use,
-    unused_mut,
-    unused_parens,
-    unused_qualifications,
-    unused_results,
-    unused_unsafe,
-    unused_variables,
-    variant_size_differences,
-    while_true
-)]
-
 #[macro_use]
 extern crate serde;
 

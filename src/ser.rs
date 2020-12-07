@@ -1,6 +1,5 @@
 //! Serialization support for querystrings.
 
-use data_encoding::BASE64URL_NOPAD as BASE64;
 use percent_encoding::{percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use serde::ser;
 
@@ -132,7 +131,7 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
         self.key = Some(key)
     }
 
-    fn write_value(&mut self, value: &str) -> Result<()> {
+    fn write_value(&mut self, value: &[u8]) -> Result<()> {
         if let Some(ref key) = self.key {
             write!(
                 self.writer,
@@ -144,7 +143,7 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
                     "&"
                 },
                 key,
-                percent_encode(value.as_bytes(), QS_ENCODE_SET)
+                percent_encode(value, QS_ENCODE_SET)
                     .map(replace_space)
                     .collect::<String>()
             )
@@ -176,7 +175,7 @@ macro_rules! serialize_as_string {
     (Qs $($ty:ty => $meth:ident,)*) => {
         $(
             fn $meth(self, v: $ty) -> Result<Self::Ok> {
-                self.write_value(&v.to_string())
+                self.write_value(&v.to_string().as_bytes())
             }
         )*
     };
@@ -218,16 +217,16 @@ impl<'a, W: Write> ser::Serializer for &'a mut QsSerializer<'a, W> {
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok> {
-        self.write_value(&BASE64.encode(value))
+        self.write_value(&value)
     }
 
     fn serialize_unit(self) -> Result<Self::Ok> {
-        self.write_value("")
+        self.write_value(&[])
     }
 
     /// Returns an error.
     fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok> {
-        self.write_value(name)
+        self.write_value(name.as_bytes())
     }
 
     /// Returns an error.
@@ -237,7 +236,7 @@ impl<'a, W: Write> ser::Serializer for &'a mut QsSerializer<'a, W> {
         _variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok> {
-        self.write_value(variant)
+        self.write_value(variant.as_bytes())
     }
 
     /// Returns an error.
@@ -510,7 +509,7 @@ impl ser::Serializer for StringSerializer {
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok> {
-        Ok(BASE64.encode(value))
+        Ok(String::from_utf8_lossy(value).to_string())
     }
 
     /// Returns an error.
