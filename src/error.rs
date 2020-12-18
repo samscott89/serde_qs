@@ -41,7 +41,7 @@ pub enum Error {
 impl Error {
     /// Generate error to show top-level type cannot be deserialized.
     pub fn top_level(object: &'static str) -> Self {
-        Self::Custom(format!(
+        Error::Custom(format!(
             "cannot deserialize {} at the top level.\
              Try deserializing into a struct.",
             object
@@ -53,7 +53,7 @@ impl Error {
     where
         T: Display,
     {
-        Self::Parse(msg.to_string(), position)
+        Error::Parse(msg.to_string(), position)
     }
 }
 
@@ -62,7 +62,7 @@ impl de::Error for Error {
     where
         T: Display,
     {
-        Self::Custom(msg.to_string())
+        Error::Custom(msg.to_string())
     }
 }
 

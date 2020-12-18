@@ -36,6 +36,8 @@ This crate works with Cargo and can be found on
 serde_qs = "0.8"
 ```
 
+Minimum supported Rust version is 1.36.
+
 [crates.io]: https://crates.io/crates/serde_qs
 
 ## License

@@ -167,7 +167,7 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
 impl Error {
     fn no_key() -> Self {
         let msg = "tried to serialize a value before serializing key";
-        Self::Custom(msg.into())
+        Error::Custom(msg.into())
     }
 }
 
