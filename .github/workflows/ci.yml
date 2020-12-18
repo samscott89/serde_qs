@@ -6,6 +6,11 @@ jobs:
   lint:
     name: Run lint checks
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - 1.37.0
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust stable toolchain
@@ -29,6 +34,11 @@ jobs:
   test:
     name: Run tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - 1.37.0
     steps:
       - uses: actions/checkout@v2
       - uses: actions/cache@v2
