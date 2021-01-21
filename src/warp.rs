@@ -1,3 +1,7 @@
+//! Functionality for using `serde_qs` with `warp`.
+//!
+//! Enable with the `warp` feature.
+
 use crate::{de::Config as QsConfig, error};
 use serde::de;
 use std::sync::Arc;
