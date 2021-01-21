@@ -164,9 +164,10 @@
 //! is a direct substitute for the `warp::query::query()` filter and can be used like this:
 //!
 //! ```ignore
-//! serde_qs::warp::query().and_then(|info| async move {
-//!    Ok::<_, Rejection>(format!("Welcome {}!", info.username))
-//! });
+//! serde_qs::warp::query(Config::default())
+//!     .and_then(|info| async move {
+//!         Ok::<_, Rejection>(format!("Welcome {}!", info.username))
+//!     });
 //! ```
 //!
 //! Support for `actix-web 2.0.0` is available via the `actix2` feature.
