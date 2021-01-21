@@ -169,7 +169,8 @@
 //! serde_qs::warp::query(Config::default())
 //!     .and_then(|info| async move {
 //!         Ok::<_, Rejection>(format!("Welcome {}!", info.username))
-//!     });
+//!     })
+//!     .recover(serde_qs::warp::recover_fn);
 //! ```
 //!
 
