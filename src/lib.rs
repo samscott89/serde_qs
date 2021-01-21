@@ -158,10 +158,12 @@
 //! }
 //! ```
 //!
+//! Support for `actix-web 2.0.0` is available via the `actix2` feature.
+//!
 //! ## Use with `warp` filters
 //!
 //! The `warp` feature enables the use of `serde_qs::warp::query()`, which
-//! is a direct substitute for the `warp::query::query()` filter and can be used like this:
+//! is a substitute for the `warp::query::query()` filter and can be used like this:
 //!
 //! ```ignore
 //! serde_qs::warp::query(Config::default())
@@ -170,7 +172,6 @@
 //!     });
 //! ```
 //!
-//! Support for `actix-web 2.0.0` is available via the `actix2` feature.
 
 #[macro_use]
 extern crate serde;
