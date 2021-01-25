@@ -23,7 +23,8 @@ futures = { version = "0.3.8", optional = true }
 percent-encoding = "2.1.0"
 serde = "1.0.118"
 thiserror = "1.0.22"
-warp = { version = "0.3", default-features = false, optional = true }
+tracing = { version = "0.1", optional = true }
+warp-framework = { package = "warp", version = "0.3", default-features = false, optional = true }
 
 [dev-dependencies]
 csv = "1.1.5"
@@ -35,6 +36,7 @@ serde_urlencoded = "0.7.0"
 default = []
 actix = ["actix-web", "futures"]
 actix2 = ["actix-web2", "futures"]
+warp = [ "futures", "tracing", "warp-framework" ]
 
 [package.metadata.docs.rs]
 features = [ "actix", "warp" ]

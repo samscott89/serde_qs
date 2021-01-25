@@ -2,6 +2,8 @@
 //!
 //! Enable with the `warp` feature.
 
+extern crate warp_framework as warp;
+
 use crate::{de::Config as QsConfig, error};
 use serde::de;
 use std::sync::Arc;
@@ -14,6 +16,7 @@ impl Reject for error::Error {}
 /// ## Example
 ///
 /// ```rust
+/// # extern crate warp_framework as warp;
 /// # #[macro_use] extern crate serde_derive;
 /// use warp::Filter;
 /// use serde_qs::Config;
@@ -35,19 +38,27 @@ impl Reject for error::Error {}
 /// ```
 pub fn query<T>(config: QsConfig) -> impl Filter<Extract = (T,), Error = Rejection> + Clone
 where
-    T: de::DeserializeOwned,
+    T: de::DeserializeOwned + Send + 'static,
 {
     let config = Arc::new(config);
 
-    warp::query::raw().and_then(move |query: String| {
-        let config = Arc::clone(&config);
+    warp::query::raw()
+        .or_else(|_| async {
+            tracing::debug!("route was called without a query string, defaulting to empty");
 
-        async move {
-            config
-                .deserialize_str(query.as_str())
-                .map_err(Rejection::from)
-        }
-    })
+            Ok::<_, Rejection>((String::new(),))
+        })
+        .and_then(move |query: String| {
+            let config = Arc::clone(&config);
+
+            async move {
+                config.deserialize_str(query.as_str()).map_err(|err| {
+                    tracing::debug!("failed to decode query string '{}': {:?}", query, err);
+
+                    Rejection::from(err)
+                })
+            }
+        })
 }
 
 /// Use this as the function for a `.recover()` after assembled filter
