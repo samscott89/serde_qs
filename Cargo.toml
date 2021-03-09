@@ -9,27 +9,22 @@ license = "MIT/Apache-2.0"
 name = "serde_qs"
 repository = "https://github.com/samscott89/serde_qs"
 readme = "README.md"
-version = "0.8.2"
-
-[badges]
-
-[badges.travis-ci]
-repository = "samscott89/serde_qs"
+version = "0.8.3"
 
 [dependencies]
-actix-web = { version = "3.3", optional = true }
+actix-web = { version = "3.3.2", optional = true, package = "actix-web" }
 actix-web2 = { package = "actix-web", version = "2.0.0", optional = true }
-futures = { version = "0.3.8", optional = true } 
+futures = { version = "0.3.13", optional = true }
 percent-encoding = "2.1.0"
-serde = "1.0.118"
-thiserror = "1.0.22"
-tracing = { version = "0.1", optional = true }
-warp-framework = { package = "warp", version = "0.3", default-features = false, optional = true }
+serde = "1.0.124"
+thiserror = "1.0.24"
+tracing = { version = "0.1.25", optional = true }
+warp-framework = { package = "warp", version = "0.3.0", default-features = false, optional = true }
 
 [dev-dependencies]
-csv = "1.1.5"
-rand = "0.7.3"
-serde_derive = "1.0.118"
+csv = "1.1.6"
+rand = "0.8.3"
+serde_derive = "1.0.124"
 serde_urlencoded = "0.7.0"
 
 [features]
