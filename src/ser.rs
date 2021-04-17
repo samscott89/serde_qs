@@ -122,13 +122,15 @@ fn replace_space(input: &str) -> Cow<str> {
 
 impl<'a, W: 'a + Write> QsSerializer<'a, W> {
     fn extend_key(&mut self, newkey: &str) {
-        let newkey = percent_encode(newkey.as_bytes(), QS_ENCODE_SET).collect::<Cow<str>>();
+        let newkey = percent_encode(newkey.as_bytes(), QS_ENCODE_SET)
+            .map(replace_space)
+            .collect::<String>();
         let key = if let Some(ref key) = self.key {
             format!("{}[{}]", key, newkey).into()
         } else {
             newkey.to_owned()
         };
-        self.key = Some(key)
+        self.key = Some(Cow::Owned(key))
     }
 
     fn write_value(&mut self, value: &[u8]) -> Result<()> {
