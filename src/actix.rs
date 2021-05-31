@@ -7,6 +7,8 @@ use crate::error::Error as QsError;
 
 #[cfg(feature = "actix")]
 use actix_web;
+#[cfg(feature = "actix3")]
+use actix_web3 as actix_web;
 #[cfg(feature = "actix2")]
 use actix_web2 as actix_web;
 
