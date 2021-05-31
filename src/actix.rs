@@ -21,9 +21,17 @@ use std::fmt::{Debug, Display};
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
+#[cfg(any(feature = "actix2", feature = "actix3"))]
 impl ResponseError for QsError {
     fn error_response(&self) -> HttpResponse {
         HttpResponse::BadRequest().finish()
+    }
+}
+
+// #[cfg(not(any(feature = "actix2", feature = "actix3")))]
+impl ResponseError for QsError {
+    fn status_code(&self) -> actix_web::http::StatusCode {
+        actix_web::http::StatusCode::BAD_REQUEST
     }
 }
 
