@@ -58,7 +58,7 @@ impl ResponseError for QsError {
 ///            .route(web::get().to(filter_users)));
 /// }
 /// ```
-pub struct QsQuery<T>(T);
+pub struct QsQuery<T>(pub T);
 
 impl<T> Deref for QsQuery<T> {
     type Target = T;
