@@ -7,6 +7,8 @@ use crate::error::Error as QsError;
 
 #[cfg(feature = "actix")]
 use actix_web;
+#[cfg(feature = "actix3")]
+use actix_web3 as actix_web;
 #[cfg(feature = "actix2")]
 use actix_web2 as actix_web;
 
@@ -19,9 +21,17 @@ use std::fmt::{Debug, Display};
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
+#[cfg(any(feature = "actix2", feature = "actix3"))]
 impl ResponseError for QsError {
     fn error_response(&self) -> HttpResponse {
         HttpResponse::BadRequest().finish()
+    }
+}
+
+// #[cfg(not(any(feature = "actix2", feature = "actix3")))]
+impl ResponseError for QsError {
+    fn status_code(&self) -> actix_web::http::StatusCode {
+        actix_web::http::StatusCode::BAD_REQUEST
     }
 }
 
@@ -56,7 +66,7 @@ impl ResponseError for QsError {
 ///            .route(web::get().to(filter_users)));
 /// }
 /// ```
-pub struct QsQuery<T>(T);
+pub struct QsQuery<T>(pub T);
 
 impl<T> Deref for QsQuery<T> {
     type Target = T;
