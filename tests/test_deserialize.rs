@@ -656,3 +656,20 @@ fn deserialize_map_with_unit_enum_keys() {
     assert_eq!(test.point[&Operator::Gt], 123);
     assert_eq!(test.point[&Operator::Lt], 321);
 }
+
+#[test]
+fn deserialize_map_with_int_keys() {
+    #[derive(Debug, Deserialize)]
+    struct Mapping {
+        mapping: HashMap<u64, u64>,
+    }
+
+    let test: Mapping = serde_qs::from_str("mapping[1]=2&mapping[3]=4").unwrap();
+
+    assert_eq!(test.mapping.get(&1).cloned(), Some(2));
+    assert_eq!(test.mapping.get(&3).cloned(), Some(4));
+    assert_eq!(test.mapping.get(&2).cloned(), None);
+
+    serde_qs::from_str::<Mapping>("mapping[1]=2&mapping[1]=4")
+        .expect_err("should error with repeated key");
+}

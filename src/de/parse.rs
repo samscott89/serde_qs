@@ -80,8 +80,7 @@ impl<'a> Level<'a> {
         if let Level::Sequence(ref mut seq) = *self {
             seq.push(Level::Flat(value));
         } else if let Level::Uninitialised = *self {
-            let mut seq = Vec::new();
-            seq.push(Level::Flat(value));
+            let seq = vec![Level::Flat(value)];
             *self = Level::Sequence(seq);
         } else {
             *self = Level::Invalid(
@@ -306,8 +305,7 @@ impl<'a> Parser<'a> {
                                 // First character is an integer, attempt to parse it as an integer key
                                 b'0'..=b'9' => {
                                     let key = self.parse_key(b']', true)?;
-                                    let key =
-                                        usize::from_str_radix(&key, 10).map_err(Error::from)?;
+                                    let key = key.parse().map_err(Error::from)?;
                                     self.parse_ord_seq_value(key, node)?;
                                     return Ok(true);
                                 }

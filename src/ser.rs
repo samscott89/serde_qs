@@ -126,9 +126,9 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
             .map(replace_space)
             .collect::<String>();
         let key = if let Some(ref key) = self.key {
-            format!("{}[{}]", key, newkey).into()
+            format!("{}[{}]", key, newkey)
         } else {
-            newkey.to_owned()
+            newkey
         };
         self.key = Some(Cow::Owned(key))
     }

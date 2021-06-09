@@ -512,6 +512,11 @@ impl<'a> LevelDeserializer<'a> {
     fn into_deserializer(self) -> Result<QsDeserializer<'a>> {
         match self.0 {
             Level::Nested(map) => Ok(QsDeserializer::with_map(map)),
+            Level::OrderedSeq(map) => Ok(QsDeserializer::with_map(
+                map.into_iter()
+                    .map(|(k, v)| (Cow::Owned(k.to_string()), v))
+                    .collect(),
+            )),
             Level::Invalid(e) => Err(de::Error::custom(e)),
             l => Err(de::Error::custom(format!(
                 "could not convert {:?} to \
@@ -598,6 +603,19 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         }
     }
 
+    /// given the hint that this is a map, will first
+    /// attempt to deserialize ordered sequences into a map
+    /// otherwise, follows the any code path
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        match self.0 {
+            Level::OrderedSeq(_) => self.into_deserializer()?.deserialize_map(visitor),
+            _ => self.deserialize_any(visitor),
+        }
+    }
+
     deserialize_primitive!(bool, deserialize_bool, visit_bool);
     deserialize_primitive!(i8, deserialize_i8, visit_i8);
     deserialize_primitive!(i16, deserialize_i16, visit_i16);
@@ -625,7 +643,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         tuple
         ignored_any
         seq
-        map
+        // map
     }
 }
 
