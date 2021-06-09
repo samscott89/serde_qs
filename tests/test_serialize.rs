@@ -178,3 +178,24 @@ fn serialize_bytes() {
     let s = qs::to_string(&Query { bytes }).unwrap();
     assert_eq!(s, "bytes=hello%2C+world%21");
 }
+
+#[test]
+fn serialize_hashmap_keys() {
+    // Issue: https://github.com/samscott89/serde_qs/issues/45
+
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+    struct HashParams {
+        attrs: std::collections::HashMap<String, String>,
+    }
+
+    let data = HashParams {
+        attrs: vec![
+            ("key 1!".to_owned(), "val 1".to_owned()),
+            ("key 2!".to_owned(), "val 2".to_owned()),
+        ]
+        .into_iter()
+        .collect(),
+    };
+    let s = qs::to_string(&data).unwrap();
+    assert!(s == "attrs[key+1%21]=val+1&attrs[key+2%21]=val+2" || s == "attrs[key+2%21]=val+2&attrs[key+1%21]=val+1");
+}
