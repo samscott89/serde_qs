@@ -197,5 +197,8 @@ fn serialize_hashmap_keys() {
         .collect(),
     };
     let s = qs::to_string(&data).unwrap();
-    assert!(s == "attrs[key+1%21]=val+1&attrs[key+2%21]=val+2" || s == "attrs[key+2%21]=val+2&attrs[key+1%21]=val+1");
+    assert!(
+        s == "attrs[key+1%21]=val+1&attrs[key+2%21]=val+2"
+            || s == "attrs[key+2%21]=val+2&attrs[key+1%21]=val+1"
+    );
 }
