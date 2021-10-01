@@ -111,16 +111,9 @@
 //! #[macro_use]
 //! extern crate serde_derive;
 //! extern crate serde_qs as qs;
+//! extern crate serde_with;
 //!
-//! use serde::de::Error;
-//!
-//! fn from_str<'de, D, S>(deserializer: D) -> Result<S, D::Error>
-//!     where D: serde::Deserializer<'de>,
-//!           S: std::str::FromStr
-//! {
-//!     let s = <&str as serde::Deserialize>::deserialize(deserializer)?;
-//!     S::from_str(&s).map_err(|_| D::Error::custom("could not parse string"))
-//! }
+//! use serde_with::rust::display_fromstr::deserialize as deserialize_fromstr;
 //!
 //! #[derive(Deserialize, Serialize, Debug, PartialEq)]
 //! struct Query {
@@ -131,11 +124,11 @@
 //!
 //! #[derive(Deserialize, Serialize, Debug, PartialEq)]
 //! struct CommonParams {
-//!     #[serde(deserialize_with="from_str")]
+//!     #[serde(deserialize_with="deserialize_fromstr")]
 //!     limit: u64,
-//!     #[serde(deserialize_with="from_str")]
+//!     #[serde(deserialize_with="deserialize_fromstr")]
 //!     offset: u64,
-//!     #[serde(deserialize_with="from_str")]
+//!     #[serde(deserialize_with="deserialize_fromstr")]
 //!     remaining: bool,
 //! }
 //!
