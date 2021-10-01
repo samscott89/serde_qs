@@ -219,7 +219,7 @@ impl<'a, W: Write> ser::Serializer for &'a mut QsSerializer<'a, W> {
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok> {
-        self.write_value(&value)
+        self.write_value(value)
     }
 
     fn serialize_unit(self) -> Result<Self::Ok> {

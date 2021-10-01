@@ -624,7 +624,7 @@ where
     S: std::str::FromStr,
 {
     let s = <&str as serde::Deserialize>::deserialize(deserializer)?;
-    S::from_str(&s).map_err(|_| D::Error::custom("could not parse string"))
+    S::from_str(s).map_err(|_| D::Error::custom("could not parse string"))
 }
 
 #[test]
