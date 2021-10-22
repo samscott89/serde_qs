@@ -28,7 +28,7 @@ impl ResponseError for QsError {
     }
 }
 
-// #[cfg(not(any(feature = "actix2", feature = "actix3")))]
+#[cfg(not(any(feature = "actix2", feature = "actix3")))]
 impl ResponseError for QsError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         actix_web::http::StatusCode::BAD_REQUEST
@@ -57,7 +57,7 @@ impl ResponseError for QsError {
 /// // Use `QsQuery` extractor for query information.
 /// // The correct request for this handler would be `/users?id[]=1124&id[]=88"`
 /// fn filter_users(info: QsQuery<UsersFilter>) -> HttpResponse {
-///     info.id.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", ").into()
+///     HttpResponse::Ok().body(info.id.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", "))
 /// }
 ///
 /// fn main() {
@@ -107,6 +107,7 @@ where
 {
     type Error = ActixError;
     type Future = Ready<Result<Self, ActixError>>;
+    #[cfg(any(feature = "actix2", feature = "actix3"))]
     type Config = QsQueryConfig;
 
     #[inline]
@@ -145,7 +146,7 @@ where
 /// # #[cfg(feature = "actix2")]
 /// # use actix_web2 as actix_web;
 /// use actix_web::{error, web, App, FromRequest, HttpResponse};
-/// use serde_qs::actix::QsQuery;
+/// use serde_qs::actix::{QsQuery, QsQueryConfig};
 /// use serde_qs::Config as QsConfig;
 ///
 /// #[derive(Deserialize)]
@@ -155,20 +156,20 @@ where
 ///
 /// /// deserialize `Info` from request's querystring
 /// fn index(info: QsQuery<Info>) -> HttpResponse {
-///     format!("Welcome {}!", info.username).into()
+///     HttpResponse::Ok().body(format!("Welcome {}!", info.username))
 /// }
 ///
 /// fn main() {
 ///     let app = App::new().service(
 ///         web::resource("/index.html").app_data(
 ///             // change query extractor configuration
-///             QsQuery::<Info>::configure(|cfg| {
-///                 cfg.error_handler(|err, req| {  // <- create custom error response
+///             QsQueryConfig::default()
+///                 .error_handler(|err, req| {  // <- create custom error response
 ///                     error::InternalError::from_response(
 ///                         err, HttpResponse::Conflict().finish()).into()
 ///                 })
 ///                 .qs_config(QsConfig::default())
-///             }))
+///             )
 ///             .route(web::post().to(index))
 ///     );
 /// }
