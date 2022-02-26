@@ -7,15 +7,15 @@ use crate::error::Error as QsError;
 
 #[cfg(feature = "actix")]
 use actix_web;
-#[cfg(feature = "actix3")]
-use actix_web3 as actix_web;
 #[cfg(feature = "actix2")]
 use actix_web2 as actix_web;
+#[cfg(feature = "actix3")]
+use actix_web3 as actix_web;
 
 use actix_web::dev::Payload;
-use actix_web::{Error as ActixError, FromRequest, HttpRequest, ResponseError};
 #[cfg(any(feature = "actix2", feature = "actix3"))]
 use actix_web::HttpResponse;
+use actix_web::{Error as ActixError, FromRequest, HttpRequest, ResponseError};
 use futures::future::{ready, Ready};
 use serde::de;
 use std::fmt;
