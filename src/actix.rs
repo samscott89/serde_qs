@@ -30,7 +30,7 @@ impl ResponseError for QsError {
     }
 }
 
-#[cfg(any(feature = "actix4"))]
+#[cfg(feature = "actix4")]
 impl ResponseError for QsError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         actix_web::http::StatusCode::BAD_REQUEST
