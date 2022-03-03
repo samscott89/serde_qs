@@ -142,7 +142,7 @@
 //!
 //! ## Use with `actix_web` extractors
 //!
-//! The `actix` feature enables the use of `serde_qs::actix::QsQuery`, which
+//! The `actix4`, `actix3` or `actix2` features enable the use of `serde_qs::actix::QsQuery`, which
 //! is a direct substitute for the `actix_web::Query` and can be used as an extractor:
 //!
 //! ```ignore
@@ -151,7 +151,9 @@
 //! }
 //! ```
 //!
-//! Support for `actix-web 2.0.0` is available via the `actix2` feature.
+//! Support for `actix-web 4.0` is available via the `actix4` feature.
+//! Support for `actix-web 3.0` is available via the `actix3` feature.
+//! Support for `actix-web 2.0` is available via the `actix2` feature.
 //!
 //! ## Use with `warp` filters
 //!
@@ -170,7 +172,7 @@
 #[macro_use]
 extern crate serde;
 
-#[cfg(any(feature = "actix", feature = "actix2"))]
+#[cfg(any(feature = "actix4", feature = "actix3", feature = "actix2"))]
 pub mod actix;
 mod de;
 mod error;

@@ -1,16 +1,16 @@
-#![cfg(feature = "actix")]
+#![cfg(feature = "actix4")]
 
-extern crate actix_web;
+extern crate actix_web4;
 extern crate serde;
 
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_qs as qs;
 
-use actix_web::error::InternalError;
-use actix_web::http::StatusCode;
-use actix_web::test::TestRequest;
-use actix_web::{FromRequest, HttpResponse};
+use actix_web4::error::InternalError;
+use actix_web4::http::StatusCode;
+use actix_web4::test::TestRequest;
+use actix_web4::{FromRequest, HttpResponse};
 use qs::actix::{QsQuery, QsQueryConfig};
 use qs::Config as QsConfig;
 use serde::de::Error;

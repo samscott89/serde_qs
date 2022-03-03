@@ -1,16 +1,16 @@
 //! Functionality for using `serde_qs` with `actix_web`.
 //!
-//! Enable with the `actix` feature.
+//! Enable with the `actix4`, `actix3` or `actix2` features.
 
 use crate::de::Config as QsConfig;
 use crate::error::Error as QsError;
 
-#[cfg(feature = "actix")]
-use actix_web;
 #[cfg(feature = "actix2")]
 use actix_web2 as actix_web;
 #[cfg(feature = "actix3")]
 use actix_web3 as actix_web;
+#[cfg(feature = "actix4")]
+use actix_web4 as actix_web;
 
 use actix_web::dev::Payload;
 #[cfg(any(feature = "actix2", feature = "actix3"))]
@@ -30,7 +30,7 @@ impl ResponseError for QsError {
     }
 }
 
-#[cfg(any(feature = "actix"))]
+#[cfg(any(feature = "actix4"))]
 impl ResponseError for QsError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         actix_web::http::StatusCode::BAD_REQUEST
@@ -44,8 +44,10 @@ impl ResponseError for QsError {
 ///
 /// ```rust
 /// # #[macro_use] extern crate serde_derive;
-/// # #[cfg(feature = "actix")]
-/// # use actix_web;
+/// # #[cfg(feature = "actix4")]
+/// # use actix_web4 as actix_web;
+/// # #[cfg(feature = "actix3")]
+/// # use actix_web3 as actix_web;
 /// # #[cfg(feature = "actix2")]
 /// # use actix_web2 as actix_web;
 /// use actix_web::{web, App, HttpResponse};
@@ -145,8 +147,8 @@ where
 ///
 /// ```rust
 /// # #[macro_use] extern crate serde_derive;
-/// # #[cfg(feature = "actix")]
-/// # use actix_web;
+/// # #[cfg(feature = "actix4")]
+/// # use actix_web4 as actix_web;
 /// # #[cfg(feature = "actix3")]
 /// # use actix_web3 as actix_web;
 /// # #[cfg(feature = "actix2")]

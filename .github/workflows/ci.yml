@@ -53,9 +53,13 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-      - name: Run test actix
-        run: cargo test --all-targets --features actix
+      - name: Run test actix4
+        run: cargo test --all-targets --features actix4
       - name: Run test actix3
         run: cargo test --all-targets --features actix3
       - name: Run test actix2
         run: cargo test --all-targets --features actix2
+      - name: Run test warp
+        run: cargo test --all-targets --features warp
+      - name: Run test no feature
+        run: cargo test --all-targets
