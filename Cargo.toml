@@ -10,10 +10,12 @@ name = "serde_qs"
 repository = "https://github.com/samscott89/serde_qs"
 readme = "README.md"
 version = "0.8.5"
+rust-version = "1.36"
 
 [dependencies]
-actix-web = { version = "3.3", optional = true, package = "actix-web", default-features = false }
-actix-web2 = { package = "actix-web", version = "2.0", optional = true, default-features = false }
+actix-web4 = { version = "4.0", optional = true, package = "actix-web", default-features = false }
+actix-web3 = { version = "3.3", optional = true, package = "actix-web", default-features = false }
+actix-web2 = { version = "2.0", optional = true, package = "actix-web", default-features = false }
 futures = { version = "0.3", optional = true }
 percent-encoding = "2.1"
 serde = "1.0"
@@ -30,9 +32,10 @@ serde_with = "1.10"
 
 [features]
 default = []
-actix = ["actix-web", "futures"]
+actix4 = ["actix-web4", "futures"]
+actix3 = ["actix-web3", "futures"]
 actix2 = ["actix-web2", "futures"]
 warp = ["futures", "tracing", "warp-framework"]
 
 [package.metadata.docs.rs]
-features = ["actix", "warp"]
+features = ["actix4", "warp"]

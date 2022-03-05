@@ -1,17 +1,21 @@
 //! Functionality for using `serde_qs` with `actix_web`.
 //!
-//! Enable with the `actix` feature.
+//! Enable with the `actix4`, `actix3` or `actix2` features.
 
 use crate::de::Config as QsConfig;
 use crate::error::Error as QsError;
 
-#[cfg(feature = "actix")]
-use actix_web;
 #[cfg(feature = "actix2")]
 use actix_web2 as actix_web;
+#[cfg(feature = "actix3")]
+use actix_web3 as actix_web;
+#[cfg(feature = "actix4")]
+use actix_web4 as actix_web;
 
 use actix_web::dev::Payload;
-use actix_web::{Error as ActixError, FromRequest, HttpRequest, HttpResponse, ResponseError};
+#[cfg(any(feature = "actix2", feature = "actix3"))]
+use actix_web::HttpResponse;
+use actix_web::{Error as ActixError, FromRequest, HttpRequest, ResponseError};
 use futures::future::{ready, Ready};
 use serde::de;
 use std::fmt;
@@ -19,9 +23,17 @@ use std::fmt::{Debug, Display};
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
+#[cfg(any(feature = "actix2", feature = "actix3"))]
 impl ResponseError for QsError {
     fn error_response(&self) -> HttpResponse {
         HttpResponse::BadRequest().finish()
+    }
+}
+
+#[cfg(feature = "actix4")]
+impl ResponseError for QsError {
+    fn status_code(&self) -> actix_web::http::StatusCode {
+        actix_web::http::StatusCode::BAD_REQUEST
     }
 }
 
@@ -32,8 +44,10 @@ impl ResponseError for QsError {
 ///
 /// ```rust
 /// # #[macro_use] extern crate serde_derive;
-/// # #[cfg(feature = "actix")]
-/// # use actix_web;
+/// # #[cfg(feature = "actix4")]
+/// # use actix_web4 as actix_web;
+/// # #[cfg(feature = "actix3")]
+/// # use actix_web3 as actix_web;
 /// # #[cfg(feature = "actix2")]
 /// # use actix_web2 as actix_web;
 /// use actix_web::{web, App, HttpResponse};
@@ -47,7 +61,9 @@ impl ResponseError for QsError {
 /// // Use `QsQuery` extractor for query information.
 /// // The correct request for this handler would be `/users?id[]=1124&id[]=88"`
 /// fn filter_users(info: QsQuery<UsersFilter>) -> HttpResponse {
-///     info.id.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", ").into()
+///     HttpResponse::Ok().body(
+///         info.id.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", ")
+///     )
 /// }
 ///
 /// fn main() {
@@ -97,6 +113,7 @@ where
 {
     type Error = ActixError;
     type Future = Ready<Result<Self, ActixError>>;
+    #[cfg(any(feature = "actix2", feature = "actix3"))]
     type Config = QsQueryConfig;
 
     #[inline]
@@ -130,13 +147,16 @@ where
 ///
 /// ```rust
 /// # #[macro_use] extern crate serde_derive;
-/// # #[cfg(feature = "actix")]
-/// # use actix_web;
+/// # #[cfg(feature = "actix4")]
+/// # use actix_web4 as actix_web;
+/// # #[cfg(feature = "actix3")]
+/// # use actix_web3 as actix_web;
 /// # #[cfg(feature = "actix2")]
 /// # use actix_web2 as actix_web;
 /// use actix_web::{error, web, App, FromRequest, HttpResponse};
 /// use serde_qs::actix::QsQuery;
 /// use serde_qs::Config as QsConfig;
+/// use serde_qs::actix::QsQueryConfig;
 ///
 /// #[derive(Deserialize)]
 /// struct Info {
@@ -145,20 +165,21 @@ where
 ///
 /// /// deserialize `Info` from request's querystring
 /// fn index(info: QsQuery<Info>) -> HttpResponse {
-///     format!("Welcome {}!", info.username).into()
+///     HttpResponse::Ok().body(
+///         format!("Welcome {}!", info.username)
+///     )
 /// }
 ///
 /// fn main() {
-///     let app = App::new().service(
-///         web::resource("/index.html").app_data(
-///             // change query extractor configuration
-///             QsQuery::<Info>::configure(|cfg| {
-///                 cfg.error_handler(|err, req| {  // <- create custom error response
-///                     error::InternalError::from_response(
-///                         err, HttpResponse::Conflict().finish()).into()
-///                 })
-///                 .qs_config(QsConfig::default())
-///             }))
+/// let qs_config = QsQueryConfig::default()
+///     .error_handler(|err, req| {  // <- create custom error response
+///     error::InternalError::from_response(
+///         err, HttpResponse::Conflict().finish()).into()
+///     })
+///     .qs_config(QsConfig::default());
+///
+/// let app = App::new().service(
+///         web::resource("/index.html").app_data(qs_config)
 ///             .route(web::post().to(index))
 ///     );
 /// }
