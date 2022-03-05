@@ -60,7 +60,7 @@ impl ResponseError for QsError {
 ///
 /// // Use `QsQuery` extractor for query information.
 /// // The correct request for this handler would be `/users?id[]=1124&id[]=88"`
-/// fn filter_users(info: QsQuery<UsersFilter>) -> HttpResponse {
+/// async fn filter_users(info: QsQuery<UsersFilter>) -> HttpResponse {
 ///     HttpResponse::Ok().body(
 ///         info.id.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", ")
 ///     )
@@ -164,7 +164,7 @@ where
 /// }
 ///
 /// /// deserialize `Info` from request's querystring
-/// fn index(info: QsQuery<Info>) -> HttpResponse {
+/// async fn index(info: QsQuery<Info>) -> HttpResponse {
 ///     HttpResponse::Ok().body(
 ///         format!("Welcome {}!", info.username)
 ///     )
@@ -184,7 +184,6 @@ where
 ///     );
 /// }
 /// ```
-
 pub struct QsQueryConfig {
     ehandler: Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
     qs_config: QsConfig,

@@ -9,7 +9,7 @@ license = "MIT/Apache-2.0"
 name = "serde_qs"
 repository = "https://github.com/samscott89/serde_qs"
 readme = "README.md"
-version = "0.8.5"
+version = "0.9.0"
 rust-version = "1.36"
 
 [dependencies]
@@ -35,6 +35,8 @@ default = []
 actix4 = ["actix-web4", "futures"]
 actix3 = ["actix-web3", "futures"]
 actix2 = ["actix-web2", "futures"]
+# deprecated feature -- used to return a warning
+actix = []
 warp = ["futures", "tracing", "warp-framework"]
 
 [package.metadata.docs.rs]
