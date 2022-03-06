@@ -547,6 +547,19 @@ fn strict_mode() {
     // Test that we don't panic
     let malformed_params: Result<Query, _> = loose_config.deserialize_str("%");
     assert!(malformed_params.is_err());
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query2 {
+        vec: Vec<u32>,
+    }
+    let repeated_key: Result<Query2, _> = strict_config.deserialize_str("vec%5B%5D=1&vec%5B%5D=2");
+    assert!(repeated_key.is_err());
+    println!("{}", repeated_key.unwrap_err());
+
+    let params: Query2 = loose_config
+        .deserialize_str("vec%5B%5D=1&vec%5B%5D=2")
+        .unwrap();
+    assert_eq!(params.vec, vec![1, 2]);
 }
 
 #[test]

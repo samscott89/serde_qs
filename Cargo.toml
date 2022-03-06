@@ -9,7 +9,7 @@ license = "MIT/Apache-2.0"
 name = "serde_qs"
 repository = "https://github.com/samscott89/serde_qs"
 readme = "README.md"
-version = "0.9.0"
+version = "0.9.1"
 rust-version = "1.36"
 
 [dependencies]

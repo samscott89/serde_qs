@@ -10,7 +10,7 @@ use std::fmt::Display;
 use std::io::Write;
 use std::str;
 
-const QS_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
+pub const QS_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b' ')
     .remove(b'*')
     .remove(b'-')
@@ -104,7 +104,7 @@ pub struct QsSerializer<'a, W: 'a + Write> {
     first: &'a mut bool,
 }
 
-fn replace_space(input: &str) -> Cow<str> {
+pub fn replace_space(input: &str) -> Cow<str> {
     match input.as_bytes().iter().position(|&b| b == b' ') {
         None => Cow::Borrowed(input),
         Some(first_position) => {

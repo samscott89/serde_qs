@@ -200,7 +200,7 @@ enum Level<'a> {
     OrderedSeq(BTreeMap<usize, Level<'a>>),
     Sequence(Vec<Level<'a>>),
     Flat(Cow<'a, str>),
-    Invalid(&'static str),
+    Invalid(String),
     Uninitialised,
 }
 
@@ -335,9 +335,21 @@ impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
     {
         if let Some((key, value)) = self.iter.next() {
             self.value = Some(value);
-            return seed.deserialize(ParsableStringDeserializer(key)).map(Some);
-        };
-        Ok(None)
+            let has_bracket = key.contains('[');
+            seed.deserialize(ParsableStringDeserializer(key))
+                .map(Some)
+                .map_err(|e| {
+                    if has_bracket {
+                        de::Error::custom(
+                            format!("{}\nInvalid field contains an encoded bracket -- did you mean to use non-strict mode?\n  https://docs.rs/serde_qs/latest/serde_qs/#strict-vs-non-strict-modes", e,)
+                        )
+                    } else {
+                        e
+                    }
+                })
+        } else {
+            Ok(None)
+        }
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
@@ -348,8 +360,7 @@ impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
             seed.deserialize(LevelDeserializer(v))
         } else {
             Err(de::Error::custom(
-                "Somehow the list was empty after a \
-                 non-empty key was returned",
+                "Somehow the map was empty after a non-empty key was returned",
             ))
         }
     }
@@ -424,7 +435,8 @@ impl<'de> de::EnumAccess<'de> for LevelDeserializer<'de> {
                 LevelDeserializer(Level::Invalid(
                     "this value can only \
                      deserialize to a \
-                     UnitVariant",
+                     UnitVariant"
+                        .to_string(),
                 )),
             )),
             _ => Err(de::Error::custom(

@@ -1,5 +1,8 @@
+use crate::ser::{replace_space, QS_ENCODE_SET};
+
 use super::*;
 
+use percent_encoding::percent_encode;
 use serde::de;
 
 use std::borrow::Cow;
@@ -25,8 +28,17 @@ impl<'a> Level<'a> {
         if let Level::Nested(ref mut map) = *self {
             match map.entry(key) {
                 Entry::Occupied(mut o) => {
+                    let key = o.key();
+                    let error = if key.contains('[') {
+                        let newkey = percent_encode(key.as_bytes(), QS_ENCODE_SET)
+                            .map(replace_space)
+                            .collect::<String>();
+                        format!("Multiple values for one key: \"{}\"\nInvalid field contains an encoded bracket -- did you mean to use non-strict mode?\n  https://docs.rs/serde_qs/latest/serde_qs/#strict-vs-non-strict-modes", newkey)
+                    } else {
+                        format!("Multiple values for one key: \"{}\"", key)
+                    };
                     // Throw away old result; map is now invalid anyway.
-                    let _ = o.insert(Level::Invalid("Multiple values for one key"));
+                    let _ = o.insert(Level::Invalid(error));
                 }
                 Entry::Vacant(vm) => {
                     // Map is empty, result is None
@@ -40,7 +52,8 @@ impl<'a> Level<'a> {
         } else {
             *self = Level::Invalid(
                 "Attempted to insert map value into \
-                 non-map structure",
+                 non-map structure"
+                    .to_string(),
             );
         }
     }
@@ -51,7 +64,7 @@ impl<'a> Level<'a> {
             match map.entry(key) {
                 Entry::Occupied(mut o) => {
                     // Throw away old result; map is now invalid anyway.
-                    let _ = o.insert(Level::Invalid("Multiple values for one key"));
+                    let _ = o.insert(Level::Invalid("Multiple values for one key".to_string()));
                 }
                 Entry::Vacant(vm) => {
                     // Map is empty, result is None
@@ -66,7 +79,8 @@ impl<'a> Level<'a> {
         } else {
             *self = Level::Invalid(
                 "Attempted to insert seq value into \
-                 non-seq structure",
+                 non-seq structure"
+                    .to_string(),
             );
         }
     }
@@ -85,7 +99,8 @@ impl<'a> Level<'a> {
         } else {
             *self = Level::Invalid(
                 "Attempted to insert seq value into \
-                 non-seq structure",
+                 non-seq structure"
+                    .to_string(),
             );
         }
     }

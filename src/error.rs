@@ -10,7 +10,7 @@ use std::string;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     /// Custom string-based error
-    #[error("failed with reason: {0}")]
+    #[error("{0}")]
     Custom(String),
 
     /// Parse error at a specified position in the query string
