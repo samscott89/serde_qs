@@ -39,7 +39,7 @@ actix2 = ["actix-web2", "futures"]
 # deprecated feature -- used to return a warning
 actix = []
 warp = ["futures", "tracing", "warp-framework"]
-axum = ["axum-framework"]
+axum = ["axum-framework", "futures"]
 
 [package.metadata.docs.rs]
 features = ["actix4", "warp"]
