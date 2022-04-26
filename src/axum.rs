@@ -1,6 +1,9 @@
 use axum_framework as axum;
 
+use std::sync::Arc;
+
 use crate::de::Config as QsConfig;
+use crate::error::Error as QsError;
 
 use axum::{
     extract::{Extension, FromRequest, RequestParts},
@@ -9,8 +12,28 @@ use axum::{
     BoxError, Error,
 };
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Clone, Copy, Default)]
 pub struct QsQuery<T>(pub T);
+
+impl<T> std::ops::Deref for QsQuery<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: std::fmt::Display> std::fmt::Display for QsQuery<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for QsQuery<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 #[axum::async_trait]
 impl<T, B> FromRequest<B> for QsQuery<T>
@@ -21,29 +44,26 @@ where
     type Rejection = QsQueryRejection;
 
     async fn from_request(req: &mut RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Extension(config) = Extension::<QsQueryConfig>::from_request(req)
+        let Extension(qs_config) = Extension::<QsQueryConfig>::from_request(req)
             .await
             .unwrap_or_else(|_| Extension(QsQueryConfig::default()));
-        let config: QsConfig = config.into();
+        let error_handler = qs_config.error_handler.clone();
+        let config: QsConfig = qs_config.into();
         let query = req.uri().query().unwrap_or_default();
-        let value = config
-            .deserialize_str(query)
-            .map_err(QsQueryRejection::new::<T, _>)?;
-        Ok(QsQuery(value))
-    }
-}
-
-impl<T> std::ops::Deref for QsQuery<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+        match config.deserialize_str::<T>(query) {
+            Ok(value) => Ok(QsQuery(value)),
+            Err(err) => match error_handler {
+                Some(handler) => Err((handler)(err)),
+                None => Err(QsQueryRejection::new(err, StatusCode::BAD_REQUEST)),
+            },
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct QsQueryRejection {
     error: axum::Error,
+    status: StatusCode,
 }
 
 impl std::fmt::Display for QsQueryRejection {
@@ -57,12 +77,13 @@ impl std::fmt::Display for QsQueryRejection {
 }
 
 impl QsQueryRejection {
-    pub fn new<T, E>(error: E) -> Self
+    pub fn new<E>(error: E, status: StatusCode) -> Self
     where
         E: Into<BoxError>,
     {
         QsQueryRejection {
             error: Error::new(error),
+            status,
         }
     }
 }
@@ -70,7 +91,7 @@ impl QsQueryRejection {
 impl IntoResponse for QsQueryRejection {
     fn into_response(self) -> Response {
         let mut res = self.to_string().into_response();
-        *res.status_mut() = StatusCode::BAD_REQUEST;
+        *res.status_mut() = self.status;
         res
     }
 }
@@ -79,11 +100,24 @@ impl IntoResponse for QsQueryRejection {
 pub struct QsQueryConfig {
     max_depth: usize,
     strict: bool,
+    error_handler: Option<Arc<dyn Fn(QsError) -> QsQueryRejection + Send + Sync>>,
 }
 
 impl QsQueryConfig {
     pub fn new(max_depth: usize, strict: bool) -> Self {
-        Self { max_depth, strict }
+        Self {
+            max_depth,
+            strict,
+            error_handler: None,
+        }
+    }
+
+    pub fn error_handler<F>(mut self, f: F) -> Self
+    where
+        F: Fn(QsError) -> QsQueryRejection + Send + Sync + 'static,
+    {
+        self.error_handler = Some(Arc::new(f));
+        self
     }
 }
 
@@ -98,6 +132,7 @@ impl Default for QsQueryConfig {
         Self {
             max_depth: 5,
             strict: true,
+            error_handler: None,
         }
     }
 }
