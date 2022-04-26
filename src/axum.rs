@@ -1,3 +1,7 @@
+//! Functionality for using `serde_qs` with `axum`.
+//!
+//! Enable with the `axum` feature.
+
 use axum_framework as axum;
 
 use std::sync::Arc;
@@ -13,6 +17,35 @@ use axum::{
 };
 
 #[derive(Clone, Copy, Default)]
+/// Extract typed information from from the request's query.
+///
+/// ## Example
+///
+/// ```rust
+/// # extern crate axum_framework as axum;
+/// use serde_qs::axum::QsQuery;
+/// use serde_qs::Config;
+/// use axum::{response::IntoResponse, routing::get, Router, body::Body};
+///
+/// #[derive(serde::Deserialize)]
+/// pub struct UsersFilter {
+///    id: Vec<u64>,
+/// }
+///
+/// async fn filter_users(
+///     QsQuery(info): QsQuery<UsersFilter>
+/// ) -> impl IntoResponse {
+///     info.id
+///         .iter()
+///         .map(|i| i.to_string())
+///         .collect::<Vec<String>>()
+///         .join(", ")
+/// }
+///
+/// fn main() {
+///     let app = Router::<Body>::new()
+///         .route("/users", get(filter_users));
+/// }
 pub struct QsQuery<T>(pub T);
 
 impl<T> std::ops::Deref for QsQuery<T> {
@@ -61,6 +94,7 @@ where
 }
 
 #[derive(Debug)]
+/// Rejection type for extractors that deserialize query strings
 pub struct QsQueryRejection {
     error: axum::Error,
     status: StatusCode,
@@ -77,6 +111,7 @@ impl std::fmt::Display for QsQueryRejection {
 }
 
 impl QsQueryRejection {
+    /// Create new rejection
     pub fn new<E>(error: E, status: StatusCode) -> Self
     where
         E: Into<BoxError>,
@@ -96,7 +131,57 @@ impl IntoResponse for QsQueryRejection {
     }
 }
 
+impl std::error::Error for QsQueryRejection {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.error)
+    }
+}
+
 #[derive(Clone)]
+/// Query extractor configuration
+///
+/// QsQueryConfig wraps [`Config`](crate::de::Config) and implement [`Clone`]
+/// for [`FromRequest`](https://docs.rs/axum/0.5/axum/extract/trait.FromRequest.html)
+///
+/// ## Example
+///
+/// ```rust
+/// # extern crate axum_framework as axum;
+/// use serde_qs::axum::{QsQuery, QsQueryConfig, QsQueryRejection};
+/// use serde_qs::Config;
+/// use axum::{
+///     response::IntoResponse,
+///     routing::get,
+///     Router,
+///     body::Body,
+///     extract::Extension,
+///     http::StatusCode,
+/// };
+/// use std::sync::Arc;
+///
+/// #[derive(serde::Deserialize)]
+/// pub struct UsersFilter {
+///    id: Vec<u64>,
+/// }
+///
+/// async fn filter_users(
+///     QsQuery(info): QsQuery<UsersFilter>
+/// ) -> impl IntoResponse {
+///     info.id
+///         .iter()
+///         .map(|i| i.to_string())
+///         .collect::<Vec<String>>()
+///         .join(", ")
+/// }
+///
+/// fn main() {
+///     let app = Router::<Body>::new()
+///         .route("/users", get(filter_users))
+///         .layer(Extension(Arc::new(QsQueryConfig::new(5, false)
+///             .error_handler(|err| {
+///                 QsQueryRejection::new(err, StatusCode::UNPROCESSABLE_ENTITY)
+///         }))));
+/// }
 pub struct QsQueryConfig {
     max_depth: usize,
     strict: bool,
@@ -104,6 +189,7 @@ pub struct QsQueryConfig {
 }
 
 impl QsQueryConfig {
+    /// Create new config wrapper
     pub fn new(max_depth: usize, strict: bool) -> Self {
         Self {
             max_depth,
@@ -112,6 +198,7 @@ impl QsQueryConfig {
         }
     }
 
+    /// Set custom error handler
     pub fn error_handler<F>(mut self, f: F) -> Self
     where
         F: Fn(QsError) -> QsQueryRejection + Send + Sync + 'static,
