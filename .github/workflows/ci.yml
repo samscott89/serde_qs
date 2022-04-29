@@ -39,6 +39,13 @@ jobs:
         rust:
           - stable
           - 1.36.0
+        feature:
+          - ""
+          - actix4
+          - actix3
+          - actix2
+          - warp
+          - axum
     steps:
       - uses: actions/checkout@v2
       - uses: actions/cache@v2
@@ -53,27 +60,7 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-      - name: Run test actix4
+      - name: Run test ${{ matrix.feature }}
         run: |
-          cargo test --all-targets --features actix4
-          cargo test --doc --features actix4
-      - name: Run test actix3
-        run: |
-          cargo test --all-targets --features actix3
-          cargo test --doc --features actix3
-      - name: Run test actix2
-        run: |
-          cargo test --all-targets --features actix2
-          cargo test --doc --features actix2
-      - name: Run test warp
-        run: |
-          cargo test --all-targets --features warp
-          cargo test --doc --features warp
-      - name: Run test axum
-        run: |
-          cargo test --all-targets --features axum
-          cargo test --doc --features axum
-      - name: Run test no feature
-        run: |
-          cargo test --all-targets
-          cargo test --doc
+          cargo test --all-targets --features ${{ matrix.feature }}
+          cargo test --doc --features ${{ matrix.feature }}
