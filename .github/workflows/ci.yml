@@ -69,6 +69,10 @@ jobs:
         run: |
           cargo test --all-targets --features warp
           cargo test --doc --features warp
+      - name: Run test axum
+        run: |
+          cargo test --all-targets --features axum
+          cargo test --doc --features axum
       - name: Run test no feature
         run: |
           cargo test --all-targets
