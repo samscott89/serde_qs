@@ -62,5 +62,5 @@ jobs:
           toolchain: stable
       - name: Run test ${{ matrix.feature }}
         run: |
-          cargo test --all-targets --features ${{ matrix.feature }}
-          cargo test --doc --features ${{ matrix.feature }}
+          cargo test --all-targets --features "${{ matrix.feature }}"
+          cargo test --doc --features "${{ matrix.feature }}"
