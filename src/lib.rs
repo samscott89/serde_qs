@@ -75,9 +75,14 @@
 //! ## Strict vs Non-Strict modes
 //!
 //! `serde_qs` supports two operating modes, which can be specified using
-//! [`Config`](struct.Config.html), and is all about how `serde_qs` handles square brackets.
+//! [`Config`](struct.Config.html).
+//! Strict mode has two parts:
+//! - how `serde_qs` handles square brackets
+//! - how `serde_qs` handles invalid UTF-8 percent decoded characters
 //!
-//! Techncially, square brackets should be encoded in URLs as `%5B` and `%5D`.
+//! ### Square Brackets
+//! 
+//! Technically, square brackets should be encoded in URLs as `%5B` and `%5D`.
 //! However, they are often used in their raw format to specify querystrings
 //! such as `a[b]=123`.
 //!
@@ -96,6 +101,14 @@
 //! automatically encodes the brackets. But care must be taken to avoid
 //! using keys with square brackets in them, or unexpected things can
 //! happen.
+//! 
+//! ### Invalid UTF-8 Percent Encodings
+//! 
+//! Sometimes querystrings may have percent-encoded data which does not decode
+//! to UTF-8. In some cases it is useful for this to cause errors, which is how
+//! `serde_qs` works in strict mode (the default). Whereas in other cases it
+//! can be useful to just replace such data with the unicode replacement
+//! character (� `U+FFFD`), which is how `serde_qs` works in non-strict mode.
 //!
 //! ## Flatten workaround
 //!

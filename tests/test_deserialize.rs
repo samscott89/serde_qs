@@ -560,6 +560,19 @@ fn strict_mode() {
         .deserialize_str("vec%5B%5D=1&vec%5B%5D=2")
         .unwrap();
     assert_eq!(params.vec, vec![1, 2]);
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct StringQueryParam {
+        field: String,
+    }
+
+    // Ensure strict mode produces an error for invalid UTF-8 percent encoded characters.
+    let invalid_utf8: Result<StringQueryParam, _> = strict_config.deserialize_str("field=%E9");
+    assert!(invalid_utf8.is_err());
+
+    // Ensure loose mode invalid UTF-8 percent encoded characters become � U+FFFD.
+    let valid_utf8: StringQueryParam = loose_config.deserialize_str("field=%E9").unwrap();
+    assert_eq!(valid_utf8.field, "�");
 }
 
 #[test]

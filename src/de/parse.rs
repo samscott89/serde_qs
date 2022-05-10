@@ -242,8 +242,16 @@ impl<'a> Parser<'a> {
     /// present.
     fn collect_str(&mut self) -> Result<Cow<'a, str>> {
         let replaced = replace_plus(&self.inner[self.acc.0..self.acc.1 - 1]);
+        let decoder = percent_encoding::percent_decode(&replaced);
+
+        let maybe_decoded = if self.strict {
+            decoder.decode_utf8()?
+        } else {
+            decoder.decode_utf8_lossy()
+        };
+
         let ret: Result<Cow<'a, str>> =
-            match percent_encoding::percent_decode(&replaced).decode_utf8()? {
+            match maybe_decoded {
                 Cow::Borrowed(_) => {
                     match replaced {
                         Cow::Borrowed(_) => {
