@@ -25,6 +25,7 @@ warp-framework = { package = "warp", version = "0.3", default-features = false, 
 axum-framework = { package = "axum", version = "0.5", default-features = false, optional = true }
 
 [dev-dependencies]
+chrono = { version = "0.4", features = ["serde"] }
 csv = "1.1"
 rand = "0.8"
 serde_derive = "1.0"
