@@ -33,7 +33,7 @@ This crate works with Cargo and can be found on
 
 ```toml
 [dependencies]
-serde_qs = "0.9"
+serde_qs = "0.10"
 ```
 
 Minimum supported Rust version is 1.36.
