@@ -250,24 +250,23 @@ impl<'a> Parser<'a> {
             decoder.decode_utf8_lossy()
         };
 
-        let ret: Result<Cow<'a, str>> =
-            match maybe_decoded {
-                Cow::Borrowed(_) => {
-                    match replaced {
-                        Cow::Borrowed(_) => {
-                            // In this case, neither method made replacements, so we
-                            // reuse the original bytes
-                            let res = str::from_utf8(&self.inner[self.acc.0..self.acc.1 - 1])?;
-                            Ok(Cow::Borrowed(res))
-                        }
-                        Cow::Owned(owned) => {
-                            let res = String::from_utf8(owned)?;
-                            Ok(Cow::Owned(res))
-                        }
+        let ret: Result<Cow<'a, str>> = match maybe_decoded {
+            Cow::Borrowed(_) => {
+                match replaced {
+                    Cow::Borrowed(_) => {
+                        // In this case, neither method made replacements, so we
+                        // reuse the original bytes
+                        let res = str::from_utf8(&self.inner[self.acc.0..self.acc.1 - 1])?;
+                        Ok(Cow::Borrowed(res))
+                    }
+                    Cow::Owned(owned) => {
+                        let res = String::from_utf8(owned)?;
+                        Ok(Cow::Owned(res))
                     }
                 }
-                Cow::Owned(owned) => Ok(Cow::Owned(owned)),
-            };
+            }
+            Cow::Owned(owned) => Ok(Cow::Owned(owned)),
+        };
         self.clear_acc();
         ret.map_err(Error::from)
     }
