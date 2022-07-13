@@ -202,3 +202,37 @@ fn serialize_hashmap_keys() {
             || s == "attrs[key+2%21]=val+2&attrs[key+1%21]=val+1"
     );
 }
+
+#[test]
+fn test_serializer() {
+    use serde::Serialize;
+    #[derive(Serialize, Debug, Clone)]
+    struct Query {
+        a: Vec<u8>,
+        b: &'static str,
+    }
+
+    let mut writer = Vec::new();
+    {
+        let serializer = &mut qs::Serializer::new(&mut writer);
+        let q = Query {
+            a: vec![0, 1],
+            b: "b",
+        };
+        q.serialize(serializer).unwrap();
+    }
+
+    assert_eq!(writer, b"a[0]=0&a[1]=1&b=b");
+    writer.clear();
+
+    {
+        let serializer = &mut qs::Serializer::new(&mut writer);
+        let q = Query {
+            a: vec![3, 2],
+            b: "a",
+        };
+        q.serialize(serializer).unwrap();
+    }
+
+    assert_eq!(writer, b"a[0]=3&a[1]=2&b=a");
+}

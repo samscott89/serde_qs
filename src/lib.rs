@@ -203,8 +203,7 @@ serde_qs = { version = "0.9", features = ["actix4"] }
 mod de;
 mod error;
 mod ser;
-#[cfg(feature = "warp")]
-pub mod warp;
+pub(crate) mod utils;
 
 #[doc(inline)]
 pub use de::Config;
@@ -212,7 +211,10 @@ pub use de::Config;
 pub use de::{from_bytes, from_str};
 pub use error::Error;
 #[doc(inline)]
-pub use ser::{to_string, to_writer, QsSerializer};
+pub use ser::{to_string, to_writer, Serializer};
 
 #[cfg(feature = "axum")]
 pub mod axum;
+
+#[cfg(feature = "warp")]
+pub mod warp;
