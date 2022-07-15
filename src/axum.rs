@@ -177,10 +177,10 @@ impl std::error::Error for QsQueryRejection {
 /// fn main() {
 ///     let app = Router::<Body>::new()
 ///         .route("/users", get(filter_users))
-///         .layer(Extension(Arc::new(QsQueryConfig::new(5, false)
+///         .layer(Extension(QsQueryConfig::new(5, false)
 ///             .error_handler(|err| {
 ///                 QsQueryRejection::new(err, StatusCode::UNPROCESSABLE_ENTITY)
-///         }))));
+///         })));
 /// }
 pub struct QsQueryConfig {
     max_depth: usize,
