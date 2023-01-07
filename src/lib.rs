@@ -126,7 +126,7 @@
 //! extern crate serde_qs as qs;
 //! extern crate serde_with;
 //!
-//! use serde_with::rust::display_fromstr::deserialize as deserialize_fromstr;
+//! use serde_with::{serde_as, DisplayFromStr};
 //!
 //! #[derive(Deserialize, Serialize, Debug, PartialEq)]
 //! struct Query {
@@ -135,13 +135,14 @@
 //!     common: CommonParams,
 //! }
 //!
+//! #[serde_as]
 //! #[derive(Deserialize, Serialize, Debug, PartialEq)]
 //! struct CommonParams {
-//!     #[serde(deserialize_with="deserialize_fromstr")]
+//!     #[serde_as(as = "DisplayFromStr")]
 //!     limit: u64,
-//!     #[serde(deserialize_with="deserialize_fromstr")]
+//!     #[serde_as(as = "DisplayFromStr")]
 //!     offset: u64,
-//!     #[serde(deserialize_with="deserialize_fromstr")]
+//!     #[serde_as(as = "DisplayFromStr")]
 //!     remaining: bool,
 //! }
 //!
