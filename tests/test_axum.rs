@@ -7,11 +7,7 @@ extern crate serde_derive;
 extern crate axum_framework as axum;
 extern crate serde_qs as qs;
 
-use axum::{
-    extract::{FromRequest, RequestParts},
-    http::StatusCode,
-    response::IntoResponse,
-};
+use axum::{extract::FromRequestParts, http::StatusCode, response::IntoResponse};
 use qs::axum::{QsQuery, QsQueryConfig, QsQueryRejection};
 use serde::de::Error;
 
@@ -49,9 +45,9 @@ fn test_default_error_handler() {
             .uri("/test")
             .body(())
             .unwrap();
-        let mut req_parts = RequestParts::new(req);
+        let (mut req_parts, _) = req.into_parts();
 
-        let e = QsQuery::<Query>::from_request(&mut req_parts)
+        let e = QsQuery::<Query>::from_request_parts(&mut req_parts, &())
             .await
             .unwrap_err();
 
@@ -70,9 +66,8 @@ fn test_custom_error_handler() {
                 }))
                 .body(())
                 .unwrap();
-        let mut req_parts = RequestParts::new(req);
-
-        let query = QsQuery::<Query>::from_request(&mut req_parts).await;
+        let (mut req_parts, _) = req.into_parts();
+        let query = QsQuery::<Query>::from_request_parts(&mut req_parts, &()).await;
 
         assert!(query.is_err());
         assert_eq!(
@@ -89,9 +84,8 @@ fn test_composite_querystring_extractor() {
             .uri("/test?foo=1&bars[]=0&bars[]=1&limit=100&offset=50&remaining=true")
             .body(())
             .unwrap();
-        let mut req_parts = RequestParts::new(req);
-
-        let s = QsQuery::<Query>::from_request(&mut req_parts)
+        let (mut req_parts, _) = req.into_parts();
+        let s = QsQuery::<Query>::from_request_parts(&mut req_parts, &())
             .await
             .unwrap();
         assert_eq!(s.foo, 1);
@@ -109,9 +103,8 @@ fn test_default_qs_config() {
             .uri("/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true")
             .body(())
             .unwrap();
-        let mut req_parts = RequestParts::new(req);
-
-        let e = QsQuery::<Query>::from_request(&mut req_parts)
+        let (mut req_parts, _) = req.into_parts();
+        let e = QsQuery::<Query>::from_request_parts(&mut req_parts, &())
             .await
             .unwrap_err();
 
@@ -128,9 +121,8 @@ fn test_custom_qs_config() {
             .body(())
             .unwrap();
 
-        let mut req_parts = RequestParts::new(req);
-
-        let s = QsQuery::<Query>::from_request(&mut req_parts)
+        let (mut req_parts, _) = req.into_parts();
+        let s = QsQuery::<Query>::from_request_parts(&mut req_parts, &())
             .await
             .unwrap();
         assert_eq!(s.foo, 1);

@@ -11,6 +11,7 @@ fn test_dates() {
         date_time: DateTime<FixedOffset>,
     }
 
+    #[allow(deprecated)]
     let params = Params {
         date_time: FixedOffset::east(9 * 3600)
             .ymd(2014, 11, 28)
@@ -34,6 +35,7 @@ fn test_improperly_encoded_dates() {
         date_time: DateTime<FixedOffset>,
     }
 
+    #[allow(deprecated)]
     let _expected = Params {
         date_time: FixedOffset::east(9 * 3600)
             .ymd(2014, 11, 28)
