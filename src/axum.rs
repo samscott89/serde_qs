@@ -10,7 +10,7 @@ use crate::de::Config as QsConfig;
 use crate::error::Error as QsError;
 
 use axum::{
-    extract::{Extension, FromRequest, RequestParts},
+    extract::{Extension, FromRequestParts},
     http::StatusCode,
     response::{IntoResponse, Response},
     BoxError, Error,
@@ -69,20 +69,22 @@ impl<T: std::fmt::Debug> std::fmt::Debug for QsQuery<T> {
 }
 
 #[axum::async_trait]
-impl<T, B> FromRequest<B> for QsQuery<T>
+impl<T, S> FromRequestParts<S> for QsQuery<T>
 where
     T: serde::de::DeserializeOwned,
-    B: std::marker::Send,
 {
     type Rejection = QsQueryRejection;
 
-    async fn from_request(req: &mut RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Extension(qs_config) = Extension::<QsQueryConfig>::from_request(req)
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let Extension(qs_config) = Extension::<QsQueryConfig>::from_request_parts(parts, state)
             .await
             .unwrap_or_else(|_| Extension(QsQueryConfig::default()));
         let error_handler = qs_config.error_handler.clone();
         let config: QsConfig = qs_config.into();
-        let query = req.uri().query().unwrap_or_default();
+        let query = parts.uri.query().unwrap_or_default();
         match config.deserialize_str::<T>(query) {
             Ok(value) => Ok(QsQuery(value)),
             Err(err) => match error_handler {
