@@ -548,7 +548,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
     {
         match self.0 {
             Level::Nested(_) => self.into_deserializer()?.deserialize_map(visitor),
-            Level::OrderedSeq(map) => visitor.visit_seq(LevelSeq(map.into_iter().map(|(_k, v)| v))),
+            Level::OrderedSeq(map) => visitor.visit_seq(LevelSeq(map.into_values())),
             Level::Sequence(seq) => visitor.visit_seq(LevelSeq(seq.into_iter())),
             Level::Flat(x) => match x {
                 Cow::Owned(s) => visitor.visit_string(s),
@@ -600,7 +600,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
     {
         match self.0 {
             Level::Nested(_) => self.into_deserializer()?.deserialize_map(visitor),
-            Level::OrderedSeq(map) => visitor.visit_seq(LevelSeq(map.into_iter().map(|(_k, v)| v))),
+            Level::OrderedSeq(map) => visitor.visit_seq(LevelSeq(map.into_values())),
             Level::Sequence(seq) => visitor.visit_seq(LevelSeq(seq.into_iter())),
             Level::Flat(_) => {
                 // For a newtype_struct, attempt to deserialize a flat value as a

@@ -340,7 +340,7 @@ impl<'a> Parser<'a> {
                                 c => {
                                     if self.strict {
                                         return Err(super::Error::parse_err(
-                                            &format!(
+                                            format!(
                                                 "unexpected character: {}",
                                                 String::from_utf8_lossy(&[c])
                                             ),
@@ -463,7 +463,7 @@ impl<'a> Parser<'a> {
                         } else {
                             // We expected to parse into a map here.
                             break Err(super::Error::parse_err(
-                                &format!(
+                                format!(
                                     "tried to insert a \
                                      new key into {:?}",
                                     node
@@ -542,7 +542,7 @@ impl<'a> Parser<'a> {
                         } else {
                             // We expected to parse into a seq here.
                             break Err(super::Error::parse_err(
-                                &format!(
+                                format!(
                                     "tried to insert a \
                                      new key into {:?}",
                                     node
