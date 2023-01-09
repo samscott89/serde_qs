@@ -281,14 +281,11 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
 
     fn write_value(&mut self, value: &[u8]) -> Result<()> {
         if let Some(ref key) = self.key {
+            let amp = !self.first.swap(false, Ordering::Relaxed);
             write!(
                 self.writer,
                 "{}{}={}",
-                if self.first.swap(false, Ordering::Relaxed) {
-                    ""
-                } else {
-                    "&"
-                },
+                amp.then_some("&").unwrap_or_default(),
                 key,
                 percent_encode(value, QS_ENCODE_SET)
                     .map(replace_space)
@@ -297,6 +294,22 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
             .map_err(Error::from)
         } else {
             Err(Error::no_key())
+        }
+    }
+
+    fn write_unit(&mut self) -> Result<()> {
+        let amp = !self.first.swap(false, Ordering::Relaxed);
+        if let Some(ref key) = self.key {
+            write!(
+                self.writer,
+                "{}{}=",
+                amp.then_some("&").unwrap_or_default(),
+                key,
+            )
+            .map_err(Error::from)
+        } else {
+            // For top level unit types
+            write!(self.writer, "{}", amp.then_some("&").unwrap_or_default(),).map_err(Error::from)
         }
     }
 
@@ -351,15 +364,13 @@ impl<'a, W: Write> ser::Serializer for QsSerializer<'a, W> {
     }
 
     fn serialize_unit(mut self) -> Result<Self::Ok> {
-        self.write_value(&[])
+        self.write_unit()
     }
 
-    /// Returns an error.
-    fn serialize_unit_struct(mut self, name: &'static str) -> Result<Self::Ok> {
-        self.write_value(name.as_bytes())
+    fn serialize_unit_struct(mut self, _: &'static str) -> Result<Self::Ok> {
+        self.write_unit()
     }
 
-    /// Returns an error.
     fn serialize_unit_variant(
         mut self,
         _name: &'static str,
