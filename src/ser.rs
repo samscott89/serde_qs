@@ -156,12 +156,10 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
         self.as_qs_serializer().serialize_unit()
     }
 
-    /// Returns an error.
     fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok> {
         self.as_qs_serializer().serialize_unit_struct(name)
     }
 
-    /// Returns an error.
     fn serialize_unit_variant(
         self,
         name: &'static str,
@@ -172,7 +170,6 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
             .serialize_unit_variant(name, variant_index, variant)
     }
 
-    /// Returns an error.
     fn serialize_newtype_struct<T: ?Sized + ser::Serialize>(
         self,
         name: &'static str,
@@ -182,7 +179,6 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
             .serialize_newtype_struct(name, value)
     }
 
-    /// Returns an error.
     fn serialize_newtype_variant<T: ?Sized + ser::Serialize>(
         self,
         name: &'static str,
@@ -202,7 +198,6 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
         self.as_qs_serializer().serialize_some(value)
     }
 
-    /// Returns an error.
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
         self.as_qs_serializer().serialize_seq(len)
     }
@@ -211,7 +206,6 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
         self.as_qs_serializer().serialize_tuple(len)
     }
 
-    /// Returns an error.
     fn serialize_tuple_struct(
         self,
         name: &'static str,
@@ -380,7 +374,6 @@ impl<'a, W: Write> ser::Serializer for QsSerializer<'a, W> {
         self.write_value(variant.as_bytes())
     }
 
-    /// Returns an error.
     fn serialize_newtype_struct<T: ?Sized + ser::Serialize>(
         self,
         _name: &'static str,
@@ -389,7 +382,6 @@ impl<'a, W: Write> ser::Serializer for QsSerializer<'a, W> {
         value.serialize(self)
     }
 
-    /// Returns an error.
     fn serialize_newtype_variant<T: ?Sized + ser::Serialize>(
         mut self,
         _name: &'static str,
@@ -406,11 +398,9 @@ impl<'a, W: Write> ser::Serializer for QsSerializer<'a, W> {
     }
 
     fn serialize_some<T: ?Sized + ser::Serialize>(self, value: &T) -> Result<Self::Ok> {
-        // Err(Error::Unsupported)
         value.serialize(self)
     }
 
-    /// Returns an error.
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
         Ok(QsSeq(self, 0))
     }
@@ -419,7 +409,6 @@ impl<'a, W: Write> ser::Serializer for QsSerializer<'a, W> {
         Ok(QsSeq(self, 0))
     }
 
-    /// Returns an error.
     fn serialize_tuple_struct(
         self,
         _name: &'static str,
@@ -435,7 +424,6 @@ impl<'a, W: Write> ser::Serializer for QsSerializer<'a, W> {
         variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        // self.write(variant)?;
         self.extend_key(variant);
         Ok(QsSeq(self, 0))
     }
