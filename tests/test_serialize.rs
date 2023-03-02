@@ -236,3 +236,41 @@ fn test_serializer() {
 
     assert_eq!(writer, b"a[0]=3&a[1]=2&b=a");
 }
+
+#[test]
+fn test_serializer_unit() {
+    use serde::Serialize;
+    #[derive(Serialize)]
+    struct A;
+    #[derive(Serialize)]
+    struct B {
+        t: (),
+    }
+
+    let mut writer = Vec::new();
+    {
+        let serializer = &mut qs::Serializer::new(&mut writer);
+        let q = ();
+        q.serialize(serializer).unwrap();
+    }
+
+    assert_eq!(writer, b"", "we are testing ()");
+    writer.clear();
+
+    {
+        let serializer = &mut qs::Serializer::new(&mut writer);
+        let q = A;
+        q.serialize(serializer).unwrap();
+    }
+
+    assert_eq!(writer, b"", "we are testing A");
+    writer.clear();
+
+    {
+        let serializer = &mut qs::Serializer::new(&mut writer);
+        let q = B { t: () };
+        q.serialize(serializer).unwrap();
+    }
+
+    assert_eq!(writer, b"t=", "we are testing B{{t: ()}}");
+}

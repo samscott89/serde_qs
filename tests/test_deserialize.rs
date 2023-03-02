@@ -699,3 +699,26 @@ fn deserialize_map_with_int_keys() {
     serde_qs::from_str::<Mapping>("mapping[1]=2&mapping[1]=4")
         .expect_err("should error with repeated key");
 }
+
+#[test]
+fn deserialize_unit_types() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct A;
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct B<'a> {
+        t: (),
+        a: &'a str,
+    }
+
+    let test: () = serde_qs::from_str("").unwrap();
+    assert_eq!(test, ());
+
+    let test: A = serde_qs::from_str("").unwrap();
+    assert_eq!(test, A);
+
+    let test: B = serde_qs::from_str("a=test&t=").unwrap();
+    assert_eq!(test, B { t: (), a: "test" });
+
+    let test: B = serde_qs::from_str("t=&a=test").unwrap();
+    assert_eq!(test, B { t: (), a: "test" });
+}

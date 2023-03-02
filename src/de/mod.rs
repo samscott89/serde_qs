@@ -221,10 +221,14 @@ impl<'a> QsDeserializer<'a> {
 impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     type Error = Error;
 
-    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
+        if self.iter.next().is_none() {
+            return visitor.visit_unit();
+        }
+
         Err(Error::top_level("primitive"))
     }
 
@@ -572,6 +576,16 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         }
     }
 
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        match self.0 {
+            Level::Flat(ref x) if x == "" => visitor.visit_unit(),
+            _ => Err(de::Error::custom("expected unit".to_owned())),
+        }
+    }
+
     fn deserialize_enum<V>(
         self,
         name: &'static str,
@@ -646,7 +660,6 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         string
         bytes
         byte_buf
-        unit
         unit_struct
         // newtype_struct
         tuple_struct
