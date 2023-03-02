@@ -702,6 +702,10 @@ fn deserialize_map_with_int_keys() {
 
 #[test]
 fn deserialize_unit_types() {
+    // allow these clippy lints cause I like how explicit the test is
+    #![allow(clippy::let_unit_value)]
+    #![allow(clippy::unit_cmp)]
+
     #[derive(Debug, Deserialize, PartialEq)]
     struct A;
     #[derive(Debug, Deserialize, PartialEq)]
@@ -721,4 +725,20 @@ fn deserialize_unit_types() {
 
     let test: B = serde_qs::from_str("t=&a=test").unwrap();
     assert_eq!(test, B { t: (), a: "test" });
+}
+
+#[test]
+fn serialization_roundtrip() {
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct Data {
+        #[serde(default)]
+        values: Vec<String>,
+    }
+
+    let data = Data { values: Vec::new() };
+    let serialized = serde_qs::to_string(&data).unwrap();
+
+    dbg!(&serialized);
+    let deserialized = serde_qs::from_str::<Data>(&serialized).unwrap();
+    assert_eq!(deserialized, data);
 }

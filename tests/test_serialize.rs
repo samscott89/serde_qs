@@ -250,6 +250,8 @@ fn test_serializer_unit() {
     let mut writer = Vec::new();
     {
         let serializer = &mut qs::Serializer::new(&mut writer);
+        // allow this clippy lints cause I like how explicit the test is
+        #[allow(clippy::let_unit_value)]
         let q = ();
         q.serialize(serializer).unwrap();
     }
