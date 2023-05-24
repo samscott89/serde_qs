@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 
 use std::default::Default;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 struct Query {
     #[serde(deserialize_with = "from_csv")]
     r: Vec<u8>,
@@ -19,6 +19,17 @@ fn main() {
     let q = "s=12&r=1,2,3";
     let q: Query = qs::from_str(q).unwrap();
     println!("{:?}", q);
+}
+
+#[test]
+fn deserialize_sequence() {
+    let q = "s=12&r=1,2,3";
+    let q: Query = qs::from_str(q).unwrap();
+    let expected = Query {
+        r: vec![1, 2, 3],
+        s: 12,
+    };
+    assert_eq!(q, expected);
 }
 
 fn from_csv<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>

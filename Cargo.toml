@@ -44,3 +44,7 @@ axum = ["axum-framework", "futures"]
 
 [package.metadata.docs.rs]
 features = ["actix4", "warp"]
+
+[[example]]
+name = "csv_vectors"
+test = true
