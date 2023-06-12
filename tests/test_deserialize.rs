@@ -305,6 +305,51 @@ fn deserialize_enum_untagged() {
 }
 
 #[test]
+fn deserialize_enum_untagged_top_level() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(untagged)]
+    enum E {
+        B { b: String },
+        S { s: String },
+    }
+
+    let params = "s=true";
+    let rec_params: E = qs::from_str(params).unwrap();
+    assert_eq!(
+        rec_params,
+        E::S {
+            s: "true".to_string()
+        }
+    );
+    let params = "b=test";
+    let rec_params: E = qs::from_str(params).unwrap();
+    assert_eq!(
+        rec_params,
+        E::B {
+            b: "test".to_string()
+        }
+    );
+}
+
+#[test]
+fn deserialize_enum_top_level() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    enum E {
+        B { b: String },
+        S { s: String },
+    }
+
+    let params = "S[s]=test";
+    let rec_params: E = qs::from_str(params).unwrap();
+    assert_eq!(
+        rec_params,
+        E::S {
+            s: "test".to_string()
+        }
+    );
+}
+
+#[test]
 fn deserialize_enum_adjacently() {
     #[derive(Deserialize, Debug, PartialEq)]
     #[serde(tag = "type", content = "val")]
