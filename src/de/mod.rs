@@ -45,6 +45,7 @@ use serde::de::IntoDeserializer;
 
 use std::borrow::Cow;
 use std::collections::btree_map::{BTreeMap, Entry, IntoIter};
+use std::iter::Peekable;
 
 /// To override the default serialization parameters, first construct a new
 /// Config.
@@ -190,7 +191,7 @@ pub fn from_str<'de, T: de::Deserialize<'de>>(input: &'de str) -> Result<T> {
 ///
 /// Supported top-level outputs are structs and maps.
 pub(crate) struct QsDeserializer<'a> {
-    iter: IntoIter<Cow<'a, str>, Level<'a>>,
+    iter: Peekable<IntoIter<Cow<'a, str>, Level<'a>>>,
     value: Option<Level<'a>>,
 }
 
@@ -207,7 +208,7 @@ enum Level<'a> {
 impl<'a> QsDeserializer<'a> {
     fn with_map(map: BTreeMap<Cow<'a, str>, Level<'a>>) -> Self {
         QsDeserializer {
-            iter: map.into_iter(),
+            iter: map.into_iter().peekable(),
             value: None,
         }
     }
@@ -225,11 +226,11 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        if self.iter.next().is_none() {
-            return visitor.visit_unit();
+        if self.iter.peek().is_none() {
+            visitor.visit_unit()
+        } else {
+            self.deserialize_map(visitor)
         }
-
-        Err(Error::top_level("primitive"))
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
