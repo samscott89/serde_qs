@@ -207,9 +207,9 @@ mod ser;
 pub(crate) mod utils;
 
 #[doc(inline)]
-pub use de::Config;
-#[doc(inline)]
 pub use de::{from_bytes, from_str};
+#[doc(inline)]
+pub use de::{Config, QsDeserializer as Deserializer};
 pub use error::Error;
 #[doc(inline)]
 pub use ser::{to_string, to_writer, Serializer};
