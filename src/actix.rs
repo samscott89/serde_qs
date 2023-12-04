@@ -208,3 +208,68 @@ impl Default for QsQueryConfig {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct QsForm<T>(T);
+
+impl<T> Deref for QsForm<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for QsForm<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        &mut self.0
+    }
+}
+
+// See:
+// - https://github.com/actix/actix-web/blob/master/src/types/form.rs
+// - https://github.com/samscott89/serde_qs/blob/main/src/actix.rs
+impl<T> FromRequest for QsForm<T>
+where
+    T: DeserializeOwned + Debug,
+{
+    type Error = ActixError;
+    type Config = ();
+    type Future = LocalBoxFuture<'static, Result<Self, ActixError>>;
+
+    fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
+        let mut stream = payload.take();
+        let req_clone = req.clone();
+
+        async move {
+            let mut bytes = web::BytesMut::new();
+            
+            while let Some(item) = stream.next().await {
+                bytes.extend_from_slice(&item.unwrap());
+            }
+            
+            let query_config = req_clone.app_data::<QsQueryConfig>().clone();
+            let error_handler = query_config.map(|c| c.ehandler.clone()).unwrap_or(None);
+
+            let default_qsconfig = QsConfig::default();
+            let qsconfig = query_config
+                .map(|c| &c.qs_config)
+                .unwrap_or(&default_qsconfig);
+
+            qsconfig
+                .deserialize_bytes::<T>(&bytes)
+                .map(|val| Ok(QsForm(val)))
+                .unwrap_or_else(|e| {
+                    let e = if let Some(error_handler) = error_handler {
+                        // e.into()
+                        (error_handler)(e, &req_clone)
+                    } else {
+                        e.into()
+                    };
+
+                    Err(e)
+                })
+        }
+        .boxed_local()
+    }
+}
