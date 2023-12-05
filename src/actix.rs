@@ -16,7 +16,8 @@ use actix_web::dev::Payload;
 #[cfg(any(feature = "actix2", feature = "actix3"))]
 use actix_web::HttpResponse;
 use actix_web::{Error as ActixError, FromRequest, HttpRequest, ResponseError};
-use futures::future::{ready, Ready};
+use futures::future::{ready, Ready, LocalBoxFuture, FutureExt};
+use futures::StreamExt;
 use serde::de;
 use std::fmt;
 use std::fmt::{Debug, Display};
@@ -73,6 +74,13 @@ impl ResponseError for QsError {
 /// }
 /// ```
 pub struct QsQuery<T>(T);
+
+impl<T> QsForm<T> {
+    /// Unwrap into inner `T` value.
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
 
 impl<T> Deref for QsQuery<T> {
     type Target = T;
@@ -218,6 +226,13 @@ impl Default for QsQueryConfig {
 #[derive(Debug)]
 pub struct QsForm<T>(T);
 
+impl<T> QsForm<T> {
+    /// Unwrap into inner `T` value.
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
 impl<T> Deref for QsForm<T> {
     type Target = T;
 
@@ -240,7 +255,7 @@ where
     T: DeserializeOwned + Debug,
 {
     type Error = ActixError;
-    type Config = ();
+    // type Config = ();
     type Future = LocalBoxFuture<'static, Result<Self, ActixError>>;
 
     fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
