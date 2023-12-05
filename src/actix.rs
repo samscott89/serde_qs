@@ -241,6 +241,40 @@ impl<T> DerefMut for QsForm<T> {
     }
 }
 
+// private fields on QsQueryConfig prevent its reuse here, so a new struct
+// is defined
+
+pub struct QsFormConfig {
+    ehandler: Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
+    qs_config: QsConfig,
+}
+
+impl QsFormConfig {
+    /// Set custom error handler
+    pub fn error_handler<F>(mut self, f: F) -> Self
+    where
+        F: Fn(QsError, &HttpRequest) -> ActixError + Send + Sync + 'static,
+    {
+        self.ehandler = Some(Arc::new(f));
+        self
+    }
+
+    /// Set custom serialization parameters
+    pub fn qs_config(mut self, config: QsConfig) -> Self {
+        self.qs_config = config;
+        self
+    }
+}
+
+impl Default for QsFormConfig {
+    fn default() -> Self {
+        QsFormConfig {
+            qs_config: QsConfig::default(),
+            ehandler: None,
+        }
+    }
+}
+
 // See:
 // - https://github.com/actix/actix-web/blob/master/src/types/form.rs
 // - https://github.com/samscott89/serde_qs/blob/main/src/actix.rs
