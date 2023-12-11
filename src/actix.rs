@@ -15,9 +15,10 @@ use actix_web4 as actix_web;
 use actix_web::dev::Payload;
 #[cfg(any(feature = "actix2", feature = "actix3"))]
 use actix_web::HttpResponse;
-use actix_web::{Error as ActixError, FromRequest, HttpRequest, ResponseError};
+use actix_web::{Error as ActixError, FromRequest, HttpRequest, ResponseError, web};
 use futures::future::{ready, Ready, LocalBoxFuture, FutureExt};
 use futures::StreamExt;
+use serde::de::DeserializeOwned;
 use serde::de;
 use std::fmt;
 use std::fmt::{Debug, Display};
@@ -75,13 +76,17 @@ impl ResponseError for QsError {
 /// ```
 pub struct QsQuery<T>(T);
 
-impl<T> QsForm<T> {
-    /// Unwrap into inner `T` value.
-    pub fn into_inner(self) -> T {
+pub trait IntoInner<T> {
+    fn into_inner(self) -> T;
+}
+
+// let foo: T = QsQuery<T>.into_inner()
+impl<T> IntoInner<T> for QsQuery<T> {
+    /// Unwrap into inner T value
+    fn into_inner(self) -> T {
         self.0
     }
 }
-
 impl<T> Deref for QsQuery<T> {
     type Target = T;
 
@@ -93,13 +98,6 @@ impl<T> Deref for QsQuery<T> {
 impl<T> DerefMut for QsQuery<T> {
     fn deref_mut(&mut self) -> &mut T {
         &mut self.0
-    }
-}
-
-impl<T> QsQuery<T> {
-    /// Deconstruct to a inner value
-    pub fn into_inner(self) -> T {
-        self.0
     }
 }
 
@@ -223,12 +221,53 @@ impl Default for QsQueryConfig {
     }
 }
 
+// QS Form Extractor
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+/// Extract typed information from from the request's form data.
+///
+/// ## Example
+///
+/// ```rust
+/// # #[macro_use] extern crate serde_derive;
+/// # #[cfg(feature = "actix4")]
+/// # use actix_web4 as actix_web;
+/// # #[cfg(feature = "actix3")]
+/// # use actix_web3 as actix_web;
+/// # #[cfg(feature = "actix2")]
+/// # use actix_web2 as actix_web;
+/// use actix_web::{web, App, HttpResponse};
+/// use serde_qs::actix::QsForm;
+///
+/// #[derive(Deserialize)]
+/// pub struct UsersFilter {
+///    id: Vec<u64>,
+/// }
+///
+/// // Use `QsForm` extractor for Form information.
+/// // Content-Type:	application/x-www-form-urlencoded
+/// // The correct request payload for this handler would be `id[]=1124&id[]=88`
+/// async fn filter_users(info: QsForm<UsersFilter>) -> HttpResponse {
+///     HttpResponse::Ok().body(
+///         info.id.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", ")
+///     )
+/// }
+///
+/// fn main() {
+///     let app = App::new().service(
+///        web::resource("/users")
+///            .route(web::get().to(filter_users)));
+/// }
+/// ```
+
+
 #[derive(Debug)]
 pub struct QsForm<T>(T);
 
-impl<T> QsForm<T> {
-    /// Unwrap into inner `T` value.
-    pub fn into_inner(self) -> T {
+// let foo: T = QsQuery<T>.into_inner()
+impl<T> IntoInner<T> for QsForm<T> {
+    /// Unwrap into inner T value
+    fn into_inner(self) -> T {
         self.0
     }
 }
@@ -249,6 +288,49 @@ impl<T> DerefMut for QsForm<T> {
 
 // private fields on QsQueryConfig prevent its reuse here, so a new struct
 // is defined
+
+/// Form extractor configuration
+///
+/// ```rust
+/// # #[macro_use] extern crate serde_derive;
+/// # #[cfg(feature = "actix4")]
+/// # use actix_web4 as actix_web;
+/// # #[cfg(feature = "actix3")]
+/// # use actix_web3 as actix_web;
+/// # #[cfg(feature = "actix2")]
+/// # use actix_web2 as actix_web;
+/// use actix_web::{error, web, App, FromRequest, HttpResponse};
+/// use serde_qs::actix::QsQuery;
+/// use serde_qs::Config as QsConfig;
+/// use serde_qs::actix::QsFormConfig;
+///
+/// #[derive(Deserialize)]
+/// struct Info {
+///     username: String,
+/// }
+///
+/// /// deserialize `Info` from request's payload
+/// async fn index(info: QsForm<Info>) -> HttpResponse {
+///     use serde_qs::actix::QsForm;
+/// HttpResponse::Ok().body(
+///         format!("Welcome {}!", info.username)
+///     )
+/// }
+///
+/// fn main() {
+/// let qs_config = QsFormConfig::default()
+///     .error_handler(|err, req| {  // <- create custom error response
+///     error::InternalError::from_response(
+///         err, HttpResponse::Conflict().finish()).into()
+///     })
+///     .qs_config(QsConfig::default());
+///
+/// let app = App::new().service(
+///         web::resource("/index.html").app_data(qs_config)
+///             .route(web::post().to(index))
+///     );
+/// }
+/// ```
 
 pub struct QsFormConfig {
     ehandler: Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
@@ -281,6 +363,7 @@ impl Default for QsFormConfig {
     }
 }
 
+//
 // See:
 // - https://github.com/actix/actix-web/blob/master/src/types/form.rs
 // - https://github.com/samscott89/serde_qs/blob/main/src/actix.rs
@@ -298,12 +381,12 @@ where
 
         async move {
             let mut bytes = web::BytesMut::new();
-            
+
             while let Some(item) = stream.next().await {
                 bytes.extend_from_slice(&item.unwrap());
             }
-            
-            let query_config = req_clone.app_data::<QsQueryConfig>().clone();
+
+            let query_config = req_clone.app_data::<QsFormConfig>().clone();
             let error_handler = query_config.map(|c| c.ehandler.clone()).unwrap_or(None);
 
             let default_qsconfig = QsConfig::default();
