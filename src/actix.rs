@@ -76,14 +76,10 @@ impl ResponseError for QsError {
 /// ```
 pub struct QsQuery<T>(T);
 
-pub trait IntoInner<T> {
-    fn into_inner(self) -> T;
-}
-
 // let foo: T = QsQuery<T>.into_inner()
-impl<T> IntoInner<T> for QsQuery<T> {
+impl<T> QsQuery<T> {
     /// Unwrap into inner T value
-    fn into_inner(self) -> T {
+    pub fn into_inner(self) -> T {
         self.0
     }
 }
@@ -264,10 +260,11 @@ impl Default for QsQueryConfig {
 #[derive(Debug)]
 pub struct QsForm<T>(T);
 
+
 // let foo: T = QsQuery<T>.into_inner()
-impl<T> IntoInner<T> for QsForm<T> {
+impl<T> QsForm<T> {
     /// Unwrap into inner T value
-    fn into_inner(self) -> T {
+    pub fn into_inner(self) -> T {
         self.0
     }
 }
