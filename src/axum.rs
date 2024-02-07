@@ -43,7 +43,7 @@ use axum::{
 /// }
 ///
 /// fn main() {
-///     let app = Router::<(), Body>::new()
+///     let app = Router::<()>::new()
 ///         .route("/users", get(filter_users));
 /// }
 pub struct QsQuery<T>(pub T);
@@ -178,7 +178,7 @@ impl std::error::Error for QsQueryRejection {
 /// }
 ///
 /// fn main() {
-///     let app = Router::<(), Body>::new()
+///     let app = Router::<()>::new()
 ///         .route("/users", get(filter_users))
 ///         .layer(Extension(QsQueryConfig::new(5, false)
 ///             .error_handler(|err| {
