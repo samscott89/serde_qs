@@ -213,7 +213,7 @@ impl<'a> QsDeserializer<'a> {
     }
 
     /// Returns a new `QsDeserializer<'a>`.
-    fn with_config(config: &Config, input: &'a [u8]) -> Result<Self> {
+    pub fn with_config(config: &Config, input: &'a [u8]) -> Result<Self> {
         parse::Parser::new(input, config.max_depth(), config.strict).as_deserializer()
     }
 
