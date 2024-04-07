@@ -16,7 +16,7 @@ use actix_web::error::InternalError;
 use actix_web::http::StatusCode;
 use actix_web::test::TestRequest;
 use actix_web::{FromRequest, HttpResponse};
-use qs::actix::{QsQuery, QsQueryConfig};
+use qs::actix::{QsForm, QsQuery, QsQueryConfig};
 use qs::Config as QsConfig;
 use serde::de::Error;
 
@@ -141,5 +141,27 @@ fn test_custom_qs_config() {
         assert_eq!(s.common.limit, 100);
         assert_eq!(s.common.offset, 50);
         assert_eq!(s.common.remaining, true);
+    })
+}
+
+#[test]
+fn test_form_extractor() {
+    futures::executor::block_on(async {
+        let test_data = Query {
+            foo: 1,
+            bars: vec![0, 1],
+            common: CommonParams {
+                limit: 100,
+                offset: 50,
+                remaining: true,
+            },
+        };
+        let req = TestRequest::with_uri("/test")
+            .set_payload(serde_qs::to_string(&test_data).unwrap())
+            .to_srv_request();
+        let (req, mut pl) = req.into_parts();
+
+        let s = QsForm::<Query>::from_request(&req, &mut pl).await.unwrap();
+        assert_eq!(s.into_inner(), test_data);
     })
 }

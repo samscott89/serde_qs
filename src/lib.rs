@@ -186,7 +186,7 @@
 #[macro_use]
 extern crate serde;
 
-#[cfg(any(feature = "actix4", feature = "actix3", feature = "actix2"))]
+#[cfg(any(feature = "actix4", feature = "actix3"))]
 pub mod actix;
 
 #[cfg(feature = "actix")]
@@ -199,6 +199,11 @@ E.g.
 serde_qs = { version = "0.9", features = ["actix4"] }
 
 "#
+);
+
+#[cfg(feature = "actix2")]
+compile_error!(
+    r#"The `actix2` feature was removed in v0.13 due to CI issues and minimal interest in continuing support"#
 );
 
 mod de;

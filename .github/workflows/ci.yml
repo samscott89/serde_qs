@@ -43,7 +43,6 @@ jobs:
           - ""
           - actix4
           - actix3
-          - actix2
           - warp
           - axum
     steps:
