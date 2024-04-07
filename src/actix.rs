@@ -224,7 +224,7 @@ impl Default for QsQueryConfig {
 /// use actix_web::{web, App, HttpResponse};
 /// use serde_qs::actix::QsForm;
 ///
-/// #[derive(Deserialize)]
+/// #[derive(Debug, Deserialize)]
 /// pub struct UsersFilter {
 ///    id: Vec<u64>,
 /// }
