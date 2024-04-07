@@ -81,7 +81,7 @@ fn deserialize_struct() {
         user_ids: vec![1, 2, 3, 4],
     };
 
-    for config in vec![qs::Config::new(5, true), qs::Config::new(5, false)] {
+    for config in [qs::Config::new(5, true), qs::Config::new(5, false)] {
         // standard parameters
         let rec_params: QueryParams = config
             .deserialize_str(
