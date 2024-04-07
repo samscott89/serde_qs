@@ -14,11 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: stable
-          override: true
           components: rustfmt, clippy
       - name: Check Rust formatting
         uses: actions-rs/cargo@v1
@@ -55,10 +53,9 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-test-${{ hashFiles('Cargo.toml') }}
       - name: Install Rust stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
-          toolchain: stable
+          toolchain: ${{ matrix.rust }}
       - name: Run test ${{ matrix.feature }}
         run: |
           cargo test --all-targets --features "${{ matrix.feature }}"
