@@ -134,6 +134,8 @@ where
     }
 }
 
+type ActixErrorHandler = Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>;
+
 /// Query extractor configuration
 ///
 /// ```rust
@@ -173,9 +175,9 @@ where
 ///     );
 /// }
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct QsQueryConfig {
-    ehandler: Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
+    ehandler: ActixErrorHandler,
     qs_config: QsConfig,
 }
 
@@ -201,15 +203,6 @@ impl QsQueryConfig {
     }
 }
 
-impl Default for QsQueryConfig {
-    fn default() -> Self {
-        QsQueryConfig {
-            ehandler: None,
-            qs_config: QsConfig::default(),
-        }
-    }
-}
-
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 /// Extract typed information from from the request's form data.
 ///
@@ -230,7 +223,7 @@ impl Default for QsQueryConfig {
 /// }
 ///
 /// // Use `QsForm` extractor for Form information.
-/// // Content-Type:	application/x-www-form-urlencoded
+/// // Content-Type: application/x-www-form-urlencoded
 /// // The correct request payload for this handler would be `id[]=1124&id[]=88`
 /// async fn filter_users(info: QsForm<UsersFilter>) -> HttpResponse {
 ///     HttpResponse::Ok().body(

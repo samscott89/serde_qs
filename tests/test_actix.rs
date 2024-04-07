@@ -26,7 +26,7 @@ where
     S: std::str::FromStr,
 {
     let s = <&str as serde::Deserialize>::deserialize(deserializer)?;
-    S::from_str(&s).map_err(|_| D::Error::custom("could not parse string"))
+    S::from_str(s).map_err(|_| D::Error::custom("could not parse string"))
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
@@ -103,7 +103,7 @@ fn test_composite_querystring_extractor() {
         assert_eq!(s.bars, vec![0, 1]);
         assert_eq!(s.common.limit, 100);
         assert_eq!(s.common.offset, 50);
-        assert_eq!(s.common.remaining, true);
+        assert!(s.common.remaining);
     })
 }
 
@@ -140,7 +140,7 @@ fn test_custom_qs_config() {
         assert_eq!(s.bars, vec![3]);
         assert_eq!(s.common.limit, 100);
         assert_eq!(s.common.offset, 50);
-        assert_eq!(s.common.remaining, true);
+        assert!(s.common.remaining);
     })
 }
 
