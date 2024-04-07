@@ -134,7 +134,7 @@ where
     }
 }
 
-type ActixErrorHandler =  Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>;
+type ActixErrorHandler = Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>;
 
 /// Query extractor configuration
 ///
