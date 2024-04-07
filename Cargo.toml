@@ -25,7 +25,7 @@ axum-framework = { package = "axum", version = "0.7", default-features = false, 
 
 [dev-dependencies]
 chrono = { version = "0.4", features = ["serde"] }
-csv = "1.1"
+csv = "=1.1"
 rand = "0.8"
 serde_derive = "1.0"
 serde_urlencoded = "0.7"
