@@ -76,7 +76,6 @@ impl ResponseError for QsError {
 /// ```
 pub struct QsQuery<T>(T);
 
-// let foo: T = QsQuery<T>.into_inner()
 impl<T> QsQuery<T> {
     /// Unwrap into inner T value
     pub fn into_inner(self) -> T {
