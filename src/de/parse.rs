@@ -280,8 +280,8 @@ impl<'a> Parser<'a> {
         // Parses all top level nodes into the `root` map.
         while self.parse(&mut root)? {}
         let iter = match root {
-            Level::Nested(map) => map.into_iter(),
-            _ => BTreeMap::default().into_iter(),
+            Level::Nested(map) => map.into_iter().peekable(),
+            _ => BTreeMap::default().into_iter().peekable(),
         };
         Ok(QsDeserializer { iter, value: None })
     }
