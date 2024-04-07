@@ -80,6 +80,7 @@ use std::collections::btree_map::{BTreeMap, Entry, IntoIter};
 /// assert_eq!(map.get("a").unwrap().get("b").unwrap().get("c").unwrap(), "1");
 /// ```
 ///
+#[derive(Clone, Copy)]
 pub struct Config {
     /// Specifies the maximum depth key that `serde_qs` will attempt to
     /// deserialize. Default is 5.
@@ -88,9 +89,14 @@ pub struct Config {
     strict: bool,
 }
 
+pub const DEFAULT_CONFIG: Config = Config {
+    max_depth: 5,
+    strict: true,
+};
+
 impl Default for Config {
     fn default() -> Self {
-        Self::new(5, true)
+        DEFAULT_CONFIG
     }
 }
 

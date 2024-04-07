@@ -13,11 +13,11 @@ use actix_web4 as actix_web;
 use actix_web::dev::Payload;
 #[cfg(feature = "actix3")]
 use actix_web::HttpResponse;
-use actix_web::{Error as ActixError, FromRequest, HttpRequest, ResponseError, web};
-use futures::future::{ready, Ready, LocalBoxFuture, FutureExt};
+use actix_web::{web, Error as ActixError, FromRequest, HttpRequest, ResponseError};
+use futures::future::{ready, FutureExt, LocalBoxFuture, Ready};
 use futures::StreamExt;
-use serde::de::DeserializeOwned;
 use serde::de;
+use serde::de::DeserializeOwned;
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::ops::{Deref, DerefMut};
@@ -115,20 +115,14 @@ where
 
     #[inline]
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let query_config = req.app_data::<QsQueryConfig>();
+        let query_config = req.app_data::<QsQueryConfig>().unwrap_or(&DEFAULT_CONFIG);
 
-        let error_handler = query_config.map(|c| c.ehandler.clone()).unwrap_or(None);
-
-        let default_qsconfig = QsConfig::default();
-        let qsconfig = query_config
-            .map(|c| &c.qs_config)
-            .unwrap_or(&default_qsconfig);
-
-        let res = qsconfig
+        let res = query_config
+            .qs_config
             .deserialize_str::<T>(req.query_string())
             .map(|val| Ok(QsQuery(val)))
             .unwrap_or_else(move |e| {
-                let e = if let Some(error_handler) = error_handler {
+                let e = if let Some(error_handler) = &query_config.ehandler {
                     (error_handler)(e, req)
                 } else {
                     e.into()
@@ -179,10 +173,16 @@ where
 ///     );
 /// }
 /// ```
+#[derive(Clone)]
 pub struct QsQueryConfig {
     ehandler: Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
     qs_config: QsConfig,
 }
+
+static DEFAULT_CONFIG: QsQueryConfig = QsQueryConfig {
+    ehandler: None,
+    qs_config: crate::de::DEFAULT_CONFIG,
+};
 
 impl QsQueryConfig {
     /// Set custom error handler
@@ -210,8 +210,6 @@ impl Default for QsQueryConfig {
     }
 }
 
-// QS Form Extractor
-
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 /// Extract typed information from from the request's form data.
 ///
@@ -223,8 +221,6 @@ impl Default for QsQueryConfig {
 /// # use actix_web4 as actix_web;
 /// # #[cfg(feature = "actix3")]
 /// # use actix_web3 as actix_web;
-/// # #[cfg(feature = "actix2")]
-/// # use actix_web2 as actix_web;
 /// use actix_web::{web, App, HttpResponse};
 /// use serde_qs::actix::QsForm;
 ///
@@ -248,13 +244,9 @@ impl Default for QsQueryConfig {
 ///            .route(web::get().to(filter_users)));
 /// }
 /// ```
-
-
 #[derive(Debug)]
 pub struct QsForm<T>(T);
 
-
-// let foo: T = QsQuery<T>.into_inner()
 impl<T> QsForm<T> {
     /// Unwrap into inner T value
     pub fn into_inner(self) -> T {
@@ -276,99 +268,23 @@ impl<T> DerefMut for QsForm<T> {
     }
 }
 
-// private fields on QsQueryConfig prevent its reuse here, so a new struct
-// is defined
-
-/// Form extractor configuration
-///
-/// ```rust
-/// # #[macro_use] extern crate serde_derive;
-/// # #[cfg(feature = "actix4")]
-/// # use actix_web4 as actix_web;
-/// # #[cfg(feature = "actix3")]
-/// # use actix_web3 as actix_web;
-/// # #[cfg(feature = "actix2")]
-/// # use actix_web2 as actix_web;
-/// use actix_web::{error, web, App, FromRequest, HttpResponse};
-/// use serde_qs::actix::QsQuery;
-/// use serde_qs::Config as QsConfig;
-/// use serde_qs::actix::QsFormConfig;
-///
-/// #[derive(Deserialize)]
-/// struct Info {
-///     username: String,
-/// }
-///
-/// /// deserialize `Info` from request's payload
-/// async fn index(info: QsForm<Info>) -> HttpResponse {
-///     use serde_qs::actix::QsForm;
-/// HttpResponse::Ok().body(
-///         format!("Welcome {}!", info.username)
-///     )
-/// }
-///
-/// fn main() {
-/// let qs_config = QsFormConfig::default()
-///     .error_handler(|err, req| {  // <- create custom error response
-///     error::InternalError::from_response(
-///         err, HttpResponse::Conflict().finish()).into()
-///     })
-///     .qs_config(QsConfig::default());
-///
-/// let app = App::new().service(
-///         web::resource("/index.html").app_data(qs_config)
-///             .route(web::post().to(index))
-///     );
-/// }
-/// ```
-
-pub struct QsFormConfig {
-    ehandler: Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>,
-    qs_config: QsConfig,
-}
-
-impl QsFormConfig {
-    /// Set custom error handler
-    pub fn error_handler<F>(mut self, f: F) -> Self
-    where
-        F: Fn(QsError, &HttpRequest) -> ActixError + Send + Sync + 'static,
-    {
-        self.ehandler = Some(Arc::new(f));
-        self
-    }
-
-    /// Set custom serialization parameters
-    pub fn qs_config(mut self, config: QsConfig) -> Self {
-        self.qs_config = config;
-        self
-    }
-}
-
-impl Default for QsFormConfig {
-    fn default() -> Self {
-        QsFormConfig {
-            qs_config: QsConfig::default(),
-            ehandler: None,
-        }
-    }
-}
-
-//
-// See:
-// - https://github.com/actix/actix-web/blob/master/src/types/form.rs
-// - https://github.com/samscott89/serde_qs/blob/main/src/actix.rs
 impl<T> FromRequest for QsForm<T>
 where
     T: DeserializeOwned + Debug,
 {
     type Error = ActixError;
-    // type Config = ();
     type Future = LocalBoxFuture<'static, Result<Self, ActixError>>;
+    #[cfg(feature = "actix3")]
+    type Config = QsQueryConfig;
 
     fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
         let mut stream = payload.take();
         let req_clone = req.clone();
 
+        let query_config: QsQueryConfig = req
+            .app_data::<QsQueryConfig>()
+            .unwrap_or(&DEFAULT_CONFIG)
+            .clone();
         async move {
             let mut bytes = web::BytesMut::new();
 
@@ -376,20 +292,12 @@ where
                 bytes.extend_from_slice(&item.unwrap());
             }
 
-            let query_config = req_clone.app_data::<QsFormConfig>().clone();
-            let error_handler = query_config.map(|c| c.ehandler.clone()).unwrap_or(None);
-
-            let default_qsconfig = QsConfig::default();
-            let qsconfig = query_config
-                .map(|c| &c.qs_config)
-                .unwrap_or(&default_qsconfig);
-
-            qsconfig
+            query_config
+                .qs_config
                 .deserialize_bytes::<T>(&bytes)
                 .map(|val| Ok(QsForm(val)))
                 .unwrap_or_else(|e| {
-                    let e = if let Some(error_handler) = error_handler {
-                        // e.into()
+                    let e = if let Some(error_handler) = &query_config.ehandler {
                         (error_handler)(e, &req_clone)
                     } else {
                         e.into()
