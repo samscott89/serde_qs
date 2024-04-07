@@ -43,6 +43,15 @@ jobs:
           - actix3
           - warp
           - axum
+        exclude:
+        - rust: 1.60.0
+          feature: actix4
+        - rust: 1.60.0
+          feature: actix3
+        - rust: 1.60.0
+          feature: warp
+        - rust: 1.60.0
+          feature: axum
     steps:
       - uses: actions/checkout@v2
       - uses: actions/cache@v2
