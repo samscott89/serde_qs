@@ -279,7 +279,7 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
             write!(
                 self.writer,
                 "{}{}={}",
-                amp.then_some("&").unwrap_or_default(),
+                if amp { "&" } else { "" },
                 key,
                 percent_encode(value, QS_ENCODE_SET)
                     .map(replace_space)
@@ -294,16 +294,11 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
     fn write_unit(&mut self) -> Result<()> {
         let amp = !self.first.swap(false, Ordering::Relaxed);
         if let Some(ref key) = self.key {
-            write!(
-                self.writer,
-                "{}{}=",
-                amp.then_some("&").unwrap_or_default(),
-                key,
-            )
-            .map_err(Error::from)
+            write!(self.writer, "{}{}=", if amp { "&" } else { "" }, key,).map_err(Error::from)
+        } else if amp {
+            write!(self.writer, "&").map_err(Error::from)
         } else {
-            // For top level unit types
-            write!(self.writer, "{}", amp.then_some("&").unwrap_or_default(),).map_err(Error::from)
+            Ok(())
         }
     }
 
