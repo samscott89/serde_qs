@@ -5,15 +5,13 @@
 use crate::de::Config as QsConfig;
 use crate::error::Error as QsError;
 
-#[cfg(feature = "actix2")]
-use actix_web2 as actix_web;
 #[cfg(feature = "actix3")]
 use actix_web3 as actix_web;
 #[cfg(feature = "actix4")]
 use actix_web4 as actix_web;
 
 use actix_web::dev::Payload;
-#[cfg(any(feature = "actix2", feature = "actix3"))]
+#[cfg(feature = "actix3")]
 use actix_web::HttpResponse;
 use actix_web::{Error as ActixError, FromRequest, HttpRequest, ResponseError};
 use futures::future::{ready, Ready};
@@ -23,7 +21,7 @@ use std::fmt::{Debug, Display};
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
-#[cfg(any(feature = "actix2", feature = "actix3"))]
+#[cfg(feature = "actix3")]
 impl ResponseError for QsError {
     fn error_response(&self) -> HttpResponse {
         HttpResponse::BadRequest().finish()
@@ -48,8 +46,6 @@ impl ResponseError for QsError {
 /// # use actix_web4 as actix_web;
 /// # #[cfg(feature = "actix3")]
 /// # use actix_web3 as actix_web;
-/// # #[cfg(feature = "actix2")]
-/// # use actix_web2 as actix_web;
 /// use actix_web::{web, App, HttpResponse};
 /// use serde_qs::actix::QsQuery;
 ///
@@ -113,7 +109,7 @@ where
 {
     type Error = ActixError;
     type Future = Ready<Result<Self, ActixError>>;
-    #[cfg(any(feature = "actix2", feature = "actix3"))]
+    #[cfg(feature = "actix3")]
     type Config = QsQueryConfig;
 
     #[inline]
@@ -151,8 +147,6 @@ where
 /// # use actix_web4 as actix_web;
 /// # #[cfg(feature = "actix3")]
 /// # use actix_web3 as actix_web;
-/// # #[cfg(feature = "actix2")]
-/// # use actix_web2 as actix_web;
 /// use actix_web::{error, web, App, FromRequest, HttpResponse};
 /// use serde_qs::actix::QsQuery;
 /// use serde_qs::Config as QsConfig;
