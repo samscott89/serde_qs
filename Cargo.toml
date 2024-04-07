@@ -10,7 +10,7 @@ name = "serde_qs"
 repository = "https://github.com/samscott89/serde_qs"
 readme = "README.md"
 version = "0.13.0"
-rust-version = "1.60"
+rust-version = "1.61"
 
 [dependencies]
 actix-web4 = { version = "4.0", optional = true, package = "actix-web", default-features = false }
@@ -25,8 +25,7 @@ axum-framework = { package = "axum", version = "0.7", default-features = false, 
 
 [dev-dependencies]
 chrono = { version = "0.4", features = ["serde"] }
-csv = "=1.2.2"
-memchr = "<2.5,>1.0" # 2.6+ breaks on older rust versions
+csv = "1.3"
 rand = "0.8"
 serde_derive = "1.0"
 serde_urlencoded = "0.7"
