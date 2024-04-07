@@ -10,7 +10,7 @@ jobs:
       matrix:
         rust:
           - stable
-          - 1.36.0
+          - 1.60.0
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust stable toolchain
@@ -36,7 +36,7 @@ jobs:
       matrix:
         rust:
           - stable
-          - 1.36.0
+          - 1.60.0
         feature:
           - ""
           - actix4
