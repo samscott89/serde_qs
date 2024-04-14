@@ -35,10 +35,12 @@ This crate works with Cargo and can be found on
 
 ```toml
 [dependencies]
-serde_qs = "0.12"
+serde_qs = "0.13"
 ```
 
-Minimum supported Rust version is 1.36.
+Minimum supported Rust version is 1.61 due to dependencies.
+
+For older versions of Rust, `serde_qs` versions `<= 0.11` support Rust 1.36.
 
 [crates.io]: https://crates.io/crates/serde_qs
 
