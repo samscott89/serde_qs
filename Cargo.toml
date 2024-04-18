@@ -42,7 +42,7 @@ warp = ["futures", "tracing", "warp-framework"]
 axum = ["axum-framework", "futures"]
 
 [package.metadata.docs.rs]
-features = ["actix4", "warp"]
+features = ["actix4", "warp", "axum"]
 
 [[example]]
 name = "csv_vectors"
