@@ -461,9 +461,9 @@ pub struct QsMap<'a, W: 'a + Write>(QsSerializer<'a, W>, Option<Cow<'a, str>>);
 impl<'a, W: Write> ser::SerializeTuple for QsSeq<'a, W> {
     type Ok = ();
     type Error = Error;
-    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
-        T: ser::Serialize,
+        T: ser::Serialize + ?Sized,
     {
         let key = self.1.to_string();
         self.1 += 1;
@@ -480,9 +480,9 @@ impl<'a, W: Write> ser::SerializeTuple for QsSeq<'a, W> {
 impl<'a, W: Write> ser::SerializeSeq for QsSeq<'a, W> {
     type Ok = ();
     type Error = Error;
-    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
-        T: ser::Serialize,
+        T: ser::Serialize + ?Sized,
     {
         let mut serializer = QsSerializer::new_from_ref(&mut self.0);
         serializer.extend_key(&self.1.to_string());
@@ -497,9 +497,9 @@ impl<'a, W: Write> ser::SerializeSeq for QsSeq<'a, W> {
 impl<'a, W: Write> ser::SerializeStruct for QsSerializer<'a, W> {
     type Ok = ();
     type Error = Error;
-    fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
-        T: ser::Serialize,
+        T: ser::Serialize + ?Sized,
     {
         let mut serializer = QsSerializer::new_from_ref(self);
         serializer.extend_key(key);
@@ -514,9 +514,9 @@ impl<'a, W: Write> ser::SerializeStructVariant for QsSerializer<'a, W> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
-        T: ser::Serialize,
+        T: ser::Serialize + ?Sized,
     {
         let mut serializer = QsSerializer::new_from_ref(self);
         serializer.extend_key(key);
@@ -532,9 +532,9 @@ impl<'a, W: Write> ser::SerializeTupleVariant for QsSeq<'a, W> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
-        T: ser::Serialize,
+        T: ser::Serialize + ?Sized,
     {
         let mut serializer = QsSerializer::new_from_ref(&mut self.0);
         serializer.extend_key(&self.1.to_string());
@@ -551,9 +551,9 @@ impl<'a, W: Write> ser::SerializeTupleStruct for QsSeq<'a, W> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
-        T: ser::Serialize,
+        T: ser::Serialize + ?Sized,
     {
         let mut serializer = QsSerializer::new_from_ref(&mut self.0);
         serializer.extend_key(&self.1.to_string());
@@ -570,17 +570,17 @@ impl<'a, W: Write> ser::SerializeMap for QsMap<'a, W> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<()>
+    fn serialize_key<T>(&mut self, key: &T) -> Result<()>
     where
-        T: ser::Serialize,
+        T: ser::Serialize + ?Sized,
     {
         self.1 = Some(Cow::from(key.serialize(StringSerializer)?));
         Ok(())
     }
 
-    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_value<T>(&mut self, value: &T) -> Result<()>
     where
-        T: ser::Serialize,
+        T: ser::Serialize + ?Sized,
     {
         let mut serializer = QsSerializer::new_from_ref(&mut self.0);
         if let Some(ref key) = self.1 {
@@ -596,10 +596,10 @@ impl<'a, W: Write> ser::SerializeMap for QsMap<'a, W> {
         Ok(())
     }
 
-    fn serialize_entry<K: ?Sized, V: ?Sized>(&mut self, key: &K, value: &V) -> Result<()>
+    fn serialize_entry<K, V>(&mut self, key: &K, value: &V) -> Result<()>
     where
-        K: ser::Serialize,
-        V: ser::Serialize,
+        K: ser::Serialize + ?Sized,
+        V: ser::Serialize + ?Sized,
     {
         let mut serializer = QsSerializer::new_from_ref(&mut self.0);
         serializer.extend_key(&key.serialize(StringSerializer)?);
