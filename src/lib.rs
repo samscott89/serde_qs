@@ -224,3 +224,21 @@ pub mod axum;
 
 #[cfg(feature = "warp")]
 pub mod warp;
+
+#[cfg(feature = "indexmap")]
+mod indexmap {
+    pub use indexmap::map::{Entry, IntoIter};
+    pub use indexmap::IndexMap as Map;
+}
+
+#[cfg(feature = "indexmap")]
+pub(crate) use indexmap as map;
+
+#[cfg(not(feature = "indexmap"))]
+mod btree_map {
+    pub use std::collections::btree_map::{Entry, IntoIter};
+    pub use std::collections::BTreeMap as Map;
+}
+
+#[cfg(not(feature = "indexmap"))]
+pub(crate) use btree_map as map;
