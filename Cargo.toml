@@ -48,4 +48,3 @@ features = ["actix4", "warp"]
 
 [[example]]
 name = "csv_vectors"
-test = true
