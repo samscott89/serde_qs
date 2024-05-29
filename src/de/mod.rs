@@ -43,8 +43,8 @@ use crate::error::*;
 use serde::de;
 use serde::de::IntoDeserializer;
 
+use crate::map::{Entry, IntoIter, Map};
 use std::borrow::Cow;
-use std::collections::btree_map::{BTreeMap, Entry, IntoIter};
 
 /// To override the default serialization parameters, first construct a new
 /// Config.
@@ -202,8 +202,8 @@ pub struct QsDeserializer<'a> {
 
 #[derive(Debug)]
 enum Level<'a> {
-    Nested(BTreeMap<Cow<'a, str>, Level<'a>>),
-    OrderedSeq(BTreeMap<usize, Level<'a>>),
+    Nested(Map<Cow<'a, str>, Level<'a>>),
+    OrderedSeq(Map<usize, Level<'a>>),
     Sequence(Vec<Level<'a>>),
     Flat(Cow<'a, str>),
     Invalid(String),
@@ -211,7 +211,7 @@ enum Level<'a> {
 }
 
 impl<'a> QsDeserializer<'a> {
-    fn with_map(map: BTreeMap<Cow<'a, str>, Level<'a>>) -> Self {
+    fn with_map(map: Map<Cow<'a, str>, Level<'a>>) -> Self {
         QsDeserializer {
             iter: map.into_iter(),
             value: None,

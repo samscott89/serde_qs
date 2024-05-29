@@ -683,6 +683,45 @@ fn deserialize_map_with_unit_enum_keys() {
     assert_eq!(test.point[&Operator::Lt], 321);
 }
 
+#[cfg(feature = "indexmap")]
+#[test]
+fn deserialize_map_with_unit_enum_keys_preserves_order() {
+    use indexmap::IndexMap;
+
+    #[derive(Deserialize, Eq, PartialEq, Hash, Debug)]
+    enum Key {
+        Name,
+        Age,
+    }
+
+    #[derive(Deserialize, Eq, PartialEq, Hash, Debug)]
+    enum Order {
+        Asc,
+        Desc,
+    }
+
+    #[derive(Deserialize)]
+    struct Sort {
+        sort: IndexMap<Key, Order>,
+    }
+
+    let test1: Sort = serde_qs::from_str("sort[Name]=Asc&sort[Age]=Desc").unwrap();
+    let values1 = test1.sort.into_iter().collect::<Vec<_>>();
+
+    assert_eq!(
+        values1,
+        vec![(Key::Name, Order::Asc), (Key::Age, Order::Desc)]
+    );
+
+    let test2: Sort = serde_qs::from_str("sort[Age]=Desc&sort[Name]=Asc").unwrap();
+    let values2 = test2.sort.into_iter().collect::<Vec<_>>();
+
+    assert_eq!(
+        values2,
+        vec![(Key::Age, Order::Desc), (Key::Name, Order::Asc)]
+    );
+}
+
 #[test]
 fn deserialize_map_with_int_keys() {
     #[derive(Debug, Deserialize)]
