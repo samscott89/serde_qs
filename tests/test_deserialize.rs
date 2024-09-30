@@ -824,3 +824,77 @@ fn serialization_roundtrip() {
     let deserialized = serde_qs::from_str::<Data>(&serialized).unwrap();
     assert_eq!(deserialized, data);
 }
+
+#[test]
+fn deserialize_newtype_struct() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct A(String);
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct B {
+        a: A,
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct C {
+        a: String,
+        b: String,
+    }
+
+    // Nested tuple struct
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct D(C);
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct M(HashMap<u64, u64>);
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct E {
+        b: B,
+        d: D,
+        t: u8,
+        m: M,
+    }
+
+    // newtype structs cannot be used as top level
+    let test: Result<A, _> = serde_qs::from_str("");
+    assert!(test.is_err());
+
+    // newtype structs cannot be used as top level
+    let test: Result<A, _> = serde_qs::from_str("test");
+    assert!(test.is_err());
+
+    let test: B = serde_qs::from_str("a=test&t=").unwrap();
+    assert_eq!(
+        test,
+        B {
+            a: A("test".to_string())
+        }
+    );
+
+    let test: B = serde_qs::from_str("t=&a=test").unwrap();
+    assert_eq!(
+        test,
+        B {
+            a: A("test".to_string())
+        }
+    );
+
+    let test = serde_qs::Config::new(5, false)
+        .deserialize_str::<E>("t=1&b[t]=&b[a]=test&d[a]=test1&d[b]=test2&m[2]=3")
+        .unwrap();
+    assert_eq!(
+        test,
+        E {
+            m: M([(2, 3)].into()),
+            t: 1,
+            b: B {
+                a: A("test".to_string())
+            },
+            d: D(C {
+                a: "test1".to_string(),
+                b: "test2".to_string(),
+            })
+        }
+    );
+}
