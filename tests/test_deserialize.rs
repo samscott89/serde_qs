@@ -701,6 +701,43 @@ fn deserialize_map_with_int_keys() {
 }
 
 #[test]
+fn deserialize_map_with_uuid_keys() {
+    #[derive(Debug, Deserialize)]
+    struct Mapping {
+        mapping: HashMap<String, u64>,
+    }
+
+    let test: Mapping = serde_qs::from_str(
+        "mapping[5b53d2c1-3745-47e3-b421-76c05c5c7523]=1&mapping[00000000-0000-0000-0000-000000000000]=2&mapping[a4b2e25c-e80c-4e2a-958c-35f2f5151f46]=3&mapping[ffffffff-ffff-ffff-ffff-ffffffffffff]=4"
+    ).unwrap();
+
+    assert_eq!(
+        test.mapping
+            .get("5b53d2c1-3745-47e3-b421-76c05c5c7523")
+            .cloned(),
+        Some(1)
+    );
+    assert_eq!(
+        test.mapping
+            .get("00000000-0000-0000-0000-000000000000")
+            .cloned(),
+        Some(2)
+    );
+    assert_eq!(
+        test.mapping
+            .get("a4b2e25c-e80c-4e2a-958c-35f2f5151f46")
+            .cloned(),
+        Some(3)
+    );
+    assert_eq!(
+        test.mapping
+            .get("ffffffff-ffff-ffff-ffff-ffffffffffff")
+            .cloned(),
+        Some(4)
+    );
+}
+
+#[test]
 fn deserialize_unit_types() {
     // allow these clippy lints cause I like how explicit the test is
     #![allow(clippy::let_unit_value)]
