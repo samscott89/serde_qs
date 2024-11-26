@@ -102,6 +102,35 @@ pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
     to_string_config(input, Config::default())
 }
 
+/// Serializes a value into a querystring with a custom configuration.
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate serde_derive;
+/// # extern crate serde_qs;
+/// #[derive(Deserialize, Serialize)]
+/// struct Query {
+///     name: String,
+///     age: u8,
+///     occupation: String,
+///     degrees: Vec<String>,
+/// }
+///
+/// # fn main(){
+/// let q =  Query {
+///     name: "Alice".to_owned(),
+///     age: 24,
+///     occupation: "Student".to_owned(),
+///     degrees: vec!["BSc".to_owned(), "MSc".to_owned()],
+/// };
+///
+/// let config = serde_qs::SerializerConfig { use_indices: false };
+///
+/// assert_eq!(
+///     serde_qs::to_string_config(&q, config).unwrap(),
+///     "name=Alice&age=24&occupation=Student&degrees[]=BSc&degrees[]=MSc");
+/// # }
+/// ```
 pub fn to_string_config<T: ser::Serialize>(input: &T, config: Config) -> Result<String> {
     let mut buffer = Vec::new();
     input.serialize(&mut Serializer::with_config(&mut buffer, config))?;
