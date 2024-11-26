@@ -14,6 +14,64 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
+/// To override the default serialization parameters, first construct a new
+/// Config.
+///
+/// The `use_indices` parameter controls whether the serializer will use
+/// indices for vectors or not. If `use_indices` is `true`, the serializer will
+/// use indices for vectors, e.g. `a[0]=1&a[1]=2`. If `use_indices` is `false`,
+/// the serializer will not use indices for vectors, e.g. `a[]=1&a[]=2`.
+///
+/// The default value for `use_indices` is true.
+///
+/// ```
+/// use serde::Serialize;
+/// use serde_qs::SerializerConfig;
+///
+/// let config = SerializerConfig { use_indices: false };
+///
+/// #[derive(Serialize)]
+/// struct QueryParams {
+///     id: u32,
+///     user_ids: Vec<u32>,
+/// }
+///
+/// let params = QueryParams {
+///     id: 42,
+///     user_ids: vec![1, 2, 3, 4],
+/// };
+///
+/// assert_eq!(
+///     serde_qs::to_string_config(&params, config).unwrap(),
+///     "\
+///     id=42&user_ids[]=1&user_ids[]=2&\
+///     user_ids[]=3&user_ids[]=4"
+/// );
+///
+/// let config = SerializerConfig { use_indices: true };
+///
+/// assert_eq!(
+///     serde_qs::to_string_config(&params, config).unwrap(),
+///     "\
+///     id=42&user_ids[0]=1&user_ids[1]=2&\
+///     user_ids[2]=3&user_ids[3]=4"
+/// );
+/// ```
+///
+#[derive(Clone, Copy)]
+pub struct Config {
+    /// Specifies whether to use indices for vectors or not.
+    pub use_indices: bool,
+}
+
+pub const DEFAULT_CONFIG: Config = Config { use_indices: true };
+
+impl Default for Config {
+    fn default() -> Self {
+        DEFAULT_CONFIG
+    }
+}
+
 /// Serializes a value into a querystring.
 ///
 /// ```
@@ -43,6 +101,12 @@ use std::sync::Arc;
 pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
     let mut buffer = Vec::new();
     input.serialize(&mut Serializer::new(&mut buffer))?;
+    String::from_utf8(buffer).map_err(Error::from)
+}
+
+pub fn to_string_config<T: ser::Serialize>(input: &T, config: Config) -> Result<String> {
+    let mut buffer = Vec::new();
+    input.serialize(&mut Serializer::with_config(&mut buffer, config))?;
     String::from_utf8(buffer).map_err(Error::from)
 }
 
@@ -79,11 +143,19 @@ pub fn to_writer<T: ser::Serialize, W: Write>(input: &T, writer: &mut W) -> Resu
 
 pub struct Serializer<W: Write> {
     writer: W,
+    config: Config,
 }
 
 impl<W: Write> Serializer<W> {
     pub fn new(writer: W) -> Self {
-        Self { writer }
+        Self {
+            writer,
+            config: Config::default(),
+        }
+    }
+
+    pub fn with_config(writer: W, config: Config) -> Self {
+        Self { writer, config }
     }
 
     fn as_qs_serializer(&mut self) -> QsSerializer<W> {
@@ -91,6 +163,7 @@ impl<W: Write> Serializer<W> {
             writer: &mut self.writer,
             first: Arc::new(AtomicBool::new(true)),
             key: None,
+            config: self.config,
         }
     }
 }
@@ -258,6 +331,7 @@ pub struct QsSerializer<'a, W: 'a + Write> {
     key: Option<Cow<'static, str>>,
     writer: &'a mut W,
     first: Arc<AtomicBool>,
+    config: Config,
 }
 
 impl<'a, W: 'a + Write> QsSerializer<'a, W> {
@@ -266,7 +340,15 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
             .map(replace_space)
             .collect::<String>();
         let key = if let Some(ref key) = self.key {
-            format!("{}[{}]", key, newkey)
+            if newkey.parse::<usize>().is_ok() {
+                if self.config.use_indices {
+                    format!("{}[{}]", key, newkey)
+                } else {
+                    format!("{}[]", key)
+                }
+            } else {
+                format!("{}[{}]", key, newkey)
+            }
         } else {
             newkey
         };
@@ -309,6 +391,7 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
             key: other.key.clone(),
             writer: other.writer,
             first: other.first.clone(),
+            config: other.config,
         }
     }
 }

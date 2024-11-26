@@ -217,7 +217,9 @@ pub use de::{from_bytes, from_str};
 pub use de::{Config, QsDeserializer as Deserializer};
 pub use error::Error;
 #[doc(inline)]
-pub use ser::{to_string, to_writer, Serializer};
+pub use ser::Config as SerializerConfig;
+#[doc(inline)]
+pub use ser::{to_string, to_string_config, to_writer, Serializer};
 
 #[cfg(feature = "axum")]
 pub mod axum;

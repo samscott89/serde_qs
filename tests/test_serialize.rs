@@ -43,6 +43,32 @@ fn serialize_struct() {
 }
 
 #[test]
+fn serialize_struct_without_indices() {
+    let params = QueryParams {
+        id: 42,
+        name: "Acme".to_string(),
+        phone: 12345,
+        address: Address {
+            city: "Carrot City".to_string(),
+            street: "Special-Street* No. 11".to_string(),
+            postcode: "12345".to_string(),
+        },
+        user_ids: vec![1, 2, 3, 4],
+    };
+
+    let config = qs::SerializerConfig { use_indices: false };
+
+    assert_eq!(
+        qs::to_string_config(&params, config).unwrap(),
+        "\
+         id=42&name=Acme&phone=12345&address[city]=Carrot+City&\
+         address[street]=Special-Street*+No.+11&\
+         address[postcode]=12345&user_ids[]=1&user_ids[]=2&\
+         user_ids[]=3&user_ids[]=4"
+    );
+}
+
+#[test]
 fn serialize_option() {
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct Query {
