@@ -99,9 +99,7 @@ impl Default for Config {
 /// # }
 /// ```
 pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
-    let mut buffer = Vec::new();
-    input.serialize(&mut Serializer::new(&mut buffer))?;
-    String::from_utf8(buffer).map_err(Error::from)
+    to_string_config(input, Config::default())
 }
 
 pub fn to_string_config<T: ser::Serialize>(input: &T, config: Config) -> Result<String> {
