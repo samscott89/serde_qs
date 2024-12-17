@@ -218,6 +218,22 @@ fn duplicate_keys() {
 }
 
 #[test]
+fn single_bare_key_as_sequence() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query {
+        key: Vec<i64>,
+    }
+
+    let params: Result<Query, _> = qs::from_str("key=1");
+    assert!(
+        params.is_ok(),
+        "expect to deserialize correctly: {:?}",
+        params
+    );
+    assert_eq!(params.unwrap(), Query { key: vec![1] });
+}
+
+#[test]
 fn no_panic_on_parse_error() {
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct Query {
