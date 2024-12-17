@@ -196,6 +196,17 @@ fn qs_test_simple() {
 }
 
 #[test]
+fn duplicate_keys() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query {
+        key: i64,
+    }
+
+    let params: Result<Query, _> = qs::from_str("key=1&key=2");
+    assert!(params.is_err());
+}
+
+#[test]
 fn no_panic_on_parse_error() {
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct Query {
