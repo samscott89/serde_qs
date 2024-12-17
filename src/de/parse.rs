@@ -1,8 +1,5 @@
-use crate::utils::{replace_space, QS_ENCODE_SET};
-
 use super::*;
 
-use percent_encoding::percent_encode;
 use serde::de;
 
 use std::borrow::Cow;
@@ -27,18 +24,21 @@ impl<'a> Level<'a> {
     fn insert_map_value(&mut self, key: Cow<'a, str>, value: Cow<'a, str>) {
         if let Level::Nested(ref mut map) = *self {
             match map.entry(key) {
+                // We _may_ actually be parsing a sequence of repeated keys, without square brackets.
+                // e.g., key=first&key=second
+                // We cannot detect this until we encounter multiple values on the same key.
                 Entry::Occupied(mut o) => {
-                    let key = o.key();
-                    let error = if key.contains('[') {
-                        let newkey = percent_encode(key.as_bytes(), QS_ENCODE_SET)
-                            .map(replace_space)
-                            .collect::<String>();
-                        format!("Multiple values for one key: \"{}\"\nInvalid field contains an encoded bracket -- did you mean to use non-strict mode?\n  https://docs.rs/serde_qs/latest/serde_qs/#strict-vs-non-strict-modes", newkey)
-                    } else {
-                        format!("Multiple values for one key: \"{}\"", key)
-                    };
-                    // Throw away old result; map is now invalid anyway.
-                    let _ = o.insert(Level::Invalid(error));
+                    // Transform the Level value for this key into a `Level::Sequence` instead of `Level::Flat`
+                    // If we have already transformed, then simply append to it
+                    let inner = o.get_mut();
+                    match inner {
+                        Level::Sequence(col) => col.push(Level::Flat(value)),
+                        _ => {
+                            let (key, previous) = o.remove_entry();
+                            let _ = map
+                                .insert(key, Level::Sequence(vec![previous, Level::Flat(value)]));
+                        }
+                    }
                 }
                 Entry::Vacant(vm) => {
                     // Map is empty, result is None

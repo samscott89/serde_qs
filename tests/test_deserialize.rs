@@ -93,13 +93,24 @@ fn deserialize_struct() {
             .unwrap();
         assert_eq!(rec_params, params);
 
-        // unindexed arrays
+        // unindexed arrays with square brackets
         let rec_params: QueryParams = config
             .deserialize_str(
                 "\
                  name=Acme&id=42&phone=12345&address[postcode]=12345&\
                  address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
                  user_ids[]=3&user_ids[]=4",
+            )
+            .unwrap();
+        assert_eq!(rec_params, params);
+
+        // unindexed arrays without square brackets
+        let rec_params: QueryParams = config
+            .deserialize_str(
+                "\
+                 name=Acme&id=42&phone=12345&address[postcode]=12345&\
+                 address[city]=Carrot+City&user_ids=1&user_ids=2&\
+                 user_ids=3&user_ids=4",
             )
             .unwrap();
         assert_eq!(rec_params, params);
