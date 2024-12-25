@@ -184,7 +184,7 @@ impl<'a> Iterator for Parser<'a> {
     }
 }
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     #[inline]
     fn peek(&mut self) -> Option<<Self as Iterator>::Item> {
         if self.peeked.is_some() {
