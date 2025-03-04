@@ -64,7 +64,7 @@ jobs:
         - rust: 1.61.0
           feature: axum
     steps:
-      - uses: actions/checkout@v4s
+      - uses: actions/checkout@v4
       - name: Install Rust stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
