@@ -34,6 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        # NOTE: this crate's MSRC if 1.61
+        # However, many of the web frameworks that 
+        # this provides support for have greater/missing MSRVs.
+        # We attempt to test the MSRV here if it is known.
         rust:
           - stable
           - 1.61.0
@@ -43,16 +47,20 @@ jobs:
           - actix3
           - warp
           - axum
+
+        # test frameworks for specific MSRVs (where known)
         include:
         # axum 0.8 has a MSRV of 1.75.0
         - rust: 1.75.0
           feature: axum
+
+        # exclude frameworks that have a different/unknown MSRV
         exclude:
         - rust: 1.61.0
           feature: axum
         # actix does not seem to actually adhere
-        # to its MSRV -- it has a dependency `zerofrom`
-        # that requires Rust 1.81
+        # to its MSRV -- it states 1.75 but has a dependency `zerofrom`
+        # that requires Rust 1.81. We'll punt on testing it
         - rust: 1.61.0
           feature: actix4
         - rust: 1.61.0
