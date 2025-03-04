@@ -21,7 +21,7 @@ serde = "1.0"
 thiserror = "1.0"
 tracing = { version = "0.1", optional = true }
 warp-framework = { package = "warp", version = "0.3", default-features = false, optional = true }
-axum-framework = { package = "axum", version = "0.7", default-features = false, optional = true }
+axum-framework = { package = "axum", version = "0.8", default-features = false, optional = true }
 
 [dev-dependencies]
 chrono = { version = "0.4", features = ["serde"] }
