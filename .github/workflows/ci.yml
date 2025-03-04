@@ -55,6 +55,12 @@ jobs:
         # that requires Rust 1.81
         - rust: 1.61.0
           feature: actix4
+        - rust: 1.61.0
+          feature: actix3
+        # warp does not list an MSRV
+        # see: https://github.com/seanmonstar/warp/issues/1077
+        - rust: 1.61.0
+          feature: warp
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust stable toolchain
