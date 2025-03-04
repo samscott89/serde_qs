@@ -458,7 +458,7 @@ pub struct QsSeq<'a, W: 'a + Write>(QsSerializer<'a, W>, usize);
 #[doc(hidden)]
 pub struct QsMap<'a, W: 'a + Write>(QsSerializer<'a, W>, Option<Cow<'a, str>>);
 
-impl<'a, W: Write> ser::SerializeTuple for QsSeq<'a, W> {
+impl<W: Write> ser::SerializeTuple for QsSeq<'_, W> {
     type Ok = ();
     type Error = Error;
     fn serialize_element<T>(&mut self, value: &T) -> Result<()>
@@ -477,7 +477,7 @@ impl<'a, W: Write> ser::SerializeTuple for QsSeq<'a, W> {
     }
 }
 
-impl<'a, W: Write> ser::SerializeSeq for QsSeq<'a, W> {
+impl<W: Write> ser::SerializeSeq for QsSeq<'_, W> {
     type Ok = ();
     type Error = Error;
     fn serialize_element<T>(&mut self, value: &T) -> Result<()>
@@ -494,7 +494,7 @@ impl<'a, W: Write> ser::SerializeSeq for QsSeq<'a, W> {
     }
 }
 
-impl<'a, W: Write> ser::SerializeStruct for QsSerializer<'a, W> {
+impl<W: Write> ser::SerializeStruct for QsSerializer<'_, W> {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
@@ -510,7 +510,7 @@ impl<'a, W: Write> ser::SerializeStruct for QsSerializer<'a, W> {
     }
 }
 
-impl<'a, W: Write> ser::SerializeStructVariant for QsSerializer<'a, W> {
+impl<W: Write> ser::SerializeStructVariant for QsSerializer<'_, W> {
     type Ok = ();
     type Error = Error;
 
@@ -528,7 +528,7 @@ impl<'a, W: Write> ser::SerializeStructVariant for QsSerializer<'a, W> {
     }
 }
 
-impl<'a, W: Write> ser::SerializeTupleVariant for QsSeq<'a, W> {
+impl<W: Write> ser::SerializeTupleVariant for QsSeq<'_, W> {
     type Ok = ();
     type Error = Error;
 
@@ -547,7 +547,7 @@ impl<'a, W: Write> ser::SerializeTupleVariant for QsSeq<'a, W> {
     }
 }
 
-impl<'a, W: Write> ser::SerializeTupleStruct for QsSeq<'a, W> {
+impl<W: Write> ser::SerializeTupleStruct for QsSeq<'_, W> {
     type Ok = ();
     type Error = Error;
 
@@ -566,7 +566,7 @@ impl<'a, W: Write> ser::SerializeTupleStruct for QsSeq<'a, W> {
     }
 }
 
-impl<'a, W: Write> ser::SerializeMap for QsMap<'a, W> {
+impl<W: Write> ser::SerializeMap for QsMap<'_, W> {
     type Ok = ();
     type Error = Error;
 
