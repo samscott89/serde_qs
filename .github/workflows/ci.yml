@@ -24,7 +24,7 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt, clippy
-      - name: Run Clippy
+      - name: Run formatting
         run: cargo fmt --all --check
       - name: Run Clippy
         run: cargo clippy --all-targets -F "${{ matrix.feature }}"
