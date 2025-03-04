@@ -148,7 +148,6 @@ impl<T: std::fmt::Debug> std::fmt::Debug for OptionalQsQuery<T> {
     }
 }
 
-#[axum::async_trait]
 impl<T, S> FromRequestParts<S> for OptionalQsQuery<T>
 where
     T: serde::de::DeserializeOwned,
