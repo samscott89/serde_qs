@@ -40,7 +40,7 @@ jobs:
       - name: Run Clippy
         run: cargo fmt --all --check
       - name: Run Clippy
-        run: cargo clippy --all-targets --all-features
+        run: cargo clippy --all-targets -F "${{ matrix.feature }}"
 
   test:
     name: Run tests
