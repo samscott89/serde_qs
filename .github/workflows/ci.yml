@@ -60,8 +60,8 @@ jobs:
         # axum 0.8 has a MSRV of 1.75.0
         - rust: 1.75.0
           feature: axum
-        # actix 4.x has a MSRV of 1.68.0
-        - rust: 1.68.0
+        # actix 4.x has a MSRV of 1.72.0
+        - rust: 1.72.0
           feature: actix4
         exclude:
         - rust: 1.61.0
