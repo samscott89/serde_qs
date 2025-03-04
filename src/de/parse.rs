@@ -327,8 +327,17 @@ impl<'a> Parser<'a> {
                                 // First character is an integer, attempt to parse it as an integer key
                                 b'0'..=b'9' => {
                                     let key = self.parse_key(b']', true)?;
-                                    let key = key.parse().map_err(Error::from)?;
-                                    self.parse_ord_seq_value(key, node)?;
+                                    match key.parse() {
+                                        Ok(key) => {
+                                            self.parse_ord_seq_value(key, node)?;
+                                        }
+                                        Err(parse_int_error) => {
+                                            // key was not an integer, try to parse it as a map key instead
+                                            self.parse_map_value(key, node)
+                                                // return original error instead to provide better error messages for seqs
+                                                .map_err(|_| parse_int_error)?;
+                                        }
+                                    }
                                     return Ok(true);
                                 }
                                 // Key is "[a..=" so parse up to the closing "]"
