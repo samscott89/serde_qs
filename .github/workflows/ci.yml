@@ -60,9 +60,14 @@ jobs:
         # axum 0.8 has a MSRV of 1.75.0
         - rust: 1.75.0
           feature: axum
+        # actix 4.x has a MSRV of 1.68.0
+        - rust: 1.68.0
+          feature: actix4
         exclude:
         - rust: 1.61.0
           feature: axum
+        - rust: 1.61.0
+          feature: actix4
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust stable toolchain
