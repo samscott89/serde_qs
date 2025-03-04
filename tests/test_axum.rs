@@ -8,7 +8,7 @@ extern crate axum_framework as axum;
 extern crate serde_qs as qs;
 
 use axum::{extract::FromRequestParts, http::StatusCode, response::IntoResponse};
-use qs::axum::{QsQuery, QsQueryConfig, QsQueryRejection};
+use qs::axum::{OptionalQsQuery, QsQuery, QsQueryConfig, QsQueryRejection};
 use serde::de::Error;
 
 fn from_str<'de, D, S>(deserializer: D) -> Result<S, D::Error>
@@ -130,5 +130,45 @@ fn test_custom_qs_config() {
         assert_eq!(s.common.limit, 100);
         assert_eq!(s.common.offset, 50);
         assert!(s.common.remaining);
+    })
+}
+
+#[test]
+fn test_optional_query_none() {
+    futures::executor::block_on(async {
+        let req = axum::http::Request::builder()
+            .uri("/test")
+            .body(())
+            .unwrap();
+        let (mut req_parts, _) = req.into_parts();
+
+        let OptionalQsQuery(s) = OptionalQsQuery::<Query>::from_request_parts(&mut req_parts, &())
+            .await
+            .unwrap();
+
+        assert!(s.is_none());
+    })
+}
+
+#[test]
+fn test_optional_query_some() {
+    futures::executor::block_on(async {
+        let req = axum::http::Request::builder()
+            .uri("/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true")
+            .extension(QsQueryConfig::new(5, false))
+            .body(())
+            .unwrap();
+
+        let (mut req_parts, _) = req.into_parts();
+        let OptionalQsQuery(s) = OptionalQsQuery::<Query>::from_request_parts(&mut req_parts, &())
+            .await
+            .unwrap();
+
+        let query = s.unwrap();
+        assert_eq!(query.foo, 1);
+        assert_eq!(query.bars, vec![3]);
+        assert_eq!(query.common.limit, 100);
+        assert_eq!(query.common.offset, 50);
+        assert!(query.common.remaining);
     })
 }
