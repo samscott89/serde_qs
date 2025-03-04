@@ -14,22 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust:
-          - stable
-          - 1.61.0
         feature:
-          - ""
-          - actix4
+          - actix4,warp,axum
           - actix3
-          - warp
-          - axum
-        include:
-        # axum 0.8 has a MSRV of 1.75.0
-        - rust: 1.75.0
-          feature: axum
-        exclude:
-        - rust: 1.61.0
-          feature: axum
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust stable toolchain
