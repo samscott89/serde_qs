@@ -48,7 +48,7 @@ impl<T: DeserializeOwned + std::str::FromStr> Default for CSVVecVisitor<T> {
     }
 }
 
-impl<'de, T: DeserializeOwned + std::str::FromStr> serde::de::Visitor<'de> for CSVVecVisitor<T>
+impl<T: DeserializeOwned + std::str::FromStr> serde::de::Visitor<'_> for CSVVecVisitor<T>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug, // handle the parse error in a generic way
 {
