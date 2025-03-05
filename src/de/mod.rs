@@ -652,6 +652,20 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         }
     }
 
+    /// If we are expected to deserialize into a sequence, and we have only detected
+    /// a single key=value.
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        match self.0 {
+            // Convert a nominal value into a sequence, since we attempted to deserialize into
+            // a sequence, and only detected one entry.
+            Level::Flat(_) => visitor.visit_seq(LevelSeq(vec![self.0].into_iter())),
+            _ => self.deserialize_any(visitor),
+        }
+    }
+
     deserialize_primitive!(bool, deserialize_bool, visit_bool);
     deserialize_primitive!(i8, deserialize_i8, visit_i8);
     deserialize_primitive!(i16, deserialize_i16, visit_i16);
@@ -677,7 +691,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         identifier
         tuple
         ignored_any
-        seq
+        // seq
         // map
     }
 }

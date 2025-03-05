@@ -93,13 +93,24 @@ fn deserialize_struct() {
             .unwrap();
         assert_eq!(rec_params, params);
 
-        // unindexed arrays
+        // unindexed arrays with square brackets
         let rec_params: QueryParams = config
             .deserialize_str(
                 "\
                  name=Acme&id=42&phone=12345&address[postcode]=12345&\
                  address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
                  user_ids[]=3&user_ids[]=4",
+            )
+            .unwrap();
+        assert_eq!(rec_params, params);
+
+        // unindexed arrays without square brackets
+        let rec_params: QueryParams = config
+            .deserialize_str(
+                "\
+                 name=Acme&id=42&phone=12345&address[postcode]=12345&\
+                 address[city]=Carrot+City&user_ids=1&user_ids=2&\
+                 user_ids=3&user_ids=4",
             )
             .unwrap();
         assert_eq!(rec_params, params);
@@ -193,6 +204,33 @@ fn qs_test_simple() {
     );
     // st.end();
     // });
+}
+
+#[test]
+fn duplicate_keys() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query {
+        key: i64,
+    }
+
+    let params: Result<Query, _> = qs::from_str("key=1&key=2");
+    assert!(params.is_err());
+}
+
+#[test]
+fn single_bare_key_as_sequence() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query {
+        key: Vec<i64>,
+    }
+
+    let params: Result<Query, _> = qs::from_str("key=1");
+    assert!(
+        params.is_ok(),
+        "expect to deserialize correctly: {:?}",
+        params
+    );
+    assert_eq!(params.unwrap(), Query { key: vec![1] });
 }
 
 #[test]
