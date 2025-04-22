@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.0](https://github.com/samscott89/serde_qs/compare/v0.14.0...v0.15.0) - 2025-04-22
+
+### Other
+
+- Support preserving order of parameters when serializing to a Map. ([#106](https://github.com/samscott89/serde_qs/pull/106))
+- Fix clippy. ([#129](https://github.com/samscott89/serde_qs/pull/129))
+- reorder struct fields to avoid serde buffering ([#128](https://github.com/samscott89/serde_qs/pull/128))
+
 ## [0.14.0](https://github.com/samscott89/serde_qs/compare/v0.13.0...v0.14.0) - 2025-03-04
 
 ### Other
