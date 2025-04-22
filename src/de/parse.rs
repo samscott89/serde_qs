@@ -184,7 +184,7 @@ impl<'a> Iterator for Parser<'a> {
     }
 }
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     #[inline]
     fn peek(&mut self) -> Option<<Self as Iterator>::Item> {
         if self.peeked.is_some() {
@@ -268,7 +268,7 @@ impl<'a> Parser<'a> {
             Cow::Owned(owned) => Ok(Cow::Owned(owned)),
         };
         self.clear_acc();
-        ret.map_err(Error::from)
+        ret
     }
 
     /// In some ways the main way to use a `Parser`, this runs the parsing step
@@ -279,11 +279,15 @@ impl<'a> Parser<'a> {
 
         // Parses all top level nodes into the `root` map.
         while self.parse(&mut root)? {}
-        let iter = match root {
-            Level::Nested(map) => map.into_iter(),
-            _ => Map::new().into_iter(),
+        let map = match root {
+            Level::Nested(map) => map,
+            _ => Map::new(),
         };
-        Ok(QsDeserializer { iter, value: None })
+        Ok(QsDeserializer {
+            map,
+            value: None,
+            field_order: None,
+        })
     }
 
     /// This is the top level parsing function. It checks the first character to

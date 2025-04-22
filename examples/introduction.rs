@@ -101,7 +101,7 @@ fn main() {
         "user_ids[3]=4",
     ];
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     for _ in 0..10 {
         let mut acc = String::new();
         inputs.shuffle(&mut rng);
