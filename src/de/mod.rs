@@ -198,6 +198,9 @@ pub fn from_str<'de, T: de::Deserialize<'de>>(input: &'de str) -> Result<T> {
 pub struct QsDeserializer<'a> {
     map: BTreeMap<Cow<'a, str>, Level<'a>>,
     value: Option<Level<'a>>,
+
+    /// Internal state to track if we have a preferred
+    /// field order when deserializing a struct or map.
     field_order: Option<&'static [&'static str]>,
 }
 
@@ -254,13 +257,13 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     fn deserialize_struct<V>(
         mut self,
         _name: &'static str,
-        _fields: &'static [&'static str],
+        fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        self.field_order = Some(_fields);
+        self.field_order = Some(fields);
         self.deserialize_map(visitor)
     }
 
@@ -350,6 +353,7 @@ impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
     where
         K: de::DeserializeSeed<'de>,
     {
+        // we'll prefer to use the field order if it exists
         if let Some(field_order) = &mut self.field_order {
             for (idx, field) in field_order.iter().enumerate() {
                 if let Some((key, value)) = self.map.remove_entry(*field) {
@@ -362,6 +366,8 @@ impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
             self.field_order = None;
         }
 
+        // once we've exhausted the field order, we can
+        // just iterate remaining elements in the map
         if let Some((key, value)) = self.map.pop_first() {
             self.value = Some(value);
             let has_bracket = key.contains('[');
@@ -598,8 +604,10 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         visitor: V,
     ) -> std::result::Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de> {
-        self.into_deserializer()?.deserialize_struct(name, fields, visitor)
+        V: de::Visitor<'de>,
+    {
+        self.into_deserializer()?
+            .deserialize_struct(name, fields, visitor)
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
