@@ -246,7 +246,7 @@ mod indexmap {
 }
 
 #[cfg(feature = "indexmap")]
-pub(crate) use indexmap as map;
+pub(crate) use crate::indexmap as map;
 
 #[cfg(not(feature = "indexmap"))]
 mod btree_map {
@@ -268,4 +268,4 @@ mod btree_map {
 }
 
 #[cfg(not(feature = "indexmap"))]
-pub(crate) use btree_map as map;
+pub(crate) use crate::btree_map as map;
