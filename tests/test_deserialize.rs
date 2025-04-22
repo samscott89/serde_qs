@@ -348,6 +348,49 @@ fn deserialize_enum_adjacently() {
 }
 
 #[test]
+fn deserialize_enum_adjacently_out_of_order() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(tag = "Z", content = "A")]
+    enum E {
+        B(bool),
+        S(String),
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(tag = "Z", content = "A")]
+    enum V {
+        V1 { x: u8, y: u16 },
+        V2(String),
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        e: E,
+        v: Option<V>,
+    }
+
+    let params = "e[Z]=B&e[A]=true&v[Z]=V1&v[A][x]=12&v[A][y]=300";
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(
+        rec_params,
+        Query {
+            e: E::B(true),
+            v: Some(V::V1 { x: 12, y: 300 }),
+        }
+    );
+
+    let params = "e[Z]=S&e[A]=other";
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(
+        rec_params,
+        Query {
+            e: E::S("other".to_string()),
+            v: None,
+        }
+    );
+}
+
+#[test]
 fn deserialize_enum() {
     #[derive(Deserialize, Debug, PartialEq)]
     struct NewU8(u8);

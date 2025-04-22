@@ -279,11 +279,15 @@ impl<'a> Parser<'a> {
 
         // Parses all top level nodes into the `root` map.
         while self.parse(&mut root)? {}
-        let iter = match root {
-            Level::Nested(map) => map.into_iter(),
-            _ => BTreeMap::default().into_iter(),
+        let map = match root {
+            Level::Nested(map) => map,
+            _ => BTreeMap::default(),
         };
-        Ok(QsDeserializer { iter, value: None })
+        Ok(QsDeserializer {
+            map,
+            value: None,
+            field_order: None,
+        })
     }
 
     /// This is the top level parsing function. It checks the first character to

@@ -44,7 +44,7 @@ use serde::de;
 use serde::de::IntoDeserializer;
 
 use std::borrow::Cow;
-use std::collections::btree_map::{BTreeMap, Entry, IntoIter};
+use std::collections::btree_map::{BTreeMap, Entry};
 
 /// To override the default serialization parameters, first construct a new
 /// Config.
@@ -196,8 +196,12 @@ pub fn from_str<'de, T: de::Deserialize<'de>>(input: &'de str) -> Result<T> {
 ///
 /// Supported top-level outputs are structs and maps.
 pub struct QsDeserializer<'a> {
-    iter: IntoIter<Cow<'a, str>, Level<'a>>,
+    map: BTreeMap<Cow<'a, str>, Level<'a>>,
     value: Option<Level<'a>>,
+
+    /// Internal state to track if we have a preferred
+    /// field order when deserializing a struct or map.
+    field_order: Option<&'static [&'static str]>,
 }
 
 #[derive(Debug)]
@@ -213,8 +217,9 @@ enum Level<'a> {
 impl<'a> QsDeserializer<'a> {
     fn with_map(map: BTreeMap<Cow<'a, str>, Level<'a>>) -> Self {
         QsDeserializer {
-            iter: map.into_iter(),
+            map,
             value: None,
+            field_order: None,
         }
     }
 
@@ -231,11 +236,11 @@ impl<'a> QsDeserializer<'a> {
 impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     type Error = Error;
 
-    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        if self.iter.next().is_none() {
+        if self.map.is_empty() {
             return visitor.visit_unit();
         }
 
@@ -250,14 +255,15 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     }
 
     fn deserialize_struct<V>(
-        self,
+        mut self,
         _name: &'static str,
-        _fields: &'static [&'static str],
+        fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
+        self.field_order = Some(fields);
         self.deserialize_map(visitor)
     }
 
@@ -347,7 +353,22 @@ impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
     where
         K: de::DeserializeSeed<'de>,
     {
-        if let Some((key, value)) = self.iter.next() {
+        // we'll prefer to use the field order if it exists
+        if let Some(field_order) = &mut self.field_order {
+            for (idx, field) in field_order.iter().enumerate() {
+                if let Some((key, value)) = self.map.remove_entry(*field) {
+                    self.value = Some(value);
+                    *field_order = &field_order[idx + 1..];
+                    return seed.deserialize(ParsableStringDeserializer(key)).map(Some);
+                }
+            }
+
+            self.field_order = None;
+        }
+
+        // once we've exhausted the field order, we can
+        // just iterate remaining elements in the map
+        if let Some((key, value)) = self.map.pop_first() {
             self.value = Some(value);
             let has_bracket = key.contains('[');
             seed.deserialize(ParsableStringDeserializer(key))
@@ -388,7 +409,7 @@ impl<'de> de::EnumAccess<'de> for QsDeserializer<'de> {
     where
         V: de::DeserializeSeed<'de>,
     {
-        if let Some((key, value)) = self.iter.next() {
+        if let Some((key, value)) = self.map.pop_first() {
             self.value = Some(value);
             Ok((seed.deserialize(ParsableStringDeserializer(key))?, self))
         } else {
@@ -576,6 +597,19 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         }
     }
 
+    fn deserialize_struct<V>(
+        self,
+        name: &'static str,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.into_deserializer()?
+            .deserialize_struct(name, fields, visitor)
+    }
+
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -673,7 +707,6 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         unit_struct
         // newtype_struct
         tuple_struct
-        struct
         identifier
         tuple
         ignored_any
