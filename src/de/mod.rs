@@ -615,7 +615,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.0 {
-            Level::Flat(ref x) if x == "" => visitor.visit_none(),
+            Level::Flat(ref x) if x.is_empty() => visitor.visit_none(),
             _ => visitor.visit_some(self),
         }
     }
@@ -625,7 +625,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.0 {
-            Level::Flat(ref x) if x == "" => visitor.visit_unit(),
+            Level::Flat(ref x) if x.is_empty() => visitor.visit_unit(),
             _ => Err(de::Error::custom("expected unit".to_owned())),
         }
     }
