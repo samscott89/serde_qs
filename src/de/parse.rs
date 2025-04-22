@@ -283,7 +283,11 @@ impl<'a> Parser<'a> {
             Level::Nested(map) => map,
             _ => BTreeMap::default(),
         };
-        Ok(QsDeserializer { map, value: None, field_order: None })
+        Ok(QsDeserializer {
+            map,
+            value: None,
+            field_order: None,
+        })
     }
 
     /// This is the top level parsing function. It checks the first character to

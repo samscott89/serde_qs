@@ -390,7 +390,6 @@ fn deserialize_enum_adjacently_out_of_order() {
     );
 }
 
-
 #[test]
 fn deserialize_enum() {
     #[derive(Deserialize, Debug, PartialEq)]
