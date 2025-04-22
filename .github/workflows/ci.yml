@@ -47,6 +47,7 @@ jobs:
           - actix3
           - warp
           - axum
+          - indexmap
 
         # test frameworks for specific MSRVs (where known)
         include:

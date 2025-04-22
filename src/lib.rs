@@ -227,8 +227,22 @@ pub mod warp;
 
 #[cfg(feature = "indexmap")]
 mod indexmap {
-    pub use indexmap::map::{Entry, IntoIter};
+    use std::borrow::Borrow;
+
+    pub use indexmap::map::Entry;
     pub use indexmap::IndexMap as Map;
+
+    pub fn remove_entry<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<(K, V)>
+    where
+        K: Borrow<Q> + std::hash::Hash + Eq,
+        Q: ?Sized + std::hash::Hash + Eq,
+    {
+        map.shift_remove_entry(key)
+    }
+
+    pub fn pop_first<K, V>(map: &mut Map<K, V>) -> Option<(K, V)> {
+        map.shift_remove_index(0)
+    }
 }
 
 #[cfg(feature = "indexmap")]
@@ -236,8 +250,21 @@ pub(crate) use indexmap as map;
 
 #[cfg(not(feature = "indexmap"))]
 mod btree_map {
-    pub use std::collections::btree_map::{Entry, IntoIter};
+    use std::borrow::Borrow;
+    pub use std::collections::btree_map::Entry;
     pub use std::collections::BTreeMap as Map;
+
+    pub fn remove_entry<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<(K, V)>
+    where
+        K: Borrow<Q> + Ord,
+        Q: ?Sized + Ord,
+    {
+        map.remove_entry(key)
+    }
+
+    pub fn pop_first<K: Ord, V>(map: &mut Map<K, V>) -> Option<(K, V)> {
+        map.pop_first()
+    }
 }
 
 #[cfg(not(feature = "indexmap"))]

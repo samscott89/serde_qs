@@ -356,7 +356,7 @@ impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
         // we'll prefer to use the field order if it exists
         if let Some(field_order) = &mut self.field_order {
             for (idx, field) in field_order.iter().enumerate() {
-                if let Some((key, value)) = self.map.remove_entry(*field) {
+                if let Some((key, value)) = crate::map::remove_entry(&mut self.map, *field) {
                     self.value = Some(value);
                     *field_order = &field_order[idx + 1..];
                     return seed.deserialize(ParsableStringDeserializer(key)).map(Some);
@@ -368,7 +368,7 @@ impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
 
         // once we've exhausted the field order, we can
         // just iterate remaining elements in the map
-        if let Some((key, value)) = self.map.pop_first() {
+        if let Some((key, value)) = crate::map::pop_first(&mut self.map) {
             self.value = Some(value);
             let has_bracket = key.contains('[');
             seed.deserialize(ParsableStringDeserializer(key))
@@ -409,7 +409,7 @@ impl<'de> de::EnumAccess<'de> for QsDeserializer<'de> {
     where
         V: de::DeserializeSeed<'de>,
     {
-        if let Some((key, value)) = self.map.pop_first() {
+        if let Some((key, value)) = crate::map::pop_first(&mut self.map) {
             self.value = Some(value);
             Ok((seed.deserialize(ParsableStringDeserializer(key))?, self))
         } else {
