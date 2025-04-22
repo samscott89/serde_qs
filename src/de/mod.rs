@@ -43,8 +43,8 @@ use crate::error::*;
 use serde::de;
 use serde::de::IntoDeserializer;
 
+use crate::map::{Entry, Map};
 use std::borrow::Cow;
-use std::collections::btree_map::{BTreeMap, Entry};
 
 /// To override the default serialization parameters, first construct a new
 /// Config.
@@ -196,7 +196,7 @@ pub fn from_str<'de, T: de::Deserialize<'de>>(input: &'de str) -> Result<T> {
 ///
 /// Supported top-level outputs are structs and maps.
 pub struct QsDeserializer<'a> {
-    map: BTreeMap<Cow<'a, str>, Level<'a>>,
+    map: Map<Cow<'a, str>, Level<'a>>,
     value: Option<Level<'a>>,
 
     /// Internal state to track if we have a preferred
@@ -206,8 +206,8 @@ pub struct QsDeserializer<'a> {
 
 #[derive(Debug)]
 enum Level<'a> {
-    Nested(BTreeMap<Cow<'a, str>, Level<'a>>),
-    OrderedSeq(BTreeMap<usize, Level<'a>>),
+    Nested(Map<Cow<'a, str>, Level<'a>>),
+    OrderedSeq(Map<usize, Level<'a>>),
     Sequence(Vec<Level<'a>>),
     Flat(Cow<'a, str>),
     Invalid(String),
@@ -215,7 +215,7 @@ enum Level<'a> {
 }
 
 impl<'a> QsDeserializer<'a> {
-    fn with_map(map: BTreeMap<Cow<'a, str>, Level<'a>>) -> Self {
+    fn with_map(map: Map<Cow<'a, str>, Level<'a>>) -> Self {
         QsDeserializer {
             map,
             value: None,
@@ -356,7 +356,7 @@ impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
         // we'll prefer to use the field order if it exists
         if let Some(field_order) = &mut self.field_order {
             for (idx, field) in field_order.iter().enumerate() {
-                if let Some((key, value)) = self.map.remove_entry(*field) {
+                if let Some((key, value)) = crate::map::remove_entry(&mut self.map, *field) {
                     self.value = Some(value);
                     *field_order = &field_order[idx + 1..];
                     return seed.deserialize(ParsableStringDeserializer(key)).map(Some);
@@ -368,7 +368,7 @@ impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
 
         // once we've exhausted the field order, we can
         // just iterate remaining elements in the map
-        if let Some((key, value)) = self.map.pop_first() {
+        if let Some((key, value)) = crate::map::pop_first(&mut self.map) {
             self.value = Some(value);
             let has_bracket = key.contains('[');
             seed.deserialize(ParsableStringDeserializer(key))
@@ -409,7 +409,7 @@ impl<'de> de::EnumAccess<'de> for QsDeserializer<'de> {
     where
         V: de::DeserializeSeed<'de>,
     {
-        if let Some((key, value)) = self.map.pop_first() {
+        if let Some((key, value)) = crate::map::pop_first(&mut self.map) {
             self.value = Some(value);
             Ok((seed.deserialize(ParsableStringDeserializer(key))?, self))
         } else {

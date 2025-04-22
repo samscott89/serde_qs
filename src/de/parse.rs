@@ -46,7 +46,7 @@ impl<'a> Level<'a> {
                 }
             }
         } else if let Level::Uninitialised = *self {
-            let mut map = BTreeMap::default();
+            let mut map = Map::default();
             let _ = map.insert(key, Level::Flat(value));
             *self = Level::Nested(map);
         } else {
@@ -73,7 +73,7 @@ impl<'a> Level<'a> {
             }
         } else if let Level::Uninitialised = *self {
             // To reach here, self is either an OrderedSeq or nothing.
-            let mut map = BTreeMap::default();
+            let mut map = Map::default();
             let _ = map.insert(key, Level::Flat(value));
             *self = Level::OrderedSeq(map);
         } else {
@@ -274,14 +274,14 @@ impl<'a> Parser<'a> {
     /// In some ways the main way to use a `Parser`, this runs the parsing step
     /// and outputs a simple `Deserializer` over the parsed map.
     pub(crate) fn as_deserializer(&mut self) -> Result<QsDeserializer<'a>> {
-        let map = BTreeMap::default();
+        let map = Map::new();
         let mut root = Level::Nested(map);
 
         // Parses all top level nodes into the `root` map.
         while self.parse(&mut root)? {}
         let map = match root {
             Level::Nested(map) => map,
-            _ => BTreeMap::default(),
+            _ => Map::new(),
         };
         Ok(QsDeserializer {
             map,
@@ -454,7 +454,7 @@ impl<'a> Parser<'a> {
                         // The key continues to another level of nested.
                         // Add a new unitialised level for this node and continue.
                         if let Level::Uninitialised = *node {
-                            *node = Level::Nested(BTreeMap::default());
+                            *node = Level::Nested(Map::default());
                         }
                         if let Level::Nested(ref mut map) = *node {
                             // By parsing we drop down another level
@@ -531,7 +531,7 @@ impl<'a> Parser<'a> {
                         // The key continues to another level of nested.
                         // Add a new unitialised level for this node and continue.
                         if let Level::Uninitialised = *node {
-                            *node = Level::OrderedSeq(BTreeMap::default());
+                            *node = Level::OrderedSeq(Map::default());
                         }
                         if let Level::OrderedSeq(ref mut map) = *node {
                             // By parsing we drop down another level
