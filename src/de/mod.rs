@@ -38,12 +38,11 @@
 
 mod parse;
 
-use crate::error::*;
-
-use serde::de;
-use serde::de::IntoDeserializer;
-
-use crate::map::{Entry, Map};
+use crate::{
+    error::*,
+    map::{Entry, Map},
+};
+use serde::{de, de::IntoDeserializer};
 use std::borrow::Cow;
 
 /// To override the default serialization parameters, first construct a new
@@ -656,21 +655,7 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.0 {
-            Level::Nested(_) => self.into_deserializer()?.deserialize_map(visitor),
-            Level::OrderedSeq(map) => visitor.visit_seq(LevelSeq(map.into_values())),
-            Level::Sequence(seq) => visitor.visit_seq(LevelSeq(seq.into_iter())),
-            Level::Flat(_) => {
-                // For a newtype_struct, attempt to deserialize a flat value as a
-                // single element sequence.
-                visitor.visit_seq(LevelSeq(vec![self.0].into_iter()))
-            }
-            Level::Invalid(e) => Err(de::Error::custom(e)),
-            Level::Uninitialised => Err(de::Error::custom(
-                "attempted to deserialize unitialised \
-                 value",
-            )),
-        }
+        visitor.visit_newtype_struct(self)
     }
 
     /// given the hint that this is a map, will first
