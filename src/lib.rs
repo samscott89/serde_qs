@@ -22,9 +22,16 @@
 //! However, after the top level you should find all supported types can be
 //! de/serialized.
 //!
-//! Note that integer keys are reserved for array indices. That is, a string of
-//! the form `a[0]=1&a[1]=3` will deserialize to the ordered sequence `a =
-//! [1,3]`.
+//! ### Arrays
+//!
+//! Sequences of keys can be represented in the following formats:
+//! - Integer indice: `a[0]=X&a[1]=Y` => `a = ['X', 'Y']`
+//! - Empty square bracket: `a[]=X&a[]=Y` => `a = ['X', 'Y']`
+//! - Duplicate keys: `a=X&a=Y` => `a = ['X', 'Y']`
+//!
+//! Note that integer keys are reserved for array indices.
+//! Therefore, it will not be parsed as a nested map, and will be deserialized
+//! to an ordered sequence.
 //!
 //! ## Usage
 //!
