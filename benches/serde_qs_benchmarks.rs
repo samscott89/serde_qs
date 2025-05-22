@@ -279,6 +279,103 @@ fn deserialize_large_vec(c: &mut Criterion) {
     });
 }
 
+// Comparison benchmarks: serde_qs vs serde_urlencoded
+// Note: Only flat structures work with serde_urlencoded
+fn comparison_simple_struct_serde_qs(c: &mut Criterion) {
+    let data = SimpleStruct {
+        id: 42,
+        name: "test_user".to_string(),
+        active: true,
+    };
+
+    c.bench_function("comparison_simple_struct_serde_qs_serialize", |b| {
+        b.iter(|| {
+            serde_qs::to_string(black_box(&data)).unwrap()
+        })
+    });
+}
+
+fn comparison_simple_struct_serde_urlencoded(c: &mut Criterion) {
+    let data = SimpleStruct {
+        id: 42,
+        name: "test_user".to_string(),
+        active: true,
+    };
+
+    c.bench_function("comparison_simple_struct_serde_urlencoded_serialize", |b| {
+        b.iter(|| {
+            serde_urlencoded::to_string(black_box(&data)).unwrap()
+        })
+    });
+}
+
+fn comparison_hashmap_serde_qs(c: &mut Criterion) {
+    let mut data = HashMap::new();
+    data.insert("key1".to_string(), "value1".to_string());
+    data.insert("key2".to_string(), "value2".to_string());
+    data.insert("key3".to_string(), "value3".to_string());
+
+    c.bench_function("comparison_hashmap_serde_qs_serialize", |b| {
+        b.iter(|| {
+            serde_qs::to_string(black_box(&data)).unwrap()
+        })
+    });
+}
+
+fn comparison_hashmap_serde_urlencoded(c: &mut Criterion) {
+    let mut data = HashMap::new();
+    data.insert("key1".to_string(), "value1".to_string());
+    data.insert("key2".to_string(), "value2".to_string());
+    data.insert("key3".to_string(), "value3".to_string());
+
+    c.bench_function("comparison_hashmap_serde_urlencoded_serialize", |b| {
+        b.iter(|| {
+            serde_urlencoded::to_string(black_box(&data)).unwrap()
+        })
+    });
+}
+
+// Deserialization comparisons
+fn comparison_simple_struct_deserialize_serde_qs(c: &mut Criterion) {
+    let query = "id=42&name=test_user&active=true";
+
+    c.bench_function("comparison_simple_struct_serde_qs_deserialize", |b| {
+        b.iter(|| {
+            let _: SimpleStruct = serde_qs::from_str(black_box(query)).unwrap();
+        })
+    });
+}
+
+fn comparison_simple_struct_deserialize_serde_urlencoded(c: &mut Criterion) {
+    let query = "id=42&name=test_user&active=true";
+
+    c.bench_function("comparison_simple_struct_serde_urlencoded_deserialize", |b| {
+        b.iter(|| {
+            let _: SimpleStruct = serde_urlencoded::from_str(black_box(query)).unwrap();
+        })
+    });
+}
+
+fn comparison_hashmap_deserialize_serde_qs(c: &mut Criterion) {
+    let query = "key1=value1&key2=value2&key3=value3";
+
+    c.bench_function("comparison_hashmap_serde_qs_deserialize", |b| {
+        b.iter(|| {
+            let _: HashMap<String, String> = serde_qs::from_str(black_box(query)).unwrap();
+        })
+    });
+}
+
+fn comparison_hashmap_deserialize_serde_urlencoded(c: &mut Criterion) {
+    let query = "key1=value1&key2=value2&key3=value3";
+
+    c.bench_function("comparison_hashmap_serde_urlencoded_deserialize", |b| {
+        b.iter(|| {
+            let _: HashMap<String, String> = serde_urlencoded::from_str(black_box(query)).unwrap();
+        })
+    });
+}
+
 criterion_group!(
     serialize_simple,
     serialize_simple_struct,
@@ -311,4 +408,16 @@ criterion_group!(
     deserialize_large_vec
 );
 
-criterion_main!(serialize_simple, serialize_complex, deserialize_simple, deserialize_complex);
+criterion_group!(
+    comparison,
+    comparison_simple_struct_serde_qs,
+    comparison_simple_struct_serde_urlencoded,
+    comparison_hashmap_serde_qs,
+    comparison_hashmap_serde_urlencoded,
+    comparison_simple_struct_deserialize_serde_qs,
+    comparison_simple_struct_deserialize_serde_urlencoded,
+    comparison_hashmap_deserialize_serde_qs,
+    comparison_hashmap_deserialize_serde_urlencoded
+);
+
+criterion_main!(serialize_simple, serialize_complex, deserialize_simple, deserialize_complex, comparison);
