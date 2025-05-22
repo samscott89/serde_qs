@@ -14,14 +14,18 @@ fn char_to_digit(c: u8) -> Option<u32> {
 /// This code is adapted from `rust-url` which contains each of the following
 /// in slightly separate functions.
 pub fn decode(input: &[u8], strict: bool) -> Result<Cow<'_, str>, Utf8Error> {
+    if !input.iter().any(|&b| b == b'+' || b == b'%') {
+        // No percent-encoded characters found, just convert to UTF-8
+        return std::str::from_utf8(input).map(Cow::Borrowed);
+    }
+
     let mut bytes_iter = input.iter().enumerate();
 
-    let mut decoded = None;
+    let mut decoded = Vec::with_capacity(input.len());
     let mut last_segment = 0;
 
     while let Some((idx, &b)) = bytes_iter.next() {
         if b == b'+' {
-            let decoded = decoded.get_or_insert_with(|| Vec::with_capacity(input.len()));
             decoded.extend_from_slice(&input[last_segment..idx]);
             // push space
             decoded.push(b' ');
@@ -38,7 +42,6 @@ pub fn decode(input: &[u8], strict: bool) -> Result<Cow<'_, str>, Utf8Error> {
                 continue;
             };
 
-            let decoded = decoded.get_or_insert_with(|| Vec::with_capacity(input.len()));
             decoded.extend_from_slice(&input[last_segment..idx]);
 
             let decoded_byte = h as u8 * 0x10 + l as u8;
@@ -47,29 +50,24 @@ pub fn decode(input: &[u8], strict: bool) -> Result<Cow<'_, str>, Utf8Error> {
         }
     }
 
-    if let Some(mut decoded) = decoded {
-        decoded.extend_from_slice(&input[last_segment..]);
-        if strict {
-            String::from_utf8(decoded).map_err(|e| e.utf8_error())
-        } else {
-            Ok(
-                // TODO(Sam): replace this with `String::from_utf8_lossy_owned`
-                // when it stabilizes
-                if let Cow::Owned(string) = String::from_utf8_lossy(&decoded) {
-                    string
-                } else {
-                    // SAFETY: `String::from_utf8_lossy`'s contract ensures that if
-                    // it returns a `Cow::Borrowed`, it is a valid UTF-8 string.
-                    // Otherwise, it returns a new allocation of an owned `String`, with
-                    // replacement characters for invalid sequences, which is returned
-                    // above.
-                    unsafe { String::from_utf8_unchecked(decoded) }
-                },
-            )
-        }
-        .map(Cow::Owned)
+    decoded.extend_from_slice(&input[last_segment..]);
+    if strict {
+        String::from_utf8(decoded).map_err(|e| e.utf8_error())
     } else {
-        // No percent-encoded characters found, just convert to UTF-8
-        std::str::from_utf8(input).map(Cow::Borrowed)
+        Ok(
+            // TODO(Sam): replace this with `String::from_utf8_lossy_owned`
+            // when it stabilizes
+            if let Cow::Owned(string) = String::from_utf8_lossy(&decoded) {
+                string
+            } else {
+                // SAFETY: `String::from_utf8_lossy`'s contract ensures that if
+                // it returns a `Cow::Borrowed`, it is a valid UTF-8 string.
+                // Otherwise, it returns a new allocation of an owned `String`, with
+                // replacement characters for invalid sequences, which is returned
+                // above.
+                unsafe { String::from_utf8_unchecked(decoded) }
+            },
+        )
     }
+    .map(Cow::Owned)
 }
