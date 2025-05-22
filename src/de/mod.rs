@@ -349,7 +349,7 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
                     *field_order = &field_order[idx + 1..];
                     self.popped_value = Some(value);
                     return seed
-                        .deserialize(StringParsingDeserializer::new((*field).into()))
+                        .deserialize(StringParsingDeserializer::new_str(field))
                         .map(Some);
                 }
             }
@@ -359,7 +359,7 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
         // just iterate remaining elements in the map
         if let Some((key, value)) = crate::map::pop_first(&mut self.parsed) {
             self.popped_value = Some(value);
-            let has_bracket = matches!(key, Key::String(ref s) if s.contains('['));
+            let has_bracket = matches!(key, Key::String(ref s) if s.contains(&b'['));
             key.deserialize_seed(seed)
                 .map(Some)
                 .map_err(|e| {
@@ -468,7 +468,7 @@ macro_rules! forward_to_string_parser {
         $(
             fn $meth<V>(self, visitor: V) -> Result<V::Value> where V: de::Visitor<'de> {
                 if let ParsedValue::String(s) = self.0 {
-                    return StringParsingDeserializer::new(s).$meth(visitor);
+                    return StringParsingDeserializer::new(s)?.$meth(visitor);
                 } else {
                     return Err(de::Error::custom(
                         format!("expected a string, found {:?}", self.0),
@@ -493,7 +493,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
                 popped_value: None,
             }),
             ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
-            ParsedValue::String(x) => StringParsingDeserializer::new(x).deserialize_any(visitor),
+            ParsedValue::String(x) => StringParsingDeserializer::new(x)?.deserialize_any(visitor),
             ParsedValue::Uninitialized => Err(de::Error::custom(
                 "internal error: attempted to deserialize unitialised \
                  value",
@@ -581,7 +581,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
                 field_order: None,
                 popped_value: None,
             }),
-            ParsedValue::String(s) => visitor.visit_enum(StringParsingDeserializer::new(s)),
+            ParsedValue::String(s) => visitor.visit_enum(StringParsingDeserializer::new(s)?),
             _ => self.deserialize_any(visitor),
         }
     }
@@ -610,8 +610,14 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
     {
         match self.0 {
             ParsedValue::String(s) => match s {
-                Cow::Borrowed(string) => visitor.visit_borrowed_str(string),
-                Cow::Owned(string) => visitor.visit_string(string),
+                Cow::Borrowed(string) => {
+                    let string = std::str::from_utf8(string)?;
+                    visitor.visit_borrowed_str(string)
+                }
+                Cow::Owned(string) => {
+                    let string = String::from_utf8(string).map_err(|e| e.utf8_error())?;
+                    visitor.visit_string(string)
+                }
             },
             ParsedValue::Null => visitor.visit_str(""),
             _ => self.deserialize_any(visitor),
@@ -622,14 +628,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.0 {
-            ParsedValue::String(s) => match s {
-                Cow::Borrowed(string) => visitor.visit_borrowed_str(string),
-                Cow::Owned(string) => visitor.visit_string(string),
-            },
-            ParsedValue::Null => visitor.visit_str(""),
-            _ => self.deserialize_any(visitor),
-        }
+        self.deserialize_str(visitor)
     }
 
     forward_to_deserialize_any! {

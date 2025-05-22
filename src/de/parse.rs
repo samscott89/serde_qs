@@ -17,20 +17,26 @@ mod decode;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Key<'a> {
     Int(usize),
-    String(Cow<'a, str>),
+    String(Cow<'a, [u8]>),
 }
 
 impl fmt::Display for Key<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Key::Int(i) => write!(f, "{}", i),
-            Key::String(s) => write!(f, "{}", s),
+            Key::String(s) => write!(f, "{}", String::from_utf8_lossy(s)),
         }
     }
 }
 
 impl<'a> From<&'a str> for Key<'a> {
     fn from(s: &'a str) -> Self {
+        Key::String(s.as_bytes().into())
+    }
+}
+
+impl<'a> From<&'a [u8]> for Key<'a> {
+    fn from(s: &'a [u8]) -> Self {
         Key::String(s.into())
     }
 }
@@ -48,7 +54,7 @@ impl<'a> Key<'a> {
     {
         match self {
             Key::Int(i) => seed.deserialize(i.into_deserializer()),
-            Key::String(s) => seed.deserialize(StringParsingDeserializer::new(s)),
+            Key::String(s) => seed.deserialize(StringParsingDeserializer::new(s)?),
         }
     }
 }
@@ -58,7 +64,7 @@ impl<'a> Key<'a> {
 pub enum ParsedValue<'qs> {
     Map(ParsedMap<'qs>),
     Sequence(Vec<ParsedValue<'qs>>),
-    String(Cow<'qs, str>),
+    String(Cow<'qs, [u8]>),
     Null,
     Uninitialized,
 }
@@ -163,7 +169,7 @@ impl<'qs> Parser<'qs> {
             }
             // if this fails, we'll just fall back to the string case
         }
-        let string_key = Key::String(decode::decode(bytes, self.strict)?);
+        let string_key = Key::String(decode::decode(bytes));
         Ok(Some(string_key))
     }
 
@@ -171,12 +177,12 @@ impl<'qs> Parser<'qs> {
     /// the parser.
     /// Avoids allocations when neither percent encoded, nor `'+'` values are
     /// present.
-    fn collect_str(&mut self) -> Result<Option<Cow<'qs, str>>> {
+    fn collect_str(&mut self) -> Result<Option<Cow<'qs, [u8]>>> {
         if self.acc.0 == self.acc.1 {
             // no bytes to parse
             return Ok(None);
         }
-        let decoded = decode::decode(&self.inner[self.acc.0..self.acc.1], self.strict)?;
+        let decoded = decode::decode(&self.inner[self.acc.0..self.acc.1]);
         self.clear_acc();
         Ok(Some(decoded))
     }
@@ -502,7 +508,7 @@ mod test {
         let parsed = parse(b"abc=def", TEST_CONFIG).unwrap();
         assert_eq!(
             parsed,
-            Map::from_iter([("abc".into(), ParsedValue::String("def".into()))])
+            Map::from_iter([("abc".into(), ParsedValue::String(b"def".into()))])
         );
     }
 
@@ -528,8 +534,8 @@ mod test {
             Map::from_iter([(
                 "abc".into(),
                 ParsedValue::Sequence(vec![
-                    ParsedValue::String("1".into()),
-                    ParsedValue::String("2".into())
+                    ParsedValue::String(b"1".into()),
+                    ParsedValue::String(b"2".into())
                 ])
             )])
         );
@@ -543,8 +549,8 @@ mod test {
             Map::from_iter([(
                 "abc".into(),
                 ParsedValue::Map(Map::from_iter([
-                    ("1".into(), ParsedValue::String("1".into())),
-                    ("0".into(), ParsedValue::String("0".into()))
+                    ("1".into(), ParsedValue::String(b"1".into())),
+                    ("0".into(), ParsedValue::String(b"0".into()))
                 ]))
             )])
         );
@@ -559,7 +565,7 @@ mod test {
                 "abc".into(),
                 ParsedValue::Map(Map::from_iter([(
                     "def".into(),
-                    ParsedValue::String("ghi".into())
+                    ParsedValue::String(b"ghi".into())
                 )]))
             )])
         );
@@ -587,14 +593,14 @@ mod test {
                     "e".into(),
                     ParsedValue::Map(Map::from_iter([("B".into(), ParsedValue::Null)]))
                 ),
-                ("u".into(), ParsedValue::String("12".into())),
+                ("u".into(), ParsedValue::String(b"12".into())),
                 (
                     "v".into(),
                     ParsedValue::Map(Map::from_iter([(
                         "V1".into(),
                         ParsedValue::Map(Map::from_iter([
-                            ("x".into(), ParsedValue::String("12".into())),
-                            ("y".into(), ParsedValue::String("300".into()))
+                            ("x".into(), ParsedValue::String(b"12".into())),
+                            ("y".into(), ParsedValue::String(b"300".into()))
                         ]))
                     )]))
                 ),
@@ -629,7 +635,7 @@ mod test {
                                     "f".into(),
                                     ParsedValue::Map(Map::from_iter([(
                                         "[g][h]".into(),
-                                        ParsedValue::String("i".into())
+                                        ParsedValue::String(b"i".into())
                                     )]))
                                 )]))
                             )]))
@@ -646,39 +652,39 @@ mod test {
             max_depth: 10,
             strict: true,
         };
-        // // encoded in the key
-        // // in strict mode, the brackets are not decoded
-        // let parsed = parse(b"abc%5Bdef%5D=ghi", strict_config).unwrap();
-        // assert_eq!(
-        //     parsed,
-        //     Map::from_iter([("abc[def]".into(), ParsedValue::String("ghi".into()))])
-        // );
+        // encoded in the key
+        // in strict mode, the brackets are not decoded
+        let parsed = parse(b"abc%5Bdef%5D=ghi", strict_config).unwrap();
+        assert_eq!(
+            parsed,
+            Map::from_iter([("abc[def]".into(), ParsedValue::String(b"ghi".into()))])
+        );
 
-        // // encoded in the key
-        // // in non-strict mode, the brackets are eagerly decoded
-        // let parsed = parse(b"abc%5Bdef%5D=ghi", TEST_CONFIG).unwrap();
-        // assert_eq!(
-        //     parsed,
-        //     Map::from_iter([(
-        //         "abc".into(),
-        //         ParsedValue::Map(Map::from_iter([(
-        //             "def".into(),
-        //             ParsedValue::String("ghi".into())
-        //         )]))
-        //     )])
-        // );
+        // encoded in the key
+        // in non-strict mode, the brackets are eagerly decoded
+        let parsed = parse(b"abc%5Bdef%5D=ghi", TEST_CONFIG).unwrap();
+        assert_eq!(
+            parsed,
+            Map::from_iter([(
+                "abc".into(),
+                ParsedValue::Map(Map::from_iter([(
+                    "def".into(),
+                    ParsedValue::String(b"ghi".into())
+                )]))
+            )])
+        );
 
         // encoded in the value
         let parsed = parse(b"foo=%5BHello%5D", strict_config).unwrap();
         assert_eq!(
             parsed,
-            Map::from_iter([("foo".into(), ParsedValue::String("[Hello]".into()))])
+            Map::from_iter([("foo".into(), ParsedValue::String(b"[Hello]".into()))])
         );
         // same result in non-strict mode
         let parsed = parse(b"foo=%5BHello%5D", TEST_CONFIG).unwrap();
         assert_eq!(
             parsed,
-            Map::from_iter([("foo".into(), ParsedValue::String("[Hello]".into()))])
+            Map::from_iter([("foo".into(), ParsedValue::String(b"[Hello]".into()))])
         );
     }
 }

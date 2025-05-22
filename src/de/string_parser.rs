@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt, marker::PhantomData};
+use std::{borrow::Cow, fmt, marker::PhantomData, str::Utf8Error};
 
 use serde::de::{self, Unexpected};
 
@@ -17,10 +17,27 @@ impl<'a, E> Clone for StringParsingDeserializer<'a, E> {
 }
 
 impl<'a, E> StringParsingDeserializer<'a, E> {
-    #[allow(missing_docs)]
-    pub fn new(value: Cow<'a, str>) -> Self {
-        StringParsingDeserializer {
+    pub fn new(value: Cow<'a, [u8]>) -> Result<Self, Utf8Error> {
+        let value = match value {
+            Cow::Borrowed(bytes) => {
+                let s = std::str::from_utf8(bytes)?;
+                Cow::Borrowed(s)
+            }
+            Cow::Owned(bytes) => {
+                let s = String::from_utf8(bytes).map_err(|e| e.utf8_error())?;
+                Cow::Owned(s)
+            }
+        };
+
+        Ok(StringParsingDeserializer {
             value,
+            marker: PhantomData,
+        })
+    }
+
+    pub fn new_str(value: &'a str) -> Self {
+        StringParsingDeserializer {
+            value: Cow::Borrowed(value),
             marker: PhantomData,
         }
     }
