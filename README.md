@@ -44,6 +44,43 @@ For older versions of Rust, `serde_qs` versions `<= 0.11` support Rust 1.36.
 
 [crates.io]: https://crates.io/crates/serde_qs
 
+## Performance
+
+This crate includes comprehensive benchmarks to help you understand performance characteristics and make informed decisions about when to use `serde_qs` vs alternatives like `serde_urlencoded`.
+
+### Benchmark Results Summary
+
+For simple flat structures, `serde_urlencoded` is approximately **3x faster**:
+- **Simple struct**: `serde_urlencoded` ~134ns vs `serde_qs` ~425ns (serialize)
+- **HashMap**: `serde_urlencoded` ~175ns vs `serde_qs` ~536ns (serialize)
+
+However, `serde_qs` provides unique capabilities for nested structures:
+- **Nested structs**: ~2.1μs (serialize), ~1.8μs (deserialize)
+- **Deep nesting (4 levels)**: ~3.7μs (serialize), ~3.6μs (deserialize)
+- **Large collections (100 items)**: ~21μs (serialize/deserialize)
+
+### Running Benchmarks
+
+```bash
+# Run all benchmarks
+cargo bench --bench serde_qs_benchmarks
+
+# Run specific categories
+cargo bench --bench serde_qs_benchmarks -- serialize_simple
+cargo bench --bench serde_qs_benchmarks -- comparison
+
+# View detailed results
+open target/criterion/report/index.html
+```
+
+For detailed benchmark documentation, see [`benches/README.md`](benches/README.md).
+
+### Performance Recommendations
+
+- **Use `serde_urlencoded`** for simple flat structures where performance is critical
+- **Use `serde_qs`** when you need nested object support, arrays, or complex query parameter structures
+- **Consider the trade-off**: ~3x performance cost for nested structure capabilities
+
 ## License
 
 serde_qs is licensed under either of
