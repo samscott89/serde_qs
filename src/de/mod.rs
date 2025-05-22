@@ -86,14 +86,9 @@ pub struct Config {
     /// Specifies the maximum depth key that `serde_qs` will attempt to
     /// deserialize. Default is 5.
     max_depth: usize,
-    /// Strict deserializing mode will not tolerate encoded brackets.
-    strict: bool,
 }
 
-pub const DEFAULT_CONFIG: Config = Config {
-    max_depth: 5,
-    strict: true,
-};
+pub const DEFAULT_CONFIG: Config = Config { max_depth: 5 };
 
 impl Default for Config {
     fn default() -> Self {
@@ -103,8 +98,8 @@ impl Default for Config {
 
 impl Config {
     /// Create a new `Config` with the specified `max_depth` and `strict` mode.
-    pub fn new(max_depth: usize, strict: bool) -> Self {
-        Self { max_depth, strict }
+    pub fn new(max_depth: usize) -> Self {
+        Self { max_depth }
     }
 }
 
@@ -193,7 +188,6 @@ impl<'a> QsDeserializer<'a> {
             input,
             ParsingOptions {
                 max_depth: config.max_depth,
-                strict: config.strict,
             },
         )?;
 
@@ -609,15 +603,9 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.0 {
-            ParsedValue::String(s) => match s {
-                Cow::Borrowed(string) => {
-                    let string = std::str::from_utf8(string)?;
-                    visitor.visit_borrowed_str(string)
-                }
-                Cow::Owned(string) => {
-                    let string = String::from_utf8(string).map_err(|e| e.utf8_error())?;
-                    visitor.visit_string(string)
-                }
+            ParsedValue::String(s) => match string_parser::decode_utf8(s)? {
+                Cow::Borrowed(string) => visitor.visit_borrowed_str(string),
+                Cow::Owned(string) => visitor.visit_string(string),
             },
             ParsedValue::Null => visitor.visit_str(""),
             _ => self.deserialize_any(visitor),

@@ -48,6 +48,9 @@ jobs:
           - warp
           - axum
           - indexmap
+        strict_feature:
+          - ""
+          - "-F permissive_decoding"
 
         # test frameworks for specific MSRVs (where known)
         include:
@@ -78,5 +81,5 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - name: Run test ${{ matrix.feature }}
         run: |
-          cargo test --all-targets --features "${{ matrix.feature }}"
-          cargo test --doc --features "${{ matrix.feature }}"
+          cargo test --all-targets --features "${{ matrix.feature }}" ${{ matrix.strict_feature }}
+          cargo test --doc --features "${{ matrix.feature }}" ${{ matrix.strict_feature }}

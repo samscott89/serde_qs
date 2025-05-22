@@ -36,6 +36,7 @@ serde_with = "2.0"
 
 [features]
 default = []
+permissive_decoding = []
 actix4 = ["actix-web4", "futures"]
 actix3 = ["actix-web3", "futures"]
 # deprecated feature -- used to return a warning

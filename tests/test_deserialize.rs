@@ -24,11 +24,10 @@ struct QueryParams {
 // qs::from_str. All types are inferred by the compiler.
 macro_rules! map_test {
     ($string:expr, $($mapvars:tt)*) => {
-        for config in vec![qs::Config::new(5, true), qs::Config::new(5, false)] {
-            let testmap: HashMap<_, _> = config.deserialize_str($string).unwrap();
-            let expected_map = hash_to_map!(New $($mapvars)*);
-            assert_eq!(testmap, expected_map);
-        }
+        let config = qs::Config::new(5);
+        let testmap: HashMap<_, _> = config.deserialize_str($string).unwrap();
+        let expected_map = hash_to_map!(New $($mapvars)*);
+        assert_eq!(testmap, expected_map);
     }
 }
 
@@ -81,40 +80,39 @@ fn deserialize_struct() {
         user_ids: vec![1, 2, 3, 4],
     };
 
-    for config in [qs::Config::new(5, true), qs::Config::new(5, false)] {
-        // standard parameters
-        let rec_params: QueryParams = config
-            .deserialize_str(
-                "\
-                 name=Acme&id=42&phone=12345&address[postcode]=12345&\
-                 address[city]=Carrot+City&user_ids[0]=1&user_ids[1]=2&\
-                 user_ids[2]=3&user_ids[3]=4",
-            )
-            .unwrap();
-        assert_eq!(rec_params, params);
+    let config = qs::Config::default();
+    // standard parameters
+    let rec_params: QueryParams = config
+        .deserialize_str(
+            "\
+             name=Acme&id=42&phone=12345&address[postcode]=12345&\
+             address[city]=Carrot+City&user_ids[0]=1&user_ids[1]=2&\
+             user_ids[2]=3&user_ids[3]=4",
+        )
+        .unwrap();
+    assert_eq!(rec_params, params);
 
-        // unindexed arrays
-        let rec_params: QueryParams = config
-            .deserialize_str(
-                "\
-                 name=Acme&id=42&phone=12345&address[postcode]=12345&\
-                 address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
-                 user_ids[]=3&user_ids[]=4",
-            )
-            .unwrap();
-        assert_eq!(rec_params, params);
+    // unindexed arrays
+    let rec_params: QueryParams = config
+        .deserialize_str(
+            "\
+             name=Acme&id=42&phone=12345&address[postcode]=12345&\
+             address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
+             user_ids[]=3&user_ids[]=4",
+        )
+        .unwrap();
+    assert_eq!(rec_params, params);
 
-        // ordering doesn't matter
-        let rec_params: QueryParams = config
-            .deserialize_str(
-                "\
-                 address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
-                 name=Acme&id=42&phone=12345&address[postcode]=12345&\
-                 user_ids[]=3&user_ids[]=4",
-            )
-            .unwrap();
-        assert_eq!(rec_params, params);
-    }
+    // ordering doesn't matter
+    let rec_params: QueryParams = config
+        .deserialize_str(
+            "\
+             address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
+             name=Acme&id=42&phone=12345&address[postcode]=12345&\
+             user_ids[]=3&user_ids[]=4",
+        )
+        .unwrap();
+    assert_eq!(rec_params, params);
 }
 
 #[test]
@@ -516,8 +514,9 @@ fn returns_errors() {
     println!("{}", params.unwrap_err());
 }
 
+#[cfg(not(feature = "permissive_decoding"))]
 #[test]
-fn strict_mode() {
+fn strict_mode_on() {
     #[derive(Deserialize, Serialize, Debug, PartialEq)]
     struct Test {
         a: u8,
@@ -528,15 +527,58 @@ fn strict_mode() {
         vec: Vec<Test>,
     }
 
-    let strict_config = qs::Config::default();
+    let config = qs::Config::default();
 
-    let params: Result<Query, _> = strict_config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
+    let params: Result<Query, _> = config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
     assert!(params.is_err());
     println!("{}", params.unwrap_err());
 
-    let loose_config = qs::Config::new(5, false);
+    #[derive(Deserialize, Serialize, Debug, PartialEq)]
+    struct OddTest {
+        #[serde(rename = "[but&why=?]")]
+        a: u8,
+    }
 
-    let params: Result<Query, _> = loose_config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
+    let params = OddTest { a: 12 };
+    let enc_params = qs::to_string(&params).unwrap();
+    println!("Encoded as: {}", enc_params);
+    let rec_params: Result<OddTest, _> = config.deserialize_str(&enc_params);
+    assert_eq!(rec_params.unwrap(), params);
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query2 {
+        vec: Vec<u32>,
+    }
+    let repeated_key: Result<Query2, _> = config.deserialize_str("vec%5B%5D=1&vec%5B%5D=2");
+    assert!(repeated_key.is_err());
+    println!("{}", repeated_key.unwrap_err());
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct StringQueryParam {
+        field: String,
+    }
+
+    // Ensure strict mode produces an error for invalid UTF-8 percent encoded characters.
+    let invalid_utf8: Result<StringQueryParam, _> = config.deserialize_str("field=%E9");
+    assert!(invalid_utf8.is_err());
+}
+
+#[cfg(feature = "permissive_decoding")]
+#[test]
+fn strict_mode_off() {
+    #[derive(Deserialize, Serialize, Debug, PartialEq)]
+    struct Test {
+        a: u8,
+    }
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    #[serde(deny_unknown_fields)]
+    struct Query {
+        vec: Vec<Test>,
+    }
+
+    let config = qs::Config::new(5);
+
+    let params: Result<Query, _> = config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
     assert_eq!(
         params.unwrap(),
         Query {
@@ -544,7 +586,7 @@ fn strict_mode() {
         }
     );
 
-    let params: Result<Query, _> = loose_config.deserialize_str("vec[0%5D%5Ba]=1&vec[1][a]=2");
+    let params: Result<Query, _> = config.deserialize_str("vec[0%5D%5Ba]=1&vec[1][a]=2");
     assert_eq!(
         params.unwrap(),
         Query {
@@ -552,7 +594,7 @@ fn strict_mode() {
         }
     );
 
-    let params: Result<Query, _> = loose_config.deserialize_str("vec[0%5D%5Ba%5D=1&vec[1][a]=2");
+    let params: Result<Query, _> = config.deserialize_str("vec[0%5D%5Ba%5D=1&vec[1][a]=2");
     assert_eq!(
         params.unwrap(),
         Query {
@@ -560,7 +602,7 @@ fn strict_mode() {
         }
     );
 
-    let params: Result<Query, _> = loose_config.deserialize_str("vec%5B0%5D%5Ba]=1&vec[1][a]=2");
+    let params: Result<Query, _> = config.deserialize_str("vec%5B0%5D%5Ba]=1&vec[1][a]=2");
     assert_eq!(
         params.unwrap(),
         Query {
@@ -577,29 +619,22 @@ fn strict_mode() {
     let params = OddTest { a: 12 };
     let enc_params = qs::to_string(&params).unwrap();
     println!("Encoded as: {}", enc_params);
-    let rec_params: Result<OddTest, _> = strict_config.deserialize_str(&enc_params);
-    assert_eq!(rec_params.unwrap(), params);
 
     // Non-strict decoding cannot necessarily handle these weird scenerios.
-    let rec_params: Result<OddTest, _> = loose_config.deserialize_str(&enc_params);
+    let rec_params: Result<OddTest, _> = config.deserialize_str(&enc_params);
     assert!(rec_params.is_err());
     println!("{}", rec_params.unwrap_err());
 
     // Test that we don't panic
-    let malformed_params: Result<Query, _> = loose_config.deserialize_str("%");
+    let malformed_params: Result<Query, _> = config.deserialize_str("%");
     assert!(malformed_params.is_err());
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct Query2 {
         vec: Vec<u32>,
     }
-    let repeated_key: Result<Query2, _> = strict_config.deserialize_str("vec%5B%5D=1&vec%5B%5D=2");
-    assert!(repeated_key.is_err());
-    println!("{}", repeated_key.unwrap_err());
 
-    let params: Query2 = loose_config
-        .deserialize_str("vec%5B%5D=1&vec%5B%5D=2")
-        .unwrap();
+    let params: Query2 = config.deserialize_str("vec%5B%5D=1&vec%5B%5D=2").unwrap();
     assert_eq!(params.vec, vec![1, 2]);
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -607,12 +642,8 @@ fn strict_mode() {
         field: String,
     }
 
-    // Ensure strict mode produces an error for invalid UTF-8 percent encoded characters.
-    let invalid_utf8: Result<StringQueryParam, _> = strict_config.deserialize_str("field=%E9");
-    assert!(invalid_utf8.is_err());
-
     // Ensure loose mode invalid UTF-8 percent encoded characters become � U+FFFD.
-    let valid_utf8: StringQueryParam = loose_config.deserialize_str("field=%E9").unwrap();
+    let valid_utf8: StringQueryParam = config.deserialize_str("field=%E9").unwrap();
     assert_eq!(valid_utf8.field, "�");
 }
 

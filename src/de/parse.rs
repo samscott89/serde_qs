@@ -14,17 +14,23 @@ pub type ParsedMap<'qs> = Map<Key<'qs>, ParsedValue<'qs>>;
 
 mod decode;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum Key<'a> {
     Int(usize),
     String(Cow<'a, [u8]>),
 }
 
+impl fmt::Debug for Key<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
 impl fmt::Display for Key<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Key::Int(i) => write!(f, "{}", i),
-            Key::String(s) => write!(f, "{}", String::from_utf8_lossy(s)),
+            Key::Int(i) => write!(f, "{i}"),
+            Key::String(s) => write!(f, "\"{}\"", String::from_utf8_lossy(s)),
         }
     }
 }
@@ -72,11 +78,10 @@ pub enum ParsedValue<'qs> {
 #[derive(Copy, Clone, Debug)]
 pub struct ParsingOptions {
     pub max_depth: usize,
-    pub strict: bool,
 }
 
 pub fn parse<'qs>(encoded_string: &'qs [u8], options: ParsingOptions) -> Result<ParsedMap<'qs>> {
-    let mut parser = Parser::new(encoded_string, options.max_depth, options.strict);
+    let mut parser = Parser::new(encoded_string, options.max_depth);
     let mut output = Map::default();
     parser.parse(&mut output)?;
 
@@ -91,7 +96,6 @@ struct Parser<'qs> {
     iter: Iter<'qs, u8>,
     index: usize,
     acc: (usize, usize),
-    strict: bool,
     max_depth: usize,
 }
 
@@ -101,7 +105,7 @@ impl Parser<'_> {
         self.index += 1;
         let mut next = self.iter.next().copied();
 
-        if !self.strict {
+        if cfg!(feature = "permissive_decoding") {
             // in non-strict mode, we will eagerly decode any bracket
             if matches!(next, Some(b'%')) {
                 let iter = self.iter.as_slice();
@@ -133,13 +137,12 @@ impl Parser<'_> {
 }
 
 impl<'qs> Parser<'qs> {
-    pub fn new(encoded: &'qs [u8], max_depth: usize, strict: bool) -> Self {
+    pub fn new(encoded: &'qs [u8], max_depth: usize) -> Self {
         Parser {
             inner: encoded,
             iter: encoded.iter(),
             acc: (0, 0),
             index: 0,
-            strict,
             max_depth,
         }
     }
@@ -170,6 +173,7 @@ impl<'qs> Parser<'qs> {
             // if this fails, we'll just fall back to the string case
         }
         let string_key = Key::String(decode::decode(bytes));
+        self.clear_acc();
         Ok(Some(string_key))
     }
 
@@ -492,10 +496,7 @@ mod test {
     use super::*;
     use pretty_assertions::assert_eq;
 
-    static TEST_CONFIG: ParsingOptions = ParsingOptions {
-        max_depth: 10,
-        strict: false,
-    };
+    static TEST_CONFIG: ParsingOptions = ParsingOptions { max_depth: 10 };
 
     #[test]
     fn parse_empty() {
@@ -549,8 +550,8 @@ mod test {
             Map::from_iter([(
                 "abc".into(),
                 ParsedValue::Map(Map::from_iter([
-                    ("1".into(), ParsedValue::String(b"1".into())),
-                    ("0".into(), ParsedValue::String(b"0".into()))
+                    (1.into(), ParsedValue::String(b"1".into())),
+                    (0.into(), ParsedValue::String(b"0".into()))
                 ]))
             )])
         );
@@ -608,16 +609,10 @@ mod test {
         );
     }
 
+    #[cfg(not(feature = "permissive_decoding"))]
     #[test]
     fn parse_strict() {
-        let parsed = parse(
-            b"a[b][c][d][e][f][g][h]=i",
-            ParsingOptions {
-                max_depth: 5,
-                strict: false,
-            },
-        )
-        .unwrap();
+        let parsed = parse(b"a[b][c][d][e][f][g][h]=i", ParsingOptions { max_depth: 5 }).unwrap();
 
         assert_eq!(
             parsed,
@@ -646,20 +641,9 @@ mod test {
         );
     }
 
+    #[cfg(feature = "permissive_decoding")]
     #[test]
     fn parse_encoded_brackets() {
-        let strict_config = ParsingOptions {
-            max_depth: 10,
-            strict: true,
-        };
-        // encoded in the key
-        // in strict mode, the brackets are not decoded
-        let parsed = parse(b"abc%5Bdef%5D=ghi", strict_config).unwrap();
-        assert_eq!(
-            parsed,
-            Map::from_iter([("abc[def]".into(), ParsedValue::String(b"ghi".into()))])
-        );
-
         // encoded in the key
         // in non-strict mode, the brackets are eagerly decoded
         let parsed = parse(b"abc%5Bdef%5D=ghi", TEST_CONFIG).unwrap();
@@ -674,14 +658,27 @@ mod test {
             )])
         );
 
-        // encoded in the value
-        let parsed = parse(b"foo=%5BHello%5D", strict_config).unwrap();
+        let parsed = parse(b"foo=%5BHello%5D", TEST_CONFIG).unwrap();
         assert_eq!(
             parsed,
             Map::from_iter([("foo".into(), ParsedValue::String(b"[Hello]".into()))])
         );
-        // same result in non-strict mode
-        let parsed = parse(b"foo=%5BHello%5D", TEST_CONFIG).unwrap();
+    }
+
+    #[cfg(not(feature = "permissive_decoding"))]
+    #[test]
+    fn parse_encoded_brackets() {
+        let strict_config = ParsingOptions { max_depth: 10 };
+        // encoded in the key
+        // in strict mode, the brackets are not decoded
+        let parsed = parse(b"abc%5Bdef%5D=ghi", strict_config).unwrap();
+        assert_eq!(
+            parsed,
+            Map::from_iter([("abc[def]".into(), ParsedValue::String(b"ghi".into()))])
+        );
+
+        // encoded in the value
+        let parsed = parse(b"foo=%5BHello%5D", strict_config).unwrap();
         assert_eq!(
             parsed,
             Map::from_iter([("foo".into(), ParsedValue::String(b"[Hello]".into()))])
