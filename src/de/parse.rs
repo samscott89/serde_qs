@@ -8,6 +8,8 @@ use crate::map::{Entry, Map};
 
 pub type ParsedMap<'qs> = Map<Cow<'qs, str>, ParsedValue<'qs>>;
 
+mod decode;
+
 /// An intermediate representation of the parsed query string.
 #[derive(Debug, PartialEq)]
 pub enum ParsedValue<'qs> {
@@ -84,25 +86,6 @@ impl Parser<'_> {
     }
 }
 
-/// Replace b'+' with b' '
-/// Copied from [`form_urlencoded`](https://github.com/servo/rust-url/blob/380be29859adb859e861c2d765897c22ec878e01/src/form_urlencoded.rs#L125).
-fn replace_plus(input: &[u8]) -> Cow<[u8]> {
-    match input.iter().position(|&b| b == b'+') {
-        None => Cow::Borrowed(input),
-        Some(first_position) => {
-            let mut replaced = input.to_owned();
-            replaced[first_position] = b' ';
-            for byte in &mut replaced[first_position + 1..] {
-                if *byte == b'+' {
-                    *byte = b' ';
-                }
-            }
-
-            Cow::Owned(replaced)
-        }
-    }
-}
-
 impl<'qs> Parser<'qs> {
     pub fn new(encoded: &'qs [u8], max_depth: usize, strict: bool) -> Self {
         Parser {
@@ -129,34 +112,9 @@ impl<'qs> Parser<'qs> {
             // no bytes to parse
             return Ok(None);
         }
-        let replaced = replace_plus(&self.inner[self.acc.0..self.acc.1]);
-        let decoder = percent_encoding::percent_decode(&replaced);
-
-        let maybe_decoded = if self.strict {
-            decoder.decode_utf8()?
-        } else {
-            decoder.decode_utf8_lossy()
-        };
-
-        let ret: Result<Cow<'qs, str>> = match maybe_decoded {
-            Cow::Borrowed(_) => {
-                match replaced {
-                    Cow::Borrowed(_) => {
-                        // In this case, neither method made replacements, so we
-                        // reuse the original bytes
-                        let res = str::from_utf8(&self.inner[self.acc.0..self.acc.1])?;
-                        Ok(Cow::Borrowed(res))
-                    }
-                    Cow::Owned(owned) => {
-                        let res = String::from_utf8(owned)?;
-                        Ok(Cow::Owned(res))
-                    }
-                }
-            }
-            Cow::Owned(owned) => Ok(Cow::Owned(owned)),
-        };
+        let decoded = decode::decode(&self.inner[self.acc.0..self.acc.1], self.strict)?;
         self.clear_acc();
-        ret.map(Some)
+        Ok(Some(decoded))
     }
 
     /// Extracts a string from the internal byte slice from the range tracked by

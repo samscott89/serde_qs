@@ -25,9 +25,7 @@ fn test_dates() {
     assert_eq!(data, params);
 }
 
-/// Curious what happens if we _don't_ urlencode the string parameter
 #[test]
-#[should_panic]
 fn test_improperly_encoded_dates() {
     use chrono::prelude::*;
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -43,6 +41,11 @@ fn test_improperly_encoded_dates() {
     };
 
     let s = "date_time=2014-11-28T21:45:59.324310806+09:00";
-    let _data: Params = qs::from_str(s).unwrap();
-    // assert_eq!(data, params);
+    let err = qs::from_str::<Params>(s).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("input contains invalid characters"),
+        "got: {}",
+        err
+    );
 }
