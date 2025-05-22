@@ -37,13 +37,15 @@
 //! `ParsableStringDeserializer`.
 
 mod parse;
+mod string_parser;
 
-use crate::error::*;
+use crate::error::{Error, Result};
 
+use parse::{ParsedValue, ParsingOptions};
 use serde::de;
-use serde::de::IntoDeserializer;
+use string_parser::StringParsingDeserializer;
 
-use crate::map::{Entry, Map};
+use crate::map::Map;
 use std::borrow::Cow;
 
 /// To override the default serialization parameters, first construct a new
@@ -105,11 +107,6 @@ impl Config {
     pub fn new(max_depth: usize, strict: bool) -> Self {
         Self { max_depth, strict }
     }
-
-    /// Get maximum depth parameter.
-    fn max_depth(&self) -> usize {
-        self.max_depth
-    }
 }
 
 impl Config {
@@ -117,15 +114,6 @@ impl Config {
     pub fn deserialize_bytes<'de, T: de::Deserialize<'de>>(&self, input: &'de [u8]) -> Result<T> {
         T::deserialize(QsDeserializer::with_config(self, input)?)
     }
-
-    // pub fn deserialize_bytes_sloppy<T: de::DeserializeOwned>(&self, input: &[u8])
-    //     -> Result<T>
-    // {
-    //     let buf = String::from_utf8(input.to_vec())?;
-    //     let buf = buf.replace("%5B", "[").replace("%5D", "]").into_bytes();
-    //     let deser = QsDeserializer::with_config(self, &buf)?;
-    //     T::deserialize(deser)
-    // }
 
     /// Deserializes a querystring from a `&str` using this `Config`.
     pub fn deserialize_str<'de, T: de::Deserialize<'de>>(&self, input: &'de str) -> Result<T> {
@@ -196,40 +184,33 @@ pub fn from_str<'de, T: de::Deserialize<'de>>(input: &'de str) -> Result<T> {
 ///
 /// Supported top-level outputs are structs and maps.
 pub struct QsDeserializer<'a> {
-    map: Map<Cow<'a, str>, Level<'a>>,
-    value: Option<Level<'a>>,
-
-    /// Internal state to track if we have a preferred
-    /// field order when deserializing a struct or map.
-    field_order: Option<&'static [&'static str]>,
-}
-
-#[derive(Debug)]
-enum Level<'a> {
-    Nested(Map<Cow<'a, str>, Level<'a>>),
-    OrderedSeq(Map<usize, Level<'a>>),
-    Sequence(Vec<Level<'a>>),
-    Flat(Cow<'a, str>),
-    Invalid(String),
-    Uninitialised,
+    parsed: parse::ParsedMap<'a>,
 }
 
 impl<'a> QsDeserializer<'a> {
-    fn with_map(map: Map<Cow<'a, str>, Level<'a>>) -> Self {
-        QsDeserializer {
-            map,
-            value: None,
-            field_order: None,
-        }
-    }
-
     /// Returns a new `QsDeserializer<'a>`.
     pub fn with_config(config: &Config, input: &'a [u8]) -> Result<Self> {
-        parse::Parser::new(input, config.max_depth(), config.strict).as_deserializer()
+        let parsed = parse::parse(
+            input,
+            ParsingOptions {
+                max_depth: config.max_depth,
+                strict: config.strict,
+            },
+        )?;
+
+        Ok(Self { parsed })
     }
 
     pub fn new(input: &'a [u8]) -> Result<Self> {
         Self::with_config(&Config::default(), input)
+    }
+
+    fn as_nested(&mut self) -> MapDeserializer<'_, 'a> {
+        MapDeserializer {
+            parsed: &mut self.parsed,
+            field_order: None,
+            popped_value: None,
+        }
     }
 }
 
@@ -240,18 +221,19 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        if self.map.is_empty() {
+        if self.parsed.is_empty() {
             return visitor.visit_unit();
         }
 
         Err(Error::top_level("primitive"))
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_map<V>(mut self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_map(self)
+        let nested_qs = self.as_nested();
+        visitor.visit_map(nested_qs)
     }
 
     fn deserialize_struct<V>(
@@ -263,8 +245,9 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        self.field_order = Some(fields);
-        self.deserialize_map(visitor)
+        let mut nested_qs = self.as_nested();
+        nested_qs.field_order = Some(fields);
+        visitor.visit_map(nested_qs)
     }
 
     /// Throws an error.
@@ -310,7 +293,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     }
 
     fn deserialize_enum<V>(
-        self,
+        mut self,
         _name: &'static str,
         _variants: &'static [&'static str],
         visitor: V,
@@ -318,7 +301,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_enum(self)
+        visitor.visit_enum(self.as_nested())
     }
 
     forward_to_deserialize_any! {
@@ -346,7 +329,13 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     }
 }
 
-impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
+struct MapDeserializer<'a, 'qs: 'a> {
+    parsed: &'a mut parse::ParsedMap<'qs>,
+    field_order: Option<&'static [&'static str]>,
+    popped_value: Option<ParsedValue<'qs>>,
+}
+
+impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
@@ -356,27 +345,27 @@ impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
         // we'll prefer to use the field order if it exists
         if let Some(field_order) = &mut self.field_order {
             for (idx, field) in field_order.iter().enumerate() {
-                if let Some((key, value)) = crate::map::remove_entry(&mut self.map, *field) {
-                    self.value = Some(value);
+                if let Some((key, value)) = crate::map::remove_entry(&mut self.parsed, *field) {
                     *field_order = &field_order[idx + 1..];
-                    return seed.deserialize(ParsableStringDeserializer(key)).map(Some);
+                    self.popped_value = Some(value);
+                    return seed
+                        .deserialize(StringParsingDeserializer::new(key))
+                        .map(Some);
                 }
             }
-
-            self.field_order = None;
         }
 
         // once we've exhausted the field order, we can
         // just iterate remaining elements in the map
-        if let Some((key, value)) = crate::map::pop_first(&mut self.map) {
-            self.value = Some(value);
+        if let Some((key, value)) = crate::map::pop_first(&mut self.parsed) {
+            self.popped_value = Some(value);
             let has_bracket = key.contains('[');
-            seed.deserialize(ParsableStringDeserializer(key))
+            seed.deserialize(StringParsingDeserializer::new(key))
                 .map(Some)
                 .map_err(|e| {
                     if has_bracket {
                         de::Error::custom(
-                            format!("{}\nInvalid field contains an encoded bracket -- did you mean to use non-strict mode?\n  https://docs.rs/serde_qs/latest/serde_qs/#strict-vs-non-strict-modes", e,)
+                            format!("{e}\nInvalid field contains an encoded bracket -- did you mean to use non-strict mode?\n  https://docs.rs/serde_qs/latest/serde_qs/#strict-vs-non-strict-modes")
                         )
                     } else {
                         e
@@ -391,8 +380,8 @@ impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
     where
         V: de::DeserializeSeed<'de>,
     {
-        if let Some(v) = self.value.take() {
-            seed.deserialize(LevelDeserializer(v))
+        if let Some(v) = self.popped_value.take() {
+            seed.deserialize(ValueDeserializer(v))
         } else {
             Err(de::Error::custom(
                 "Somehow the map was empty after a non-empty key was returned",
@@ -401,7 +390,7 @@ impl<'de> de::MapAccess<'de> for QsDeserializer<'de> {
     }
 }
 
-impl<'de> de::EnumAccess<'de> for QsDeserializer<'de> {
+impl<'a, 'de: 'a> de::EnumAccess<'de> for MapDeserializer<'a, 'de> {
     type Error = Error;
     type Variant = Self;
 
@@ -409,16 +398,19 @@ impl<'de> de::EnumAccess<'de> for QsDeserializer<'de> {
     where
         V: de::DeserializeSeed<'de>,
     {
-        if let Some((key, value)) = crate::map::pop_first(&mut self.map) {
-            self.value = Some(value);
-            Ok((seed.deserialize(ParsableStringDeserializer(key))?, self))
+        if let Some((key, value)) = crate::map::pop_first(&mut self.parsed) {
+            self.popped_value = Some(value);
+            Ok((
+                seed.deserialize(StringParsingDeserializer::<'_, Error>::new(key))?,
+                self,
+            ))
         } else {
             Err(de::Error::custom("No more values"))
         }
     }
 }
 
-impl<'de> de::VariantAccess<'de> for QsDeserializer<'de> {
+impl<'a, 'de: 'a> de::VariantAccess<'de> for MapDeserializer<'a, 'de> {
     type Error = Error;
     fn unit_variant(self) -> Result<()> {
         Ok(())
@@ -428,8 +420,8 @@ impl<'de> de::VariantAccess<'de> for QsDeserializer<'de> {
     where
         T: de::DeserializeSeed<'de>,
     {
-        if let Some(value) = self.value {
-            seed.deserialize(LevelDeserializer(value))
+        if let Some(value) = self.popped_value {
+            seed.deserialize(ValueDeserializer(value))
         } else {
             Err(de::Error::custom("no value to deserialize"))
         }
@@ -438,8 +430,8 @@ impl<'de> de::VariantAccess<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        if let Some(value) = self.value {
-            de::Deserializer::deserialize_seq(LevelDeserializer(value), visitor)
+        if let Some(value) = self.popped_value {
+            de::Deserializer::deserialize_seq(ValueDeserializer(value), visitor)
         } else {
             Err(de::Error::custom("no value to deserialize"))
         }
@@ -448,133 +440,49 @@ impl<'de> de::VariantAccess<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        if let Some(value) = self.value {
-            de::Deserializer::deserialize_map(LevelDeserializer(value), visitor)
+        if let Some(value) = self.popped_value {
+            de::Deserializer::deserialize_map(ValueDeserializer(value), visitor)
         } else {
             Err(de::Error::custom("no value to deserialize"))
         }
     }
 }
 
-impl<'de> de::EnumAccess<'de> for LevelDeserializer<'de> {
-    type Error = Error;
-    type Variant = Self;
+struct Seq<'a, I: Iterator<Item = ParsedValue<'a>>>(I);
 
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant)>
-    where
-        V: de::DeserializeSeed<'de>,
-    {
-        match self.0 {
-            Level::Flat(x) => Ok((
-                seed.deserialize(ParsableStringDeserializer(x))?,
-                LevelDeserializer(Level::Invalid(
-                    "this value can only \
-                     deserialize to a \
-                     UnitVariant"
-                        .to_string(),
-                )),
-            )),
-            _ => Err(de::Error::custom(
-                "this value can only deserialize to a \
-                 UnitVariant",
-            )),
-        }
-    }
-}
-
-impl<'de> de::VariantAccess<'de> for LevelDeserializer<'de> {
-    type Error = Error;
-    fn unit_variant(self) -> Result<()> {
-        Ok(())
-    }
-
-    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value>
-    where
-        T: de::DeserializeSeed<'de>,
-    {
-        seed.deserialize(self)
-    }
-    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        de::Deserializer::deserialize_seq(self, visitor)
-    }
-    fn struct_variant<V>(self, _fields: &'static [&'static str], visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        de::Deserializer::deserialize_map(self, visitor)
-    }
-}
-
-struct LevelSeq<'a, I: Iterator<Item = Level<'a>>>(I);
-
-impl<'de, I: Iterator<Item = Level<'de>>> de::SeqAccess<'de> for LevelSeq<'de, I> {
+impl<'de, I: Iterator<Item = ParsedValue<'de>>> de::SeqAccess<'de> for Seq<'de, I> {
     type Error = Error;
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
     where
         T: de::DeserializeSeed<'de>,
     {
         if let Some(v) = self.0.next() {
-            seed.deserialize(LevelDeserializer(v)).map(Some)
+            seed.deserialize(ValueDeserializer(v)).map(Some)
         } else {
             Ok(None)
         }
     }
 }
 
-struct LevelDeserializer<'a>(Level<'a>);
+struct ValueDeserializer<'a>(ParsedValue<'a>);
 
-macro_rules! deserialize_primitive {
-    ($ty:ident, $method:ident, $visit_method:ident) => {
-        fn $method<V>(self, visitor: V) -> Result<V::Value>
-        where
-            V: de::Visitor<'de>,
-        {
-            match self.0 {
-                Level::Nested(_) => Err(de::Error::custom(format!(
-                    "Expected: {:?}, got a Map",
-                    stringify!($ty)
-                ))),
-                Level::OrderedSeq(_) => Err(de::Error::custom(format!(
-                    "Expected: {:?}, got an OrderedSequence",
-                    stringify!($ty)
-                ))),
-                Level::Sequence(_) => Err(de::Error::custom(format!(
-                    "Expected: {:?}, got a Sequence",
-                    stringify!($ty)
-                ))),
-                Level::Flat(x) => ParsableStringDeserializer(x).$method(visitor),
-                Level::Invalid(e) => Err(de::Error::custom(e)),
-                Level::Uninitialised => Err(de::Error::custom(
-                    "attempted to deserialize unitialised value",
-                )),
+macro_rules! forward_to_string_parser {
+    ($($ty:ident => $meth:ident,)*) => {
+        $(
+            fn $meth<V>(self, visitor: V) -> Result<V::Value> where V: de::Visitor<'de> {
+                if let ParsedValue::String(s) = self.0 {
+                    return StringParsingDeserializer::new(s).$meth(visitor);
+                } else {
+                    return Err(de::Error::custom(
+                        format!("expected a string, found {:?}", self.0),
+                    ));
+                }
             }
-        }
-    };
-}
-
-impl<'a> LevelDeserializer<'a> {
-    fn into_deserializer(self) -> Result<QsDeserializer<'a>> {
-        match self.0 {
-            Level::Nested(map) => Ok(QsDeserializer::with_map(map)),
-            Level::OrderedSeq(map) => Ok(QsDeserializer::with_map(
-                map.into_iter()
-                    .map(|(k, v)| (Cow::Owned(k.to_string()), v))
-                    .collect(),
-            )),
-            Level::Invalid(e) => Err(de::Error::custom(e)),
-            l => Err(de::Error::custom(format!(
-                "could not convert {:?} to \
-                 QsDeserializer<'a>",
-                l
-            ))),
-        }
+        )*
     }
 }
 
-impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
+impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
@@ -582,41 +490,86 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.0 {
-            Level::Nested(_) => self.into_deserializer()?.deserialize_map(visitor),
-            Level::OrderedSeq(map) => visitor.visit_seq(LevelSeq(map.into_values())),
-            Level::Sequence(seq) => visitor.visit_seq(LevelSeq(seq.into_iter())),
-            Level::Flat(x) => match x {
-                Cow::Owned(s) => visitor.visit_string(s),
-                Cow::Borrowed(s) => visitor.visit_borrowed_str(s),
-            },
-            Level::Invalid(e) => Err(de::Error::custom(e)),
-            Level::Uninitialised => Err(de::Error::custom(
-                "attempted to deserialize unitialised \
+            ParsedValue::Map(mut parsed) => visitor.visit_map(MapDeserializer {
+                parsed: &mut parsed,
+                field_order: None,
+                popped_value: None,
+            }),
+            ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
+            ParsedValue::String(x) => StringParsingDeserializer::new(x).deserialize_any(visitor),
+            ParsedValue::Uninitialized => Err(de::Error::custom(
+                "internal error: attempted to deserialize unitialised \
                  value",
             )),
+            ParsedValue::Null => visitor.visit_unit(),
+        }
+    }
+
+    fn deserialize_seq<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        match self.0 {
+            ParsedValue::Map(parsed) => {
+                #[derive(PartialEq, Eq, PartialOrd, Ord)]
+                enum ParsedInteger<'a> {
+                    Int(usize),
+                    String(Cow<'a, str>),
+                }
+                // attempt to parse the map as a sequence of ordered keys
+                let ordered_map = parsed
+                    .into_iter()
+                    .map(|(key, v)| match key.parse::<usize>() {
+                        Ok(idx) => (ParsedInteger::Int(idx), v),
+                        Err(_) => (ParsedInteger::String(key), v),
+                    })
+                    .collect::<Map<_, _>>();
+                visitor.visit_seq(Seq(ordered_map.into_values()))
+            }
+            ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
+            _ => self.deserialize_any(visitor),
         }
     }
 
     fn deserialize_struct<V>(
         self,
-        name: &'static str,
+        _name: &'static str,
         fields: &'static [&'static str],
         visitor: V,
     ) -> std::result::Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        self.into_deserializer()?
-            .deserialize_struct(name, fields, visitor)
+        if let ParsedValue::Map(mut parsed) = self.0 {
+            visitor.visit_map(MapDeserializer {
+                parsed: &mut parsed,
+                field_order: Some(fields),
+                popped_value: None,
+            })
+        } else {
+            self.deserialize_any(visitor)
+        }
+    }
+
+    fn deserialize_newtype_struct<V>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        visitor.visit_newtype_struct(self)
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        match self.0 {
-            Level::Flat(ref x) if x.is_empty() => visitor.visit_none(),
-            _ => visitor.visit_some(self),
+        if matches!(self.0, ParsedValue::Null) {
+            visitor.visit_none()
+        } else {
+            visitor.visit_some(self)
         }
     }
 
@@ -624,52 +577,30 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.0 {
-            Level::Flat(ref x) if x.is_empty() => visitor.visit_unit(),
-            _ => Err(de::Error::custom("expected unit".to_owned())),
+        if matches!(self.0, ParsedValue::Null) {
+            visitor.visit_unit()
+        } else {
+            Err(de::Error::custom("expected unit".to_owned()))
         }
     }
 
     fn deserialize_enum<V>(
         self,
-        name: &'static str,
-        variants: &'static [&'static str],
+        _name: &'static str,
+        _variants: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
         match self.0 {
-            Level::Nested(map) => {
-                QsDeserializer::with_map(map).deserialize_enum(name, variants, visitor)
-            }
-            Level::Flat(_) => visitor.visit_enum(self),
-            x => Err(de::Error::custom(format!(
-                "{:?} does not appear to be \
-                 an enum",
-                x
-            ))),
-        }
-    }
-
-    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.0 {
-            Level::Nested(_) => self.into_deserializer()?.deserialize_map(visitor),
-            Level::OrderedSeq(map) => visitor.visit_seq(LevelSeq(map.into_values())),
-            Level::Sequence(seq) => visitor.visit_seq(LevelSeq(seq.into_iter())),
-            Level::Flat(_) => {
-                // For a newtype_struct, attempt to deserialize a flat value as a
-                // single element sequence.
-                visitor.visit_seq(LevelSeq(vec![self.0].into_iter()))
-            }
-            Level::Invalid(e) => Err(de::Error::custom(e)),
-            Level::Uninitialised => Err(de::Error::custom(
-                "attempted to deserialize unitialised \
-                 value",
-            )),
+            ParsedValue::Map(mut parsed) => visitor.visit_enum(MapDeserializer {
+                parsed: &mut parsed,
+                field_order: None,
+                popped_value: None,
+            }),
+            ParsedValue::String(s) => visitor.visit_enum(StringParsingDeserializer::new(s)),
+            _ => self.deserialize_any(visitor),
         }
     }
 
@@ -680,98 +611,57 @@ impl<'de> de::Deserializer<'de> for LevelDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
+        if let ParsedValue::Map(mut parsed) = self.0 {
+            visitor.visit_map(MapDeserializer {
+                parsed: &mut parsed,
+                field_order: None,
+                popped_value: None,
+            })
+        } else {
+            self.deserialize_any(visitor)
+        }
+    }
+
+    fn deserialize_str<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
         match self.0 {
-            Level::OrderedSeq(_) => self.into_deserializer()?.deserialize_map(visitor),
+            ParsedValue::String(s) => match s {
+                Cow::Borrowed(string) => visitor.visit_borrowed_str(string),
+                Cow::Owned(string) => visitor.visit_string(string),
+            },
+            ParsedValue::Null => visitor.visit_str(""),
             _ => self.deserialize_any(visitor),
         }
     }
 
-    deserialize_primitive!(bool, deserialize_bool, visit_bool);
-    deserialize_primitive!(i8, deserialize_i8, visit_i8);
-    deserialize_primitive!(i16, deserialize_i16, visit_i16);
-    deserialize_primitive!(i32, deserialize_i32, visit_i32);
-    deserialize_primitive!(i64, deserialize_i64, visit_i64);
-    deserialize_primitive!(u8, deserialize_u8, visit_u8);
-    deserialize_primitive!(u16, deserialize_u16, visit_u16);
-    deserialize_primitive!(u32, deserialize_u32, visit_u32);
-    deserialize_primitive!(u64, deserialize_u64, visit_u64);
-    deserialize_primitive!(f32, deserialize_f32, visit_f32);
-    deserialize_primitive!(f64, deserialize_f64, visit_f64);
-
-    forward_to_deserialize_any! {
-        char
-        str
-        string
-        bytes
-        byte_buf
-        unit_struct
-        // newtype_struct
-        tuple_struct
-        identifier
-        tuple
-        ignored_any
-        seq
-        // map
-    }
-}
-
-macro_rules! forward_parsable_to_deserialize_any {
-    ($($ty:ident => $meth:ident,)*) => {
-        $(
-            fn $meth<V>(self, visitor: V) -> Result<V::Value> where V: de::Visitor<'de> {
-                match self.0.parse::<$ty>() {
-                    Ok(val) => val.into_deserializer().$meth(visitor),
-                    Err(e) => Err(de::Error::custom(e))
-                }
-            }
-        )*
-    }
-}
-
-struct ParsableStringDeserializer<'a>(Cow<'a, str>);
-
-impl<'de> de::Deserializer<'de> for ParsableStringDeserializer<'de> {
-    type Error = Error;
-
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_string<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        self.0.into_deserializer().deserialize_any(visitor)
-    }
-
-    fn deserialize_enum<V>(
-        self,
-        _: &'static str,
-        _: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        visitor.visit_enum(LevelDeserializer(Level::Flat(self.0)))
+        match self.0 {
+            ParsedValue::String(s) => match s {
+                Cow::Borrowed(string) => visitor.visit_borrowed_str(string),
+                Cow::Owned(string) => visitor.visit_string(string),
+            },
+            ParsedValue::Null => visitor.visit_str(""),
+            _ => self.deserialize_any(visitor),
+        }
     }
 
     forward_to_deserialize_any! {
-        map
-        struct
-        seq
-        option
         char
-        str
-        string
-        unit
         bytes
         byte_buf
         unit_struct
-        newtype_struct
         tuple_struct
         identifier
         tuple
         ignored_any
     }
 
-    forward_parsable_to_deserialize_any! {
+    forward_to_string_parser! {
         bool => deserialize_bool,
         u8 => deserialize_u8,
         u16 => deserialize_u16,

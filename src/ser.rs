@@ -294,7 +294,7 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
     fn write_unit(&mut self) -> Result<()> {
         let amp = !self.first.swap(false, Ordering::Relaxed);
         if let Some(ref key) = self.key {
-            write!(self.writer, "{}{}=", if amp { "&" } else { "" }, key,).map_err(Error::from)
+            write!(self.writer, "{}{}", if amp { "&" } else { "" }, key,).map_err(Error::from)
         } else if amp {
             write!(self.writer, "&").map_err(Error::from)
         } else {
@@ -366,7 +366,8 @@ impl<'a, W: Write> ser::Serializer for QsSerializer<'a, W> {
         _variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok> {
-        self.write_value(variant.as_bytes())
+        self.extend_key(variant);
+        self.write_unit()
     }
 
     fn serialize_newtype_struct<T: ?Sized + ser::Serialize>(

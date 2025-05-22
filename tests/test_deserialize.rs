@@ -220,10 +220,9 @@ fn qs_nesting() {
     //     { a: { b: { c: { d: { e: { f: { '[g][h]': 'i' } } } } } } },
     //     'defaults to a depth of 5'
     // );
-    // This looks like depth 6 to me? Tweaked test to make it 5.
     map_test!(
         "a[b][c][d][e][f][g][h]=i",
-        "a"["b"["c"["d"["e"["[f][g][h]"["i"]]]]]]
+        "a"["b"["c"["d"["e"["f"["[g][h]"["i"]]]]]]]
     );
 }
 
@@ -414,7 +413,7 @@ fn deserialize_enum() {
         u: NewU8,
     }
 
-    let params = "e=B&v[V1][x]=12&v[V1][y]=300&u=12";
+    let params = "e[B]&v[V1][x]=12&v[V1][y]=300&u=12";
     let rec_params: Query = qs::from_str(params).unwrap();
     assert_eq!(
         rec_params,
@@ -545,8 +544,7 @@ fn strict_mode() {
         }
     );
 
-    let params: Result<Query, _> =
-        loose_config.deserialize_str("vec[%5B0%5D%5Ba%5D]=1&vec[1][a]=2");
+    let params: Result<Query, _> = loose_config.deserialize_str("vec[0%5D%5Ba]=1&vec[1][a]=2");
     assert_eq!(
         params.unwrap(),
         Query {
@@ -554,7 +552,7 @@ fn strict_mode() {
         }
     );
 
-    let params: Result<Query, _> = loose_config.deserialize_str("vec[%5B0%5D%5Ba%5D=1&vec[1][a]=2");
+    let params: Result<Query, _> = loose_config.deserialize_str("vec[0%5D%5Ba%5D=1&vec[1][a]=2");
     assert_eq!(
         params.unwrap(),
         Query {
@@ -562,7 +560,7 @@ fn strict_mode() {
         }
     );
 
-    let params: Result<Query, _> = loose_config.deserialize_str("vec%5B0%5D%5Ba%5D]=1&vec[1][a]=2");
+    let params: Result<Query, _> = loose_config.deserialize_str("vec%5B0%5D%5Ba]=1&vec[1][a]=2");
     assert_eq!(
         params.unwrap(),
         Query {

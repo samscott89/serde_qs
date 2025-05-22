@@ -78,7 +78,7 @@ fn serialize_enum() {
         e: TestEnum,
     }
 
-    let params = "e=a";
+    let params = "e[a]";
     let query = Query { e: TestEnum::A };
     let rec_params = qs::to_string(&query).unwrap();
     assert_eq!(rec_params, params);
@@ -274,5 +274,5 @@ fn test_serializer_unit() {
         q.serialize(serializer).unwrap();
     }
 
-    assert_eq!(writer, b"t=", "we are testing B{{t: ()}}");
+    assert_eq!(writer, b"t", "we are testing B{{t: ()}}");
 }
