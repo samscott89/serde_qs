@@ -1,19 +1,62 @@
 use std::borrow::Cow;
 use std::iter::Iterator;
 use std::slice::Iter;
-use std::str;
+use std::{fmt, str};
+
+use serde::de::IntoDeserializer;
 
 use crate::error::{Error, Result};
 use crate::map::{Entry, Map};
 
-pub type ParsedMap<'qs> = Map<Cow<'qs, str>, ParsedValue<'qs>>;
+use super::string_parser::StringParsingDeserializer;
+
+pub type ParsedMap<'qs> = Map<Key<'qs>, ParsedValue<'qs>>;
 
 mod decode;
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Key<'a> {
+    Int(usize),
+    String(Cow<'a, str>),
+}
+
+impl fmt::Display for Key<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Key::Int(i) => write!(f, "{}", i),
+            Key::String(s) => write!(f, "{}", s),
+        }
+    }
+}
+
+impl<'a> From<&'a str> for Key<'a> {
+    fn from(s: &'a str) -> Self {
+        Key::String(s.into())
+    }
+}
+
+impl<'a> From<usize> for Key<'a> {
+    fn from(i: usize) -> Self {
+        Key::Int(i)
+    }
+}
+
+impl<'a> Key<'a> {
+    pub fn deserialize_seed<T>(self, seed: T) -> Result<T::Value>
+    where
+        T: serde::de::DeserializeSeed<'a>,
+    {
+        match self {
+            Key::Int(i) => seed.deserialize(i.into_deserializer()),
+            Key::String(s) => seed.deserialize(StringParsingDeserializer::new(s)),
+        }
+    }
+}
 
 /// An intermediate representation of the parsed query string.
 #[derive(Debug, PartialEq)]
 pub enum ParsedValue<'qs> {
-    Map(Map<Cow<'qs, str>, ParsedValue<'qs>>),
+    Map(ParsedMap<'qs>),
     Sequence(Vec<ParsedValue<'qs>>),
     String(Cow<'qs, str>),
     Null,
@@ -26,10 +69,7 @@ pub struct ParsingOptions {
     pub strict: bool,
 }
 
-pub fn parse<'qs>(
-    encoded_string: &'qs [u8],
-    options: ParsingOptions,
-) -> Result<Map<Cow<'qs, str>, ParsedValue<'qs>>> {
+pub fn parse<'qs>(encoded_string: &'qs [u8], options: ParsingOptions) -> Result<ParsedMap<'qs>> {
     let mut parser = Parser::new(encoded_string, options.max_depth, options.strict);
     let mut output = Map::default();
     parser.parse(&mut output)?;
@@ -107,6 +147,30 @@ impl<'qs> Parser<'qs> {
     /// the parser.
     /// Avoids allocations when neither percent encoded, nor `'+'` values are
     /// present.
+    fn collect_key(&mut self) -> Result<Option<Key<'qs>>> {
+        if self.acc.0 == self.acc.1 {
+            // no bytes to parse
+            return Ok(None);
+        }
+        let bytes = &self.inner[self.acc.0..self.acc.1];
+        if bytes.iter().all(|b| b.is_ascii_digit()) {
+            // if all bytes are digits, we can parse it as an integer
+            // SAFETY: we know that all bytes are ASCII digits
+            let key = unsafe { std::str::from_utf8_unchecked(bytes) };
+            if let Ok(key) = key.parse::<usize>() {
+                self.clear_acc();
+                return Ok(Some(Key::Int(key)));
+            }
+            // if this fails, we'll just fall back to the string case
+        }
+        let string_key = Key::String(decode::decode(bytes, self.strict)?);
+        Ok(Some(string_key))
+    }
+
+    /// Extracts a string from the internal byte slice from the range tracked by
+    /// the parser.
+    /// Avoids allocations when neither percent encoded, nor `'+'` values are
+    /// present.
     fn collect_str(&mut self) -> Result<Option<Cow<'qs, str>>> {
         if self.acc.0 == self.acc.1 {
             // no bytes to parse
@@ -144,7 +208,7 @@ impl<'qs> Parser<'qs> {
                 // nor a nested key (e.g. `[`)
                 // we can insert the empty node
                 // and the return `None` since there is nothing more to do
-                if let Some(key) = self.collect_str()? {
+                if let Some(key) = self.collect_key()? {
                     insert_unique(self, root_map, key, ParsedValue::Null)?;
                 }
                 return Ok(());
@@ -155,7 +219,7 @@ impl<'qs> Parser<'qs> {
                 b'&' => {
                     // simplest case -- we have a simple key with no value
                     // insert an empty node and continue
-                    let Some(key) = self.collect_str()? else {
+                    let Some(key) = self.collect_key()? else {
                         // empty key -- we can skip this
                         self.clear_acc();
                         continue;
@@ -165,7 +229,7 @@ impl<'qs> Parser<'qs> {
                 b'=' => {
                     // we have a simple key with a value
                     // parse the value and insert it into the map
-                    let key = self.collect_str()?.ok_or_else(|| {
+                    let key = self.collect_key()?.ok_or_else(|| {
                         // empty key
                         super::Error::parse_err("empty key", self.index)
                     })?;
@@ -176,7 +240,7 @@ impl<'qs> Parser<'qs> {
                     // we have a nested key
                     // first get the first segment of the key
                     // and parse the rest of the key
-                    let root = self.collect_str()?.ok_or_else(|| {
+                    let root = self.collect_key()?.ok_or_else(|| {
                         // empty key
                         super::Error::parse_err("empty key", self.index)
                     })?;
@@ -246,7 +310,7 @@ impl<'qs> Parser<'qs> {
                     let Some(b) = self.next() else {
                         // we've reached the end of the string
                         // without encountering a terminating value (e.g. `=` or `&`)
-                        let key = self.collect_str()?.expect("key cannot be empty");
+                        let key = self.collect_key()?.expect("key cannot be empty");
                         insert_unique(self, map, key, ParsedValue::Null)?;
                         return Ok(());
                     };
@@ -254,13 +318,13 @@ impl<'qs> Parser<'qs> {
                     match b {
                         b'&' => {
                             // no value
-                            let key = self.collect_str()?.expect("key cannot be empty");
+                            let key = self.collect_key()?.expect("key cannot be empty");
                             insert_unique(self, map, key, ParsedValue::Null)?;
                         }
                         b'=' => {
                             // we have a simple key with a value
                             // parse the value and insert it into the map
-                            let key = self.collect_str()?.expect("key cannot be empty");
+                            let key = self.collect_key()?.expect("key cannot be empty");
                             let value = self.parse_value()?;
                             insert_unique(self, map, key, value)?;
                         }
@@ -283,7 +347,7 @@ impl<'qs> Parser<'qs> {
 
                     if b == b']' {
                         // finished parsing the key
-                        let segment = self.collect_str()?.expect("key cannot be empty");
+                        let segment = self.collect_key()?.expect("key cannot be empty");
 
                         // get next byte to determine next step
                         let Some(x) = self.next() else {
@@ -330,7 +394,7 @@ impl<'qs> Parser<'qs> {
 fn insert_unique<'qs>(
     parser: &mut Parser<'_>,
     map: &mut ParsedMap<'qs>,
-    key: Cow<'qs, str>,
+    key: Key<'qs>,
     value: ParsedValue<'qs>,
 ) -> Result<()> {
     match map.entry(key) {

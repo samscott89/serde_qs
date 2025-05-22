@@ -254,12 +254,12 @@ mod btree_map {
     pub use std::collections::btree_map::Entry;
     pub use std::collections::BTreeMap as Map;
 
-    pub fn remove_entry<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<(K, V)>
+    pub fn remove<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<V>
     where
         K: Borrow<Q> + Ord,
         Q: ?Sized + Ord,
     {
-        map.remove_entry(key)
+        map.remove(key)
     }
 
     pub fn pop_first<K: Ord, V>(map: &mut Map<K, V>) -> Option<(K, V)> {

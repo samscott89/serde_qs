@@ -41,11 +41,10 @@ mod string_parser;
 
 use crate::error::{Error, Result};
 
-use parse::{ParsedValue, ParsingOptions};
+use parse::{Key, ParsedValue, ParsingOptions};
 use serde::de;
 use string_parser::StringParsingDeserializer;
 
-use crate::map::Map;
 use std::borrow::Cow;
 
 /// To override the default serialization parameters, first construct a new
@@ -345,11 +344,12 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
         // we'll prefer to use the field order if it exists
         if let Some(field_order) = &mut self.field_order {
             for (idx, field) in field_order.iter().enumerate() {
-                if let Some((key, value)) = crate::map::remove_entry(&mut self.parsed, *field) {
+                let field_key = (*field).into();
+                if let Some(value) = crate::map::remove(&mut self.parsed, &field_key) {
                     *field_order = &field_order[idx + 1..];
                     self.popped_value = Some(value);
                     return seed
-                        .deserialize(StringParsingDeserializer::new(key))
+                        .deserialize(StringParsingDeserializer::new((*field).into()))
                         .map(Some);
                 }
             }
@@ -359,8 +359,8 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
         // just iterate remaining elements in the map
         if let Some((key, value)) = crate::map::pop_first(&mut self.parsed) {
             self.popped_value = Some(value);
-            let has_bracket = key.contains('[');
-            seed.deserialize(StringParsingDeserializer::new(key))
+            let has_bracket = matches!(key, Key::String(ref s) if s.contains('['));
+            key.deserialize_seed(seed)
                 .map(Some)
                 .map_err(|e| {
                     if has_bracket {
@@ -400,10 +400,7 @@ impl<'a, 'de: 'a> de::EnumAccess<'de> for MapDeserializer<'a, 'de> {
     {
         if let Some((key, value)) = crate::map::pop_first(&mut self.parsed) {
             self.popped_value = Some(value);
-            Ok((
-                seed.deserialize(StringParsingDeserializer::<'_, Error>::new(key))?,
-                self,
-            ))
+            Ok((key.deserialize_seed(seed)?, self))
         } else {
             Err(de::Error::custom("No more values"))
         }
@@ -510,22 +507,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.0 {
-            ParsedValue::Map(parsed) => {
-                #[derive(PartialEq, Eq, PartialOrd, Ord)]
-                enum ParsedInteger<'a> {
-                    Int(usize),
-                    String(Cow<'a, str>),
-                }
-                // attempt to parse the map as a sequence of ordered keys
-                let ordered_map = parsed
-                    .into_iter()
-                    .map(|(key, v)| match key.parse::<usize>() {
-                        Ok(idx) => (ParsedInteger::Int(idx), v),
-                        Err(_) => (ParsedInteger::String(key), v),
-                    })
-                    .collect::<Map<_, _>>();
-                visitor.visit_seq(Seq(ordered_map.into_values()))
-            }
+            ParsedValue::Map(parsed) => visitor.visit_seq(Seq(parsed.into_values())),
             ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
             _ => self.deserialize_any(visitor),
         }
