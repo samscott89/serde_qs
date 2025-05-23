@@ -887,3 +887,100 @@ fn deserialize_repeat_keys() {
         }
     );
 }
+
+#[test]
+fn depth_one() {
+    #[derive(Debug, Default, serde::Serialize, serde::Deserialize, PartialEq)]
+    #[serde(default, deny_unknown_fields)]
+    struct Form {
+        id: i64,
+        name: String,
+        vec: Vec<String>,
+    }
+
+    let c = serde_qs::Config::new(1);
+
+    //  works correct
+    let s = "id=2";
+    assert_eq!(
+        c.deserialize_str::<Form>(s).unwrap(),
+        Form {
+            id: 2,
+            ..Default::default()
+        }
+    );
+
+    let s = "name=test";
+    assert_eq!(
+        c.deserialize_str::<Form>(s).unwrap(),
+        Form {
+            name: "test".to_string(),
+            ..Default::default()
+        }
+    );
+
+    #[cfg(feature = "permissive_decoding")]
+    {
+        let s = "id=3&name=&vec%5B1%5D=Vector";
+        assert_eq!(
+            c.deserialize_str::<Form>(s).unwrap(),
+            Form {
+                id: 3,
+                name: "".to_string(),
+                vec: vec!["Vector".to_string()],
+            }
+        );
+    }
+
+    let s = "vec[0]=Vector";
+    assert_eq!(
+        c.deserialize_str::<Form>(s).unwrap(),
+        Form {
+            id: 0,
+            name: "".to_string(),
+            vec: vec!["Vector".to_string()],
+        }
+    );
+
+    #[cfg(feature = "permissive_decoding")]
+    {
+        let s = "vec%5B1%5D=Vector";
+        assert_eq!(
+            c.deserialize_str::<Form>(s).unwrap(),
+            Form {
+                id: 0,
+                name: "".to_string(),
+                vec: vec!["Vector".to_string()],
+            }
+        );
+
+        let s = "name=&vec%5B1%5D=Vector";
+        assert_eq!(
+            c.deserialize_str::<Form>(s).unwrap(),
+            Form {
+                id: 0,
+                name: "".to_string(),
+                vec: vec!["Vector".to_string()],
+            }
+        );
+    }
+
+    let s = "name=&vec[0]=Vector";
+    assert_eq!(
+        c.deserialize_str::<Form>(s).unwrap(),
+        Form {
+            id: 0,
+            name: "".to_string(),
+            vec: vec!["Vector".to_string()],
+        }
+    );
+    let s = "name=test&vec[0]=Vector";
+    assert_eq!(
+        c.deserialize_str::<Form>(s).unwrap(),
+        Form {
+            id: 0,
+            name: "test".to_string(),
+            vec: vec!["Vector".to_string()],
+        }
+    );
+}
