@@ -30,27 +30,27 @@ The benchmarks are organized into several categories to measure performance acro
 #### Simple Data Structures
 | Operation | Structure | Time |
 |-----------|-----------|------|
-| Serialize | Simple struct | ~425ns |
-| Deserialize | Simple struct | ~362ns |
-| Serialize | HashMap (3 items) | ~525ns |
-| Deserialize | HashMap (3 items) | ~493ns |
-| Serialize | Vec (5 items) | ~1.1μs |
-| Deserialize | Vec (5 items) | ~925ns |
+| Serialize | Simple struct | ~419ns |
+| Deserialize | Simple struct | ~294ns |
+| Serialize | HashMap (3 items) | ~534ns |
+| Deserialize | HashMap (3 items) | ~462ns |
+| Serialize | Vec (5 items) | ~1.13μs |
+| Deserialize | Vec (5 items) | ~496ns |
 
 #### Complex/Nested Data Structures
 | Operation | Structure | Time |
 |-----------|-----------|------|
-| Serialize | Nested struct (2 levels) | ~2.1μs |
-| Deserialize | Nested struct (2 levels) | ~1.8μs |
-| Serialize | Deep nested (4 levels) | ~3.7μs |
-| Deserialize | Deep nested (4 levels) | ~3.6μs |
-| Serialize | Large vec (100 items) | ~21μs |
-| Deserialize | Large vec (100 items) | ~21μs |
+| Serialize | Nested struct (2 levels) | ~2.14μs |
+| Deserialize | Nested struct (2 levels) | ~1.36μs |
+| Serialize | Deep nested (4 levels) | ~3.69μs |
+| Deserialize | Deep nested (4 levels) | ~2.57μs |
+| Serialize | Large vec (100 items) | ~21.5μs |
+| Deserialize | Large vec (100 items) | ~8.76μs |
 
 #### Comparison with serde_urlencoded
 | Structure | Library | Serialize | Deserialize |
 |-----------|---------|-----------|-------------|
-| Simple struct | serde_qs | ~425ns | ~384ns |
-| Simple struct | serde_urlencoded | ~134ns (**3x faster**) | ~166ns (**2.3x faster**) |
-| HashMap | serde_qs | ~536ns | ~560ns |
-| HashMap | serde_urlencoded | ~175ns (**3x faster**) | ~352ns (**1.6x faster**) |
+| Simple struct | serde_qs | ~424ns | ~297ns |
+| Simple struct | serde_urlencoded | ~135ns (**3.1x faster**) | ~172ns (**1.7x faster**) |
+| HashMap | serde_qs | ~514ns | ~458ns |
+| HashMap | serde_urlencoded | ~178ns (**2.9x faster**) | ~345ns (**1.3x faster**) |

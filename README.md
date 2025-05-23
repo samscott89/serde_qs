@@ -50,14 +50,14 @@ This crate includes comprehensive benchmarks to help you understand performance 
 
 ### Benchmark Results Summary
 
-For simple flat structures, `serde_urlencoded` is approximately **3x faster**:
-- **Simple struct**: `serde_urlencoded` ~134ns vs `serde_qs` ~425ns (serialize)
-- **HashMap**: `serde_urlencoded` ~175ns vs `serde_qs` ~536ns (serialize)
+For simple flat structures, `serde_urlencoded` is approximately **1.7-3x faster**:
+- **Simple struct**: `serde_urlencoded` ~135ns vs `serde_qs` ~424ns (serialize), ~172ns vs ~297ns (deserialize)
+- **HashMap**: `serde_urlencoded` ~178ns vs `serde_qs` ~514ns (serialize), ~345ns vs ~458ns (deserialize)
 
 However, `serde_qs` provides unique capabilities for nested structures:
-- **Nested structs**: ~2.1μs (serialize), ~1.8μs (deserialize)
-- **Deep nesting (4 levels)**: ~3.7μs (serialize), ~3.6μs (deserialize)
-- **Large collections (100 items)**: ~21μs (serialize/deserialize)
+- **Nested structs**: ~2.14μs (serialize), ~1.36μs (deserialize)
+- **Deep nesting (4 levels)**: ~3.69μs (serialize), ~2.57μs (deserialize)
+- **Large collections (100 items)**: ~21.5μs (serialize), ~8.76μs (deserialize)
 
 ### Running Benchmarks
 
