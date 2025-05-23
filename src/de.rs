@@ -70,12 +70,12 @@ use std::borrow::Cow;
 /// use serde_qs::Config;
 /// use std::collections::HashMap;
 ///
-/// let config = Config::new(0, true);
+/// let config = Config::new(0);
 /// let map: HashMap<String, String> = config.deserialize_str("a[b][c]=1")
 ///                                          .unwrap();
 /// assert_eq!(map.get("a[b][c]").unwrap(), "1");
 ///
-/// let config = Config::new(10, true);
+/// let config = Config::new(10);
 /// let map: HashMap<String, HashMap<String, HashMap<String, String>>> =
 ///             config.deserialize_str("a[b][c]=1").unwrap();
 /// assert_eq!(map.get("a").unwrap().get("b").unwrap().get("c").unwrap(), "1");
@@ -503,6 +503,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         match self.0 {
             ParsedValue::Map(parsed) => visitor.visit_seq(Seq(parsed.into_values())),
             ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
+            ParsedValue::Null => visitor.visit_seq(Seq(std::iter::empty())),
             _ => self.deserialize_any(visitor),
         }
     }

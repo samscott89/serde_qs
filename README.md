@@ -1,6 +1,5 @@
 # Serde Querystrings [![badge-ci]][badge-ci-link] [![Latest Version]][crates.io] [![Documentation]][docs-rs] 
 
-
 [badge-ci]: https://github.com/samscott89/serde_qs/workflows/Rust%20CI%20checks/badge.svg
 [badge-ci-link]: https://github.com/samscott89/serde_qs/actions?query=workflow%3A%22Rust+CI+checks%22+branch%3Amain
 [Latest Version]: https://img.shields.io/crates/v/serde_qs.svg
@@ -9,23 +8,26 @@
 [docs-rs]: https://docs.rs/serde_qs/
 
 This crate is a Rust library for serialising to and deserialising from
-querystrings. This crate is designed to extend [`serde_urlencoded`][urlencoded]
+querystrings using [`serde`][Serde]. This crate is designed to extend [`serde_urlencoded`][urlencoded]
 when using nested parameters, similar to those used by [qs][qs] for Node, and
 commonly used by Ruby on Rails via [Rack][Rack].
 
 The core of the library was inspired by [`serde_urlencoded`][urlencoded].
-In order to support abitrarily nested structs encoded in arbitrary orders, we
-perform two passes over the input string. This likely adds a non-trivial amount
-of memory and compute. Due to this `serde_urlencoded` should be preferred
-over this crate whenever non-nested query parameters are sufficient. The crate is built
-upon [Serde], a high performance generic serialization framework and [rust-url],
-a URL parser for Rust.
+In order to support _deserializing_ abitrarily nested structs encoded in arbitrary orders, we
+perform two passes over the input string. This adds a non-trivial amount
+of memory and compute, approximately a 50% overhead compared to `serde_urlencoded`.
+However, in absolute terms, deserialization is on the order of single-digit microseconds.
+
+Similarly, serialization needs to buffer keys in case there are nested values,
+resulting in about 50% overhead.
+
+For detailed benchmark documentation, see [`benches/README.md`](benches/README.md).
 
 [rust-url]: https://github.com/servo/rust-url
 [Serde]: https://github.com/serde-rs/serde
 [urlencoded]: https://github.com/nox/serde_urlencoded
 [qs]: https://www.npmjs.com/package/qs
-[Rack]: http://www.rubydoc.info/github/rack/rack/Rack/Utils#parse_nested_query-class_method
+[Rack]: https://www.rubydoc.info/gems/rack/3.1.15/Rack/Utils#parse_nested_query-class_method
 
 Installation
 ============
@@ -44,42 +46,6 @@ For older versions of Rust, `serde_qs` versions `<= 0.11` support Rust 1.36.
 
 [crates.io]: https://crates.io/crates/serde_qs
 
-## Performance
-
-This crate includes comprehensive benchmarks to help you understand performance characteristics and make informed decisions about when to use `serde_qs` vs alternatives like `serde_urlencoded`.
-
-### Benchmark Results Summary
-
-For simple flat structures, `serde_urlencoded` is approximately **1.7-3x faster**:
-- **Simple struct**: `serde_urlencoded` ~135ns vs `serde_qs` ~424ns (serialize), ~172ns vs ~297ns (deserialize)
-- **HashMap**: `serde_urlencoded` ~178ns vs `serde_qs` ~514ns (serialize), ~345ns vs ~458ns (deserialize)
-
-However, `serde_qs` provides unique capabilities for nested structures:
-- **Nested structs**: ~2.14μs (serialize), ~1.36μs (deserialize)
-- **Deep nesting (4 levels)**: ~3.69μs (serialize), ~2.57μs (deserialize)
-- **Large collections (100 items)**: ~21.5μs (serialize), ~8.76μs (deserialize)
-
-### Running Benchmarks
-
-```bash
-# Run all benchmarks
-cargo bench --bench serde_qs_benchmarks
-
-# Run specific categories
-cargo bench --bench serde_qs_benchmarks -- serialize_simple
-cargo bench --bench serde_qs_benchmarks -- comparison
-
-# View detailed results
-open target/criterion/report/index.html
-```
-
-For detailed benchmark documentation, see [`benches/README.md`](benches/README.md).
-
-### Performance Recommendations
-
-- **Use `serde_urlencoded`** for simple flat structures where performance is critical
-- **Use `serde_qs`** when you need nested object support, arrays, or complex query parameter structures
-- **Consider the trade-off**: ~3x performance cost for nested structure capabilities
 
 ## License
 

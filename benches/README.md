@@ -20,7 +20,6 @@ The benchmarks are organized into several categories to measure performance acro
 
 ### 3. Performance Comparisons
 - **vs serde_urlencoded**: Direct comparison for flat structures where both libraries work
-- **Scaling analysis**: Performance characteristics as data complexity increases
 
 
 ## Benchmark Results
@@ -30,27 +29,27 @@ The benchmarks are organized into several categories to measure performance acro
 #### Simple Data Structures
 | Operation | Structure | Time |
 |-----------|-----------|------|
-| Serialize | Simple struct | ~419ns |
-| Deserialize | Simple struct | ~294ns |
-| Serialize | HashMap (3 items) | ~534ns |
-| Deserialize | HashMap (3 items) | ~462ns |
-| Serialize | Vec (5 items) | ~1.13μs |
-| Deserialize | Vec (5 items) | ~496ns |
+| Serialize | Simple struct | ~183ns |
+| Deserialize | Simple struct | ~296ns |
+| Serialize | HashMap (3 items) | ~199ns |
+| Deserialize | HashMap (3 items) | ~455ns |
+| Serialize | Vec (5 items) | ~309ns |
+| Deserialize | Vec (5 items) | ~491ns |
 
 #### Complex/Nested Data Structures
 | Operation | Structure | Time |
 |-----------|-----------|------|
-| Serialize | Nested struct (2 levels) | ~2.14μs |
-| Deserialize | Nested struct (2 levels) | ~1.36μs |
-| Serialize | Deep nested (4 levels) | ~3.69μs |
-| Deserialize | Deep nested (4 levels) | ~2.57μs |
-| Serialize | Large vec (100 items) | ~21.5μs |
-| Deserialize | Large vec (100 items) | ~8.76μs |
+| Serialize | Nested struct (2 levels) | ~739ns |
+| Deserialize | Nested struct (2 levels) | ~1.28μs |
+| Serialize | Deep nested (4 levels) | ~1.10μs |
+| Deserialize | Deep nested (4 levels) | ~2.47μs |
+| Serialize | Large vec (100 items) | ~4.97μs |
+| Deserialize | Large vec (100 items) | ~8.16μs |
 
 #### Comparison with serde_urlencoded
 | Structure | Library | Serialize | Deserialize |
 |-----------|---------|-----------|-------------|
-| Simple struct | serde_qs | ~424ns | ~297ns |
-| Simple struct | serde_urlencoded | ~135ns (**3.1x faster**) | ~172ns (**1.7x faster**) |
-| HashMap | serde_qs | ~514ns | ~458ns |
-| HashMap | serde_urlencoded | ~178ns (**2.9x faster**) | ~345ns (**1.3x faster**) |
+| Simple struct | serde_qs | ~181ns | ~295ns |
+| Simple struct | serde_urlencoded | ~136ns (**33% faster**) | ~183ns (**61% faster**) |
+| HashMap | serde_qs | ~198ns | ~464ns |
+| HashMap | serde_urlencoded | ~174ns (**14% faster**) | ~352ns (**32% faster**) |
