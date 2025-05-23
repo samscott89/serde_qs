@@ -176,7 +176,7 @@ fn serialize_bytes() {
     }
     let bytes = Bytes(b"hello, world!");
     let s = qs::to_string(&Query { bytes }).unwrap();
-    assert_eq!(s, "bytes=hello%2C+world%21");
+    assert_eq!(s, "bytes=hello,+world%21");
 }
 
 #[test]

@@ -733,6 +733,8 @@ const QS_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'*')
     .remove(b'-')
     .remove(b'.')
+    .remove(b',')
+    .remove(b'|')
     .remove(b'_');
 
 fn encode(b: &[u8]) -> impl Iterator<Item = Cow<'_, [u8]>> + '_ {

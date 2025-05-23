@@ -204,6 +204,7 @@ compile_error!(
 
 mod de;
 mod error;
+pub mod helpers;
 mod ser;
 
 #[doc(inline)]
