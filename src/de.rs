@@ -644,14 +644,21 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        if let ParsedValue::Map(mut parsed) = self.0 {
-            visitor.visit_map(MapDeserializer {
+        match self.0 {
+            ParsedValue::Map(mut parsed) => visitor.visit_map(MapDeserializer {
                 parsed: &mut parsed,
                 field_order: None,
                 popped_value: None,
-            })
-        } else {
-            self.deserialize_any(visitor)
+            }),
+            ParsedValue::Null => {
+                let mut empty_map = parse::ParsedMap::default();
+                return visitor.visit_map(MapDeserializer {
+                    parsed: &mut empty_map,
+                    field_order: None,
+                    popped_value: None,
+                });
+            }
+            _ => self.deserialize_any(visitor),
         }
     }
 

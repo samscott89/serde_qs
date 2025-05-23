@@ -327,7 +327,7 @@ impl<'a, W: Write> ser::Serializer for &'a mut QsSerializer<W> {
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        Ok(QsMap(self))
+        Ok(QsMap::new(self))
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
@@ -514,7 +514,16 @@ impl<'s, W: Write> ser::SerializeStructVariant for &'s mut QsSerializer<W> {
 }
 
 #[doc(hidden)]
-pub struct QsMap<'s, W: Write>(&'s mut QsSerializer<W>);
+pub struct QsMap<'s, W: Write> {
+    qs: &'s mut QsSerializer<W>,
+    empty: bool,
+}
+
+impl<'a, W: Write> QsMap<'a, W> {
+    fn new(qs: &'a mut QsSerializer<W>) -> Self {
+        Self { qs, empty: true }
+    }
+}
 
 impl<W: Write> ser::SerializeMap for QsMap<'_, W> {
     type Ok = ();
@@ -524,7 +533,8 @@ impl<W: Write> ser::SerializeMap for QsMap<'_, W> {
     where
         T: ser::Serialize + ?Sized,
     {
-        key.serialize(KeySerializer::new(&mut self.0))?;
+        self.empty = false;
+        key.serialize(KeySerializer::new(&mut self.qs))?;
         Ok(())
     }
 
@@ -532,11 +542,16 @@ impl<W: Write> ser::SerializeMap for QsMap<'_, W> {
     where
         T: ser::Serialize + ?Sized,
     {
-        value.serialize(&mut *self.0)?;
-        self.0.pop_key()
+        value.serialize(&mut *self.qs)?;
+        self.qs.pop_key()
     }
 
     fn end(self) -> Result<Self::Ok> {
+        if self.empty {
+            // if we didn't serialize any elements, we'll write a null
+            // value
+            self.qs.write_unit()?;
+        }
         Ok(())
     }
 }

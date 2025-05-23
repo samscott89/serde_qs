@@ -1122,3 +1122,32 @@ fn empty_vec() {
     let deserialized = serde_qs::from_str::<SmallerData>(&serialized).unwrap();
     assert_eq!(deserialized, data);
 }
+
+#[test]
+fn empty_map() {
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct Data {
+        values: HashMap<String, String>,
+    }
+
+    let data = Data {
+        values: HashMap::new(),
+    };
+    let serialized = serde_qs::to_string(&data).unwrap();
+
+    let deserialized = serde_qs::from_str::<Data>(&serialized).unwrap();
+    assert_eq!(deserialized, data);
+
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct SmallerData {
+        #[serde(skip_serializing_if = "HashMap::is_empty", default)]
+        values: HashMap<String, String>,
+    }
+
+    let data = SmallerData {
+        values: HashMap::new(),
+    };
+    let serialized = serde_qs::to_string(&data).unwrap();
+    let deserialized = serde_qs::from_str::<SmallerData>(&serialized).unwrap();
+    assert_eq!(deserialized, data);
+}
