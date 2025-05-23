@@ -984,3 +984,57 @@ fn depth_one() {
         }
     );
 }
+
+#[test]
+fn deserialize_serde_json_value() {
+    let value = serde_json::json!({ "hello": "10" });
+    assert_eq!(serde_qs::to_string(&value).unwrap(), "hello=10");
+
+    assert_eq!(
+        serde_qs::from_str::<serde_json::Value>("hello=10").unwrap(),
+        value
+    );
+    assert_eq!(
+        serde_qs::from_str::<serde_json::Value>("").unwrap(),
+        serde_json::Value::Null,
+    );
+}
+
+#[test]
+fn deserialize_vec() {
+    // we can handle vectors as long as they have the same repeating key
+    let values: Vec<u8> = serde_qs::from_str("vec[1]=1&vec[0]=0").unwrap();
+    assert_eq!(values, vec![0, 1]);
+
+    // unordered sequences are also fine
+    let values: Vec<u8> = serde_qs::from_str("vec[]=1&vec[]=2").unwrap();
+    assert_eq!(values, vec![1, 2]);
+
+    // empty vectors are fine too
+    let values: Vec<u8> = serde_qs::from_str("").unwrap();
+    assert!(values.is_empty());
+
+    // basically ignores all the keys and just returns the values
+    let err = serde_qs::from_str::<Vec<u8>>("foo=1&bar=2").unwrap_err();
+    assert!(
+        err.to_string().contains("found multiple keys"),
+        "got: {}",
+        err
+    );
+
+    // slightly weird: we can actually handle string keys too, they will be sorted
+    // lexicographically
+    let values: Vec<u8> = serde_qs::from_str("vec[b]=1&vec[a]=2").unwrap();
+    assert_eq!(values, vec![2, 1]);
+}
+
+#[test]
+fn deserialize_primitive_errors() {
+    let err = serde_qs::from_str::<String>("hello").unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("invalid type: map, expected a string"),
+        "got: {}",
+        err
+    );
+}

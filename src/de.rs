@@ -215,10 +215,10 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         if self.parsed.is_empty() {
-            return visitor.visit_unit();
+            visitor.visit_unit()
+        } else {
+            self.deserialize_map(visitor)
         }
-
-        Err(Error::top_level("primitive"))
     }
 
     fn deserialize_map<V>(mut self, visitor: V) -> Result<V::Value>
@@ -243,14 +243,21 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
         visitor.visit_map(nested_qs)
     }
 
-    /// Throws an error.
-    ///
-    /// Sequences are not supported at the top level.
-    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Error::top_level("sequence"))
+        // dbg!(&self.parsed);
+
+        if self.parsed.len() > 1 {
+            return Err(de::Error::custom("input error: expecting a sequence which implies a single repeating key or with sequence indices, but found multiple keys"));
+        }
+        // if the map is empty we can just return an empty sequence
+        let Some((_, v)) = self.parsed.pop_last() else {
+            return visitor.visit_seq(Seq(std::iter::empty()));
+        };
+        // otherwise, attempt to deserialize the value as a sequence
+        ValueDeserializer(v).deserialize_seq(visitor)
     }
 
     fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
