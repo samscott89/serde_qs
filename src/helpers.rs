@@ -86,30 +86,6 @@ pub mod generic_delimiter {
 /// );
 /// # }
 /// ```
-///
-/// NOTE: strings with commas will be
-/// ```
-/// use serde::{Deserialize, Serialize};
-///
-/// #[derive(Debug, PartialEq, Deserialize, Serialize)]
-/// struct Query {
-///     #[serde(with = "serde_qs::helpers::comma_separated")]
-///     values: Vec<String>,
-/// }
-///
-/// # fn main(){
-/// let query = Query { values: vec!["foo, bar".into(), "qux".into()] };
-/// let serialized = serde_qs::to_string(&query).unwrap();
-/// assert_eq!(
-///     serialized,
-///    "values=1,2,3"
-/// );
-/// assert_eq!(
-///     serde_qs::from_str::<Query>(&serialized).unwrap(),
-///     query
-/// );
-/// # }
-/// ```
 pub mod comma_separated {
     use serde::{Deserializer, Serializer};
     use std::str::FromStr;

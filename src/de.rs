@@ -564,6 +564,29 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         }
     }
 
+    fn deserialize_tuple<V>(
+        self,
+        _len: usize,
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.deserialize_seq(visitor)
+    }
+
+    fn deserialize_tuple_struct<V>(
+        self,
+        _name: &'static str,
+        _len: usize,
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.deserialize_seq(visitor)
+    }
+
     fn deserialize_struct<V>(
         self,
         _name: &'static str,
@@ -693,9 +716,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         bytes
         byte_buf
         unit_struct
-        tuple_struct
         identifier
-        tuple
         ignored_any
     }
 

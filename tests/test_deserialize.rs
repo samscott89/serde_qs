@@ -1151,3 +1151,27 @@ fn empty_map() {
     let deserialized = serde_qs::from_str::<SmallerData>(&serialized).unwrap();
     assert_eq!(deserialized, data);
 }
+
+#[test]
+fn nested_tuple() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        vec: Vec<(u32, String)>,
+    }
+
+    let result: Query = qs::from_str("vec[0][0]=1&vec[0][1]=test").unwrap();
+    assert_eq!(
+        result,
+        Query {
+            vec: vec![(1, "test".to_string())],
+        }
+    );
+
+    let err = qs::from_str::<Query>("vec[0][0]=1").unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("invalid length 1, expected a tuple of size 2"),
+        "got: {}",
+        err
+    );
+}
