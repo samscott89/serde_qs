@@ -1096,3 +1096,29 @@ fn deserialize_unit_struct() {
     let result: Query = qs::from_str("").unwrap();
     assert_eq!(result, Query);
 }
+
+#[test]
+fn empty_vec() {
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct Data {
+        values: Vec<String>,
+    }
+
+    let data = Data { values: Vec::new() };
+    let serialized = serde_qs::to_string(&data).unwrap();
+
+    let deserialized = serde_qs::from_str::<Data>(&serialized).unwrap();
+    assert_eq!(deserialized, data);
+
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct SmallerData {
+        #[serde(skip_serializing_if = "Vec::is_empty", default)]
+        values: Vec<String>,
+    }
+
+    let data = SmallerData { values: Vec::new() };
+    let serialized = serde_qs::to_string(&data).unwrap();
+
+    let deserialized = serde_qs::from_str::<SmallerData>(&serialized).unwrap();
+    assert_eq!(deserialized, data);
+}

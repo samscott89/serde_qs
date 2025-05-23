@@ -413,6 +413,11 @@ impl<W: Write> ser::SerializeTuple for QsSeq<'_, W> {
     }
 
     fn end(self) -> Result<Self::Ok> {
+        // if we didn't serialize any elements, we'll write a null
+        // value
+        if self.counter == 0 {
+            self.qs.write_unit()?;
+        }
         Ok(())
     }
 }
@@ -429,6 +434,11 @@ impl<W: Write> ser::SerializeSeq for QsSeq<'_, W> {
         self.qs.pop_key()
     }
     fn end(self) -> Result<Self::Ok> {
+        // if we didn't serialize any elements, we'll write a null
+        // value
+        if self.counter == 0 {
+            self.qs.write_unit()?;
+        }
         Ok(())
     }
 }
