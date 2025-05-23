@@ -4,15 +4,13 @@ use percent_encoding::percent_encode;
 use serde::ser;
 
 use crate::error::*;
-use crate::utils::*;
+
+mod encode;
 
 use std::borrow::Cow;
 use std::fmt::Display;
 use std::io::Write;
 use std::str;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
 
 /// Serializes a value into a querystring.
 ///
@@ -42,7 +40,8 @@ use std::sync::Arc;
 /// ```
 pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
     let mut buffer = Vec::new();
-    input.serialize(&mut Serializer::new(&mut buffer))?;
+    let mut serializer = QsSerializer::new(&mut buffer);
+    input.serialize(&mut serializer)?;
     String::from_utf8(buffer).map_err(Error::from)
 }
 
@@ -74,39 +73,14 @@ pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
 /// # }
 /// ```
 pub fn to_writer<T: ser::Serialize, W: Write>(input: &T, writer: &mut W) -> Result<()> {
-    input.serialize(&mut Serializer::new(writer))
-}
-
-pub struct Serializer<W: Write> {
-    writer: W,
-}
-
-impl<W: Write> Serializer<W> {
-    pub fn new(writer: W) -> Self {
-        Self { writer }
-    }
-
-    fn as_qs_serializer(&mut self) -> QsSerializer<W> {
-        QsSerializer {
-            writer: &mut self.writer,
-            first: Arc::new(AtomicBool::new(true)),
-            key: None,
-        }
-    }
+    let mut serializer = QsSerializer::new(writer);
+    input.serialize(&mut serializer)
 }
 
 macro_rules! serialize_as_string {
-    (Serializer $($ty:ty => $meth:ident,)*) => {
-        $(
-            fn $meth(self, v: $ty) -> Result<Self::Ok> {
-                let qs_serializer = self.as_qs_serializer();
-                qs_serializer.$meth(v)
-            }
-        )*
-    };
     (Qs $($ty:ty => $meth:ident,)*) => {
         $(
-            fn $meth(mut self, v: $ty) -> Result<Self::Ok> {
+            fn $meth(self, v: $ty) -> Result<Self::Ok> {
                 self.write_value(&v.to_string().as_bytes())
             }
         )*
@@ -120,131 +94,6 @@ macro_rules! serialize_as_string {
     };
 }
 
-impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
-    type Ok = ();
-    type Error = Error;
-    type SerializeSeq = QsSeq<'a, W>;
-    type SerializeTuple = QsSeq<'a, W>;
-    type SerializeTupleStruct = QsSeq<'a, W>;
-    type SerializeTupleVariant = QsSeq<'a, W>;
-    type SerializeMap = QsMap<'a, W>;
-    type SerializeStruct = QsSerializer<'a, W>;
-    type SerializeStructVariant = QsSerializer<'a, W>;
-
-    serialize_as_string! {
-        Serializer
-        bool => serialize_bool,
-        u8  => serialize_u8,
-        u16 => serialize_u16,
-        u32 => serialize_u32,
-        u64 => serialize_u64,
-        i8  => serialize_i8,
-        i16 => serialize_i16,
-        i32 => serialize_i32,
-        i64 => serialize_i64,
-        f32 => serialize_f32,
-        f64 => serialize_f64,
-        char => serialize_char,
-        &str => serialize_str,
-    }
-
-    fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok> {
-        self.as_qs_serializer().serialize_bytes(value)
-    }
-
-    fn serialize_unit(self) -> Result<Self::Ok> {
-        self.as_qs_serializer().serialize_unit()
-    }
-
-    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok> {
-        self.as_qs_serializer().serialize_unit_struct(name)
-    }
-
-    fn serialize_unit_variant(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-    ) -> Result<Self::Ok> {
-        self.as_qs_serializer()
-            .serialize_unit_variant(name, variant_index, variant)
-    }
-
-    fn serialize_newtype_struct<T: ?Sized + ser::Serialize>(
-        self,
-        name: &'static str,
-        value: &T,
-    ) -> Result<Self::Ok> {
-        self.as_qs_serializer()
-            .serialize_newtype_struct(name, value)
-    }
-
-    fn serialize_newtype_variant<T: ?Sized + ser::Serialize>(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        value: &T,
-    ) -> Result<Self::Ok> {
-        self.as_qs_serializer()
-            .serialize_newtype_variant(name, variant_index, variant, value)
-    }
-
-    fn serialize_none(self) -> Result<Self::Ok> {
-        self.as_qs_serializer().serialize_none()
-    }
-
-    fn serialize_some<T: ?Sized + ser::Serialize>(self, value: &T) -> Result<Self::Ok> {
-        self.as_qs_serializer().serialize_some(value)
-    }
-
-    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.as_qs_serializer().serialize_seq(len)
-    }
-
-    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
-        self.as_qs_serializer().serialize_tuple(len)
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        name: &'static str,
-        len: usize,
-    ) -> Result<Self::SerializeTupleStruct> {
-        self.as_qs_serializer().serialize_tuple_struct(name, len)
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
-    ) -> Result<Self::SerializeTupleVariant> {
-        self.as_qs_serializer()
-            .serialize_tuple_variant(name, variant_index, variant, len)
-    }
-
-    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.as_qs_serializer().serialize_map(len)
-    }
-
-    fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
-        self.as_qs_serializer().serialize_struct(name, len)
-    }
-
-    fn serialize_struct_variant(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
-    ) -> Result<Self::SerializeStructVariant> {
-        self.as_qs_serializer()
-            .serialize_struct_variant(name, variant_index, variant, len)
-    }
-}
-
 /// A serializer for the querystring format.
 ///
 /// * Supported top-level inputs are structs and maps.
@@ -253,37 +102,48 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
 ///   sequences. Sequences are serialized with an incrementing key index.
 ///
 /// * Newtype structs defer to their inner values.
-#[doc(hidden)]
-pub struct QsSerializer<'a, W: 'a + Write> {
-    key: Option<Cow<'static, str>>,
-    writer: &'a mut W,
-    first: Arc<AtomicBool>,
+pub struct QsSerializer<W: Write> {
+    key: Vec<Vec<u8>>,
+    writer: W,
+    first: bool,
 }
 
-impl<'a, W: 'a + Write> QsSerializer<'a, W> {
+impl<W: Write> QsSerializer<W> {
+    /// Creates a new `QsSerializer` with the given writer.
+    pub fn new(writer: W) -> Self {
+        Self {
+            key: vec![],
+            writer,
+            first: true,
+        }
+    }
+}
+
+impl<W: Write> QsSerializer<W> {
     fn extend_key(&mut self, newkey: &str) {
-        let newkey = percent_encode(newkey.as_bytes(), QS_ENCODE_SET)
-            .map(replace_space)
-            .collect::<String>();
+        let newkey = encode::encode(newkey.as_bytes());
         let key = if let Some(ref key) = self.key {
-            format!("{}[{}]", key, newkey)
+            Cow::Owned(format!("{}[{}]", key, newkey))
         } else {
             newkey
         };
-        self.key = Some(Cow::Owned(key))
+        self.key = Some(key)
     }
 
     fn write_value(&mut self, value: &[u8]) -> Result<()> {
         if let Some(ref key) = self.key {
-            let amp = !self.first.swap(false, Ordering::Relaxed);
+            let amp = if !self.first {
+                self.first = false;
+                true
+            } else {
+                false
+            };
             write!(
                 self.writer,
                 "{}{}={}",
                 if amp { "&" } else { "" },
                 key,
-                percent_encode(value, QS_ENCODE_SET)
-                    .map(replace_space)
-                    .collect::<String>()
+                encode::encode(value)
             )
             .map_err(Error::from)
         } else {
@@ -292,23 +152,18 @@ impl<'a, W: 'a + Write> QsSerializer<'a, W> {
     }
 
     fn write_unit(&mut self) -> Result<()> {
-        let amp = !self.first.swap(false, Ordering::Relaxed);
+        let amp = if !self.first {
+            self.first = false;
+            true
+        } else {
+            false
+        };
         if let Some(ref key) = self.key {
             write!(self.writer, "{}{}", if amp { "&" } else { "" }, key,).map_err(Error::from)
         } else if amp {
             write!(self.writer, "&").map_err(Error::from)
         } else {
             Ok(())
-        }
-    }
-
-    /// Creates a new `QsSerializer` with a distinct key, but `writer` and
-    ///`first` referring to the original data.
-    fn new_from_ref<'b: 'a>(other: &'a mut QsSerializer<'b, W>) -> QsSerializer<'a, W> {
-        Self {
-            key: other.key.clone(),
-            writer: other.writer,
-            first: other.first.clone(),
         }
     }
 }
@@ -320,7 +175,7 @@ impl Error {
     }
 }
 
-impl<'a, W: Write> ser::Serializer for QsSerializer<'a, W> {
+impl<'a, W: Write> ser::Serializer for &'a mut QsSerializer<W> {
     type Ok = ();
     type Error = Error;
     type SerializeSeq = QsSeq<'a, W>;
@@ -348,20 +203,20 @@ impl<'a, W: Write> ser::Serializer for QsSerializer<'a, W> {
         &str => serialize_str,
     }
 
-    fn serialize_bytes(mut self, value: &[u8]) -> Result<Self::Ok> {
+    fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok> {
         self.write_value(value)
     }
 
-    fn serialize_unit(mut self) -> Result<Self::Ok> {
+    fn serialize_unit(self) -> Result<Self::Ok> {
         self.write_unit()
     }
 
-    fn serialize_unit_struct(mut self, _: &'static str) -> Result<Self::Ok> {
+    fn serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok> {
         self.write_unit()
     }
 
     fn serialize_unit_variant(
-        mut self,
+        self,
         _name: &'static str,
         _variant_index: u32,
         variant: &'static str,
@@ -379,7 +234,7 @@ impl<'a, W: Write> ser::Serializer for QsSerializer<'a, W> {
     }
 
     fn serialize_newtype_variant<T: ?Sized + ser::Serialize>(
-        mut self,
+        self,
         _name: &'static str,
         _variant_index: u32,
         variant: &'static str,
@@ -414,7 +269,7 @@ impl<'a, W: Write> ser::Serializer for QsSerializer<'a, W> {
     }
 
     fn serialize_tuple_variant(
-        mut self,
+        self,
         _name: &'static str,
         _variant_index: u32,
         variant: &'static str,
@@ -433,7 +288,7 @@ impl<'a, W: Write> ser::Serializer for QsSerializer<'a, W> {
     }
 
     fn serialize_struct_variant(
-        mut self,
+        self,
         _name: &'static str,
         _variant_index: u32,
         variant: &'static str,
@@ -454,10 +309,10 @@ impl ser::Error for Error {
 }
 
 #[doc(hidden)]
-pub struct QsSeq<'a, W: 'a + Write>(QsSerializer<'a, W>, usize);
+pub struct QsSeq<'s, W: Write>(&'s mut QsSerializer<W>, usize);
 
 #[doc(hidden)]
-pub struct QsMap<'a, W: 'a + Write>(QsSerializer<'a, W>, Option<Cow<'a, str>>);
+pub struct QsMap<'s, W: Write>(&'s mut QsSerializer<W>, Option<Cow<'s, str>>);
 
 impl<W: Write> ser::SerializeTuple for QsSeq<'_, W> {
     type Ok = ();
@@ -468,9 +323,12 @@ impl<W: Write> ser::SerializeTuple for QsSeq<'_, W> {
     {
         let key = self.1.to_string();
         self.1 += 1;
-        let mut serializer = QsSerializer::new_from_ref(&mut self.0);
-        serializer.extend_key(&key);
-        value.serialize(serializer)
+
+        self.0.extend_key(&key);
+        value.serialize(&mut *self.0)
+        // let mut serializer = QsSerializer::new_from_ref(&mut self.0);
+        // serializer.extend_key(&key);
+        // value.serialize(serializer)
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -485,33 +343,32 @@ impl<W: Write> ser::SerializeSeq for QsSeq<'_, W> {
     where
         T: ser::Serialize + ?Sized,
     {
-        let mut serializer = QsSerializer::new_from_ref(&mut self.0);
-        serializer.extend_key(&self.1.to_string());
+        self.0.extend_key(&self.1.to_string());
         self.1 += 1;
-        value.serialize(serializer)
+        value.serialize(&mut *self.0)
     }
     fn end(self) -> Result<Self::Ok> {
         Ok(())
     }
 }
 
-impl<W: Write> ser::SerializeStruct for QsSerializer<'_, W> {
+impl<'a, W: Write> ser::SerializeStruct for &'a mut QsSerializer<W> {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
         T: ser::Serialize + ?Sized,
     {
-        let mut serializer = QsSerializer::new_from_ref(self);
-        serializer.extend_key(key);
-        value.serialize(serializer)
+        // let mut serializer = QsSerializer::new_from_ref(self);
+        self.extend_key(key);
+        value.serialize(&mut **self)
     }
     fn end(self) -> Result<Self::Ok> {
         Ok(())
     }
 }
 
-impl<W: Write> ser::SerializeStructVariant for QsSerializer<'_, W> {
+impl<'s, W: Write> ser::SerializeStructVariant for &'s mut QsSerializer<W> {
     type Ok = ();
     type Error = Error;
 
@@ -519,9 +376,8 @@ impl<W: Write> ser::SerializeStructVariant for QsSerializer<'_, W> {
     where
         T: ser::Serialize + ?Sized,
     {
-        let mut serializer = QsSerializer::new_from_ref(self);
-        serializer.extend_key(key);
-        value.serialize(serializer)
+        self.extend_key(key);
+        value.serialize(&mut **self)
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -537,10 +393,9 @@ impl<W: Write> ser::SerializeTupleVariant for QsSeq<'_, W> {
     where
         T: ser::Serialize + ?Sized,
     {
-        let mut serializer = QsSerializer::new_from_ref(&mut self.0);
-        serializer.extend_key(&self.1.to_string());
+        self.0.extend_key(&self.1.to_string());
         self.1 += 1;
-        value.serialize(serializer)
+        value.serialize(&mut *self.0)
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -556,10 +411,9 @@ impl<W: Write> ser::SerializeTupleStruct for QsSeq<'_, W> {
     where
         T: ser::Serialize + ?Sized,
     {
-        let mut serializer = QsSerializer::new_from_ref(&mut self.0);
-        serializer.extend_key(&self.1.to_string());
+        self.0.extend_key(&self.1.to_string());
         self.1 += 1;
-        value.serialize(serializer)
+        value.serialize(&mut *self.0)
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -583,14 +437,13 @@ impl<W: Write> ser::SerializeMap for QsMap<'_, W> {
     where
         T: ser::Serialize + ?Sized,
     {
-        let mut serializer = QsSerializer::new_from_ref(&mut self.0);
         if let Some(ref key) = self.1 {
-            serializer.extend_key(key);
+            self.0.extend_key(key);
         } else {
             return Err(Error::no_key());
         }
         self.1 = None;
-        value.serialize(serializer)
+        value.serialize(&mut *self.0)
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -602,9 +455,8 @@ impl<W: Write> ser::SerializeMap for QsMap<'_, W> {
         K: ser::Serialize + ?Sized,
         V: ser::Serialize + ?Sized,
     {
-        let mut serializer = QsSerializer::new_from_ref(&mut self.0);
-        serializer.extend_key(&key.serialize(StringSerializer)?);
-        value.serialize(serializer)
+        self.0.extend_key(&key.serialize(StringSerializer)?);
+        value.serialize(&mut *self.0)
     }
 }
 

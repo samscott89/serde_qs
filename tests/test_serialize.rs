@@ -214,24 +214,22 @@ fn test_serializer() {
 
     let mut writer = Vec::new();
     {
-        let serializer = &mut qs::Serializer::new(&mut writer);
         let q = Query {
             a: vec![0, 1],
             b: "b",
         };
-        q.serialize(serializer).unwrap();
+        serde_qs::to_writer(&q, &mut writer).unwrap();
     }
 
     assert_eq!(writer, b"a[0]=0&a[1]=1&b=b");
     writer.clear();
 
     {
-        let serializer = &mut qs::Serializer::new(&mut writer);
         let q = Query {
             a: vec![3, 2],
             b: "a",
         };
-        q.serialize(serializer).unwrap();
+        serde_qs::to_writer(&q, &mut writer).unwrap();
     }
 
     assert_eq!(writer, b"a[0]=3&a[1]=2&b=a");
@@ -249,29 +247,26 @@ fn test_serializer_unit() {
 
     let mut writer = Vec::new();
     {
-        let serializer = &mut qs::Serializer::new(&mut writer);
         // allow this clippy lints cause I like how explicit the test is
         #[allow(clippy::let_unit_value)]
         let q = ();
-        q.serialize(serializer).unwrap();
+        serde_qs::to_writer(&q, &mut writer).unwrap();
     }
 
     assert_eq!(writer, b"", "we are testing ()");
     writer.clear();
 
     {
-        let serializer = &mut qs::Serializer::new(&mut writer);
         let q = A;
-        q.serialize(serializer).unwrap();
+        serde_qs::to_writer(&q, &mut writer).unwrap();
     }
 
     assert_eq!(writer, b"", "we are testing A");
     writer.clear();
 
     {
-        let serializer = &mut qs::Serializer::new(&mut writer);
         let q = B { t: () };
-        q.serialize(serializer).unwrap();
+        serde_qs::to_writer(&q, &mut writer).unwrap();
     }
 
     assert_eq!(writer, b"t", "we are testing B{{t: ()}}");

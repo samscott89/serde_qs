@@ -209,7 +209,6 @@ compile_error!(
 mod de;
 mod error;
 mod ser;
-pub(crate) mod utils;
 
 #[doc(inline)]
 pub use de::{from_bytes, from_str};
@@ -217,7 +216,7 @@ pub use de::{from_bytes, from_str};
 pub use de::{Config, QsDeserializer as Deserializer};
 pub use error::Error;
 #[doc(inline)]
-pub use ser::{to_string, to_writer, Serializer};
+pub use ser::{to_string, to_writer, QsSerializer};
 
 #[cfg(feature = "axum")]
 pub mod axum;
