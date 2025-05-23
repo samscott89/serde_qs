@@ -457,17 +457,42 @@ impl<'de, I: Iterator<Item = ParsedValue<'de>>> de::SeqAccess<'de> for Seq<'de, 
 
 struct ValueDeserializer<'a>(ParsedValue<'a>);
 
+fn get_last_string_value<'a>(seq: &mut Vec<ParsedValue<'a>>) -> Result<Cow<'a, [u8]>> {
+    let Some(last) = seq.pop() else {
+        return Err(de::Error::custom(
+            "internal error: expected a string, found empty sequence",
+        ));
+    };
+
+    if let ParsedValue::String(s) = last {
+        Ok(s)
+    } else {
+        Err(de::Error::custom(format!(
+            "expected a string, found {:?}",
+            last
+        )))
+    }
+}
+
 macro_rules! forward_to_string_parser {
     ($($ty:ident => $meth:ident,)*) => {
         $(
             fn $meth<V>(self, visitor: V) -> Result<V::Value> where V: de::Visitor<'de> {
-                if let ParsedValue::String(s) = self.0 {
-                    return StringParsingDeserializer::new(s)?.$meth(visitor);
-                } else {
-                    return Err(de::Error::custom(
-                        format!("expected a string, found {:?}", self.0),
-                    ));
-                }
+                let s = match self.0 {
+                    ParsedValue::String(s) => {
+                        s
+                    }
+                    ParsedValue::Sequence(mut seq) => {
+                        get_last_string_value(&mut seq)?
+                    }
+                    _ => {
+                        return Err(de::Error::custom(
+                            format!("expected a string, found {:?}", self.0),
+                        ));
+                    }
+                };
+                let deserializer = StringParsingDeserializer::new(s)?;
+                return deserializer.$meth(visitor);
             }
         )*
     }
@@ -503,6 +528,11 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         match self.0 {
             ParsedValue::Map(parsed) => visitor.visit_seq(Seq(parsed.into_values())),
             ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
+            // if we have a single string key, but expect a sequence
+            // we'll treat it as a sequence of one
+            ParsedValue::String(s) => {
+                visitor.visit_seq(Seq(std::iter::once(ParsedValue::String(s))))
+            }
             ParsedValue::Null => visitor.visit_seq(Seq(std::iter::empty())),
             _ => self.deserialize_any(visitor),
         }
@@ -603,13 +633,18 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.0 {
-            ParsedValue::String(s) => match string_parser::decode_utf8(s)? {
-                Cow::Borrowed(string) => visitor.visit_borrowed_str(string),
-                Cow::Owned(string) => visitor.visit_string(string),
-            },
-            ParsedValue::Null => visitor.visit_str(""),
-            _ => self.deserialize_any(visitor),
+        let s = match self.0 {
+            ParsedValue::String(s) => s,
+            ParsedValue::Sequence(mut seq) => get_last_string_value(&mut seq)?,
+            ParsedValue::Null => {
+                return visitor.visit_str("");
+            }
+            _ => return self.deserialize_any(visitor),
+        };
+
+        match string_parser::decode_utf8(s)? {
+            Cow::Borrowed(string) => visitor.visit_borrowed_str(string),
+            Cow::Owned(string) => visitor.visit_string(string),
         }
     }
 

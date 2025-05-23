@@ -508,10 +508,6 @@ fn returns_errors() {
     let params: Result<Query, _> = qs::from_str("vec[\x00[]=1&vec[]=2");
     assert!(params.is_err());
     println!("{}", params.unwrap_err());
-
-    let params: Result<Query, _> = qs::from_str("vec[0]=1&vec[0]=2");
-    assert!(params.is_err());
-    println!("{}", params.unwrap_err());
 }
 
 #[cfg(not(feature = "permissive_decoding"))]
@@ -807,8 +803,8 @@ fn deserialize_map_with_int_keys() {
     assert_eq!(test.mapping.get(&3).cloned(), Some(4));
     assert_eq!(test.mapping.get(&2).cloned(), None);
 
-    serde_qs::from_str::<Mapping>("mapping[1]=2&mapping[1]=4")
-        .expect_err("should error with repeated key");
+    let test = serde_qs::from_str::<Mapping>("mapping[1]=2&mapping[1]=4").unwrap();
+    assert_eq!(test.mapping.get(&1).cloned(), Some(4));
 }
 
 #[test]
@@ -852,4 +848,42 @@ fn serialization_roundtrip() {
     dbg!(&serialized);
     let deserialized = serde_qs::from_str::<Data>(&serialized).unwrap();
     assert_eq!(deserialized, data);
+}
+
+#[test]
+fn deserialize_repeat_keys() {
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct Data {
+        vec: Vec<usize>,
+        repeated: usize,
+        implicit: Vec<usize>,
+    }
+
+    let expected = Data {
+        vec: vec![1, 2],
+        repeated: 4,
+        implicit: vec![5],
+    };
+
+    let deserialized =
+        serde_qs::from_str::<Data>("vec[0]=0&vec[0]=1&vec[1]=2&repeated=3&repeated=4&implicit=5")
+            .unwrap();
+    assert_eq!(deserialized, expected);
+
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct NestedData {
+        data: Vec<Data>,
+    }
+
+    let deserialized = serde_qs::from_str::<NestedData>(
+        "data[0][vec][0]=0&data[0][vec][0]=1&data[0][vec][1]=2&data[0][repeated]=3&\
+         data[0][repeated]=4&data[0][implicit]=5",
+    )
+    .unwrap();
+    assert_eq!(
+        deserialized,
+        NestedData {
+            data: vec![expected]
+        }
+    );
 }

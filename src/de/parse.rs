@@ -408,11 +408,44 @@ fn insert_unique<'qs>(
     value: ParsedValue<'qs>,
 ) -> Result<()> {
     match map.entry(key) {
-        Entry::Occupied(o) => {
-            return Err(Error::parse_err(
-                format!("Multiple values for the same key: {}", o.key()),
-                parser.index,
-            ));
+        Entry::Occupied(mut o) => {
+            let entry = o.get_mut();
+            match entry {
+                ParsedValue::Map(_) => {
+                    return Err(Error::parse_err(
+                        format!("Multiple values for the same key: {}", o.key()),
+                        parser.index,
+                    ));
+                }
+                ParsedValue::Sequence(parsed_values) => {
+                    // if the value is a sequence, we can just push the new value
+                    parsed_values.push(value);
+                    return Ok(());
+                }
+                ParsedValue::String(_) => {
+                    // we'll support mutliple values for the same key
+                    // by converting the existing value into a sequence
+                    // and pushing the new value into it
+                    // later we'll handle this case by taking the last value of
+                    // the sequence
+                    let existing = std::mem::replace(entry, ParsedValue::Uninitialized);
+                    let mut seq = vec![existing];
+                    seq.push(value);
+                    *entry = ParsedValue::Sequence(seq);
+                }
+                ParsedValue::Null => {
+                    return Err(Error::parse_err(
+                        format!("Multiple values for the same key: {}", o.key()),
+                        parser.index,
+                    ));
+                }
+                ParsedValue::Uninitialized => {
+                    return Err(Error::parse_err(
+                        format!("internal error: value is unintialized: {}", o.key()),
+                        parser.index,
+                    ));
+                }
+            }
         }
         Entry::Vacant(v) => {
             v.insert(value);
