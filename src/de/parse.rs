@@ -14,7 +14,7 @@ pub type ParsedMap<'qs> = Map<Key<'qs>, ParsedValue<'qs>>;
 
 mod decode;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Key<'a> {
     Int(usize),
     String(Cow<'a, [u8]>),

@@ -1038,3 +1038,61 @@ fn deserialize_primitive_errors() {
         err
     );
 }
+
+#[test]
+fn deserialize_into_tuple() {
+    let (x, y): (u8, u8) = serde_qs::from_str("foo=1&bar=2").unwrap();
+    // oh yes, the parameters get sorted lexicographically
+    // unless you use indexmap
+    #[cfg(feature = "indexmap")]
+    assert_eq!((x, y), (1, 2),);
+    #[cfg(not(feature = "indexmap"))]
+    assert_eq!((x, y), (2, 1),);
+
+    let err = serde_qs::from_str::<(u8,)>("foo=1&bar=2").unwrap_err();
+    assert!(
+        err.to_string().contains("expected 1 elements, found 2"),
+        "got: {}",
+        err
+    );
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Tuple(u8, u8);
+
+    let x: Tuple = serde_qs::from_str("foo=1&bar=2").unwrap();
+    #[cfg(feature = "indexmap")]
+    assert_eq!(x, Tuple(1, 2),);
+    #[cfg(not(feature = "indexmap"))]
+    assert_eq!(x, Tuple(2, 1),);
+
+    let err = serde_qs::from_str::<Tuple>("foo=1").unwrap_err();
+    assert!(
+        err.to_string().contains("expected 2 elements, found 1"),
+        "got: {}",
+        err
+    );
+}
+
+#[test]
+fn deserialize_option() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        id: u32,
+    }
+
+    let result: Option<Query> = qs::from_str("id=1").unwrap();
+    assert_eq!(result, Some(Query { id: 1 }));
+
+    let result: Option<Query> = qs::from_str("").unwrap();
+    assert_eq!(result, None);
+}
+
+#[test]
+fn deserialize_unit_struct() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(deny_unknown_fields)]
+    struct Query;
+
+    let result: Query = qs::from_str("").unwrap();
+    assert_eq!(result, Query);
+}

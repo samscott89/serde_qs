@@ -247,13 +247,11 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        // dbg!(&self.parsed);
-
         if self.parsed.len() > 1 {
             return Err(de::Error::custom("input error: expecting a sequence which implies a single repeating key or with sequence indices, but found multiple keys"));
         }
         // if the map is empty we can just return an empty sequence
-        let Some((_, v)) = self.parsed.pop_last() else {
+        let Some((_, v)) = crate::map::pop_first(&mut self.parsed) else {
             return visitor.visit_seq(Seq(std::iter::empty()));
         };
         // otherwise, attempt to deserialize the value as a sequence
@@ -267,29 +265,32 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
         self.deserialize_map(visitor)
     }
 
-    /// Throws an error.
-    ///
-    /// Tuples are not supported at the top level.
-    fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
+    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Error::top_level("tuple"))
+        // we'll just ignore all the key values and attempt to deserialize
+        // into a sequence
+        if self.parsed.len() != len {
+            return Err(de::Error::custom(format!(
+                "expected {} elements, found {}",
+                len,
+                self.parsed.len()
+            )));
+        }
+        visitor.visit_seq(Seq(self.parsed.into_values()))
     }
 
-    /// Throws an error.
-    ///
-    /// TupleStructs are not supported at the top level.
     fn deserialize_tuple_struct<V>(
         self,
         _name: &'static str,
-        _len: usize,
-        _visitor: V,
+        len: usize,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Error::top_level("tuple struct"))
+        self.deserialize_tuple(len, visitor)
     }
 
     fn deserialize_enum<V>(
@@ -320,12 +321,22 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
         str
         string
         unit
-        option
         bytes
         byte_buf
-        unit_struct
         identifier
         ignored_any
+        unit_struct
+    }
+
+    fn deserialize_option<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        if self.parsed.is_empty() {
+            visitor.visit_none()
+        } else {
+            visitor.visit_some(self)
+        }
     }
 }
 
@@ -533,6 +544,14 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.0 {
+            #[cfg(feature = "indexmap")]
+            ParsedValue::Map(mut parsed) => {
+                // when using indexmap, we need to first sort the keys
+                // or they will be in
+                parsed.sort_unstable_keys();
+                visitor.visit_seq(Seq(parsed.into_values()))
+            }
+            #[cfg(not(feature = "indexmap"))]
             ParsedValue::Map(parsed) => visitor.visit_seq(Seq(parsed.into_values())),
             ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
             // if we have a single string key, but expect a sequence
