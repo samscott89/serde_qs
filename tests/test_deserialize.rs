@@ -475,6 +475,53 @@ fn deserialize_enum() {
 }
 
 #[test]
+fn deserialize_enum_untagged_top_level() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(untagged)]
+    enum E {
+        B { b: String },
+        S { s: String },
+    }
+
+    let params = "s=true";
+    let rec_params: E = qs::from_str(params).unwrap();
+    assert_eq!(
+        rec_params,
+        E::S {
+            s: "true".to_string()
+        }
+    );
+    let params = "b=test";
+    let rec_params: E = qs::from_str(params).unwrap();
+    assert_eq!(
+        rec_params,
+        E::B {
+            b: "test".to_string()
+        }
+    );
+}
+
+#[test]
+fn deserialize_enum_top_level() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    enum E {
+        A,
+        B(u8),
+        C { x: u8 },
+    }
+
+    let params = "A";
+    let rec_params: E = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, E::A);
+    let params = "B=123";
+    let rec_params: E = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, E::B(123));
+    let params = "C[x]=234";
+    let rec_params: E = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, E::C { x: 234 });
+}
+
+#[test]
 fn seq_of_struct() {
     #[derive(Deserialize, Debug, PartialEq)]
     struct Test {
