@@ -95,8 +95,12 @@
 //! use serde_qs::Config;
 //!
 //! // Use form encoding
+//! # fn main() -> Result<(), serde_qs::Error> {
+//! # let my_struct = ();
 //! let config = Config::new().use_form_encoding(true);
 //! let qs = config.serialize_string(&my_struct)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## UTF-8 Handling
@@ -106,6 +110,7 @@
 //! `String`. Non-UTF-8 bytes in ignored fields will not cause errors.
 //!
 //! ```rust
+//! # use serde::Deserialize;
 //! #[derive(Deserialize)]
 //! struct Data {
 //!     // This field can handle raw bytes
@@ -113,10 +118,6 @@
 //!     
 //!     // This field requires valid UTF-8
 //!     text: String,
-//!     
-//!     // This field is skipped if not present
-//!     #[serde(default)]
-//!     optional: Option<String>,
 //! }
 //! ```
 //!
