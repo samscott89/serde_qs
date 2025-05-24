@@ -7,8 +7,6 @@ extern crate serde_urlencoded as urlencoded;
 use rand::seq::SliceRandom;
 use std::collections::HashMap;
 
-use qs::Config;
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct Address {
     city: String,
@@ -72,8 +70,7 @@ fn main() {
     // (For this round trip to work, it's necessary to parse the query string
     // in non-strict mode, to allow parsing of url_encoded square brackets
     // in the key. See the lib.rs documentation for why).
-    let qs_non_strict = Config::new(5, false);
-    let params: QueryParams = qs_non_strict.deserialize_str(&encoded).unwrap();
+    let params: QueryParams = serde_qs::from_str(&encoded).unwrap();
     assert_eq!(params, example_params);
     println!("`serde_qs` from_str to struct:\n\t{:?}", params);
 

@@ -88,7 +88,7 @@ fn test_default_qs_config() {
 #[test]
 fn test_custom_qs_config() {
     futures::executor::block_on(async {
-        let filter = qs::warp::query::<Query>(QsConfig::new(5, false));
+        let filter = qs::warp::query::<Query>(QsConfig::new().use_form_encoding(true));
         let s = warp::test::request()
             .path("/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true")
             .filter(&filter)

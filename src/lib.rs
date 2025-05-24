@@ -5,26 +5,13 @@
 //!
 //! This library aims for compatability with the syntax of
 //! [qs](https://github.com/ljharb/qs) and also of the
-//! [`Rack::Utils::parse_nested_query`](http://www.rubydoc.info/github/rack/rack/Rack/Utils#parse_nested_query-class_method)
+//! [`Rack::Utils::parse_nested_query`](https://www.rubydoc.info/gems/rack/3.1.15/Rack/Utils#parse_nested_query-class_method)
 //! implementation.
-//!
-//! For users who do *not* require nested URL parameters, it is highly
-//! recommended that the `serde_urlencoded` crate is used instead, which
-//! will almost certainly perform better for deserializing simple inputs.
 //!
 //! ## Supported Types
 //!
-//! At the **top level**, `serde_qs` only supports `struct`, `map`, and `enum`.
-//! These are the only top-level structs which can be de/serialized since
-//! Querystrings rely on having a (key, value) pair for each field, which
-//! necessitates this kind of structure.
-//!
-//! However, after the top level you should find all supported types can be
-//! de/serialized.
-//!
-//! Note that integer keys are reserved for array indices. That is, a string of
-//! the form `a[0]=1&a[1]=3` will deserialize to the ordered sequence `a =
-//! [1,3]`.
+//! TODO: Uppdate this to clarify that ~all types are supported here.
+//! However `qs` can only really represent map-like structures.
 //!
 //! ## Usage
 //!
@@ -206,18 +193,21 @@ compile_error!(
     r#"The `actix2` feature was removed in v0.13 due to CI issues and minimal interest in continuing support"#
 );
 
+mod config;
+#[doc(inline)]
+pub use config::Config;
 mod de;
 mod error;
+pub mod helpers;
 mod ser;
-pub(crate) mod utils;
 
 #[doc(inline)]
-pub use de::{from_bytes, from_str};
+pub use de::QsDeserializer as Deserializer;
 #[doc(inline)]
-pub use de::{Config, QsDeserializer as Deserializer};
+pub use de::{from_bytes, from_str};
 pub use error::Error;
 #[doc(inline)]
-pub use ser::{to_string, to_writer, Serializer};
+pub use ser::{to_string, to_writer, QsSerializer as Serializer};
 
 #[cfg(feature = "axum")]
 pub mod axum;
@@ -232,12 +222,12 @@ mod indexmap {
     pub use indexmap::map::Entry;
     pub use indexmap::IndexMap as Map;
 
-    pub fn remove_entry<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<(K, V)>
+    pub fn remove<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<V>
     where
         K: Borrow<Q> + std::hash::Hash + Eq,
         Q: ?Sized + std::hash::Hash + Eq,
     {
-        map.shift_remove_entry(key)
+        map.shift_remove(key)
     }
 
     pub fn pop_first<K, V>(map: &mut Map<K, V>) -> Option<(K, V)> {
@@ -254,12 +244,12 @@ mod btree_map {
     pub use std::collections::btree_map::Entry;
     pub use std::collections::BTreeMap as Map;
 
-    pub fn remove_entry<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<(K, V)>
+    pub fn remove<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<V>
     where
         K: Borrow<Q> + Ord,
         Q: ?Sized + Ord,
     {
-        map.remove_entry(key)
+        map.remove(key)
     }
 
     pub fn pop_first<K: Ord, V>(map: &mut Map<K, V>) -> Option<(K, V)> {

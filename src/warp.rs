@@ -4,7 +4,7 @@
 
 extern crate warp_framework as warp;
 
-use crate::{de::Config as QsConfig, error};
+use crate::error;
 use serde::de;
 use std::sync::Arc;
 use warp::{http::StatusCode, reject::Reject, Filter, Rejection, Reply};
@@ -36,7 +36,7 @@ impl Reject for error::Error {}
 ///         .recover(serde_qs::warp::recover_fn);
 /// }
 /// ```
-pub fn query<T>(config: QsConfig) -> impl Filter<Extract = (T,), Error = Rejection> + Clone
+pub fn query<T>(config: crate::Config) -> impl Filter<Extract = (T,), Error = Rejection> + Clone
 where
     T: de::DeserializeOwned + Send + 'static,
 {

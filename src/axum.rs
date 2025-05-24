@@ -6,7 +6,6 @@ use axum_framework as axum;
 
 use std::sync::Arc;
 
-use crate::de::Config as QsConfig;
 use crate::error::Error as QsError;
 
 use axum::{
@@ -83,9 +82,8 @@ where
             .await
             .unwrap_or_else(|_| Extension(QsQueryConfig::default()));
         let error_handler = qs_config.error_handler.clone();
-        let config: QsConfig = qs_config.into();
         let query = parts.uri.query().unwrap_or_default();
-        match config.deserialize_str::<T>(query) {
+        match qs_config.config.deserialize_str::<T>(query) {
             Ok(value) => Ok(QsQuery(value)),
             Err(err) => match error_handler {
                 Some(handler) => Err((handler)(err)),
@@ -164,8 +162,8 @@ where
             .unwrap_or_else(|_| Extension(QsQueryConfig::default()));
         if let Some(query) = parts.uri.query() {
             let error_handler = qs_config.error_handler.clone();
-            let config: QsConfig = qs_config.into();
-            config
+            qs_config
+                .config
                 .deserialize_str::<T>(query)
                 .map(|query| OptionalQsQuery(Some(query)))
                 .map_err(|err| match error_handler {
@@ -262,25 +260,28 @@ impl std::error::Error for QsQueryRejection {
 /// fn main() {
 ///     let app = Router::<()>::new()
 ///         .route("/users", get(filter_users))
-///         .layer(Extension(QsQueryConfig::new(5, false)
+///         .layer(Extension(QsQueryConfig::new().config(Config::default())
 ///             .error_handler(|err| {
 ///                 QsQueryRejection::new(err, StatusCode::UNPROCESSABLE_ENTITY)
 ///         })));
 /// }
 pub struct QsQueryConfig {
-    max_depth: usize,
-    strict: bool,
+    config: crate::Config,
     error_handler: Option<Arc<dyn Fn(QsError) -> QsQueryRejection + Send + Sync>>,
 }
 
 impl QsQueryConfig {
     /// Create new config wrapper
-    pub fn new(max_depth: usize, strict: bool) -> Self {
+    pub const fn new() -> Self {
         Self {
-            max_depth,
-            strict,
+            config: crate::Config::new(),
             error_handler: None,
         }
+    }
+
+    pub fn config(mut self, config: crate::Config) -> Self {
+        self.config = config;
+        self
     }
 
     /// Set custom error handler
@@ -293,18 +294,8 @@ impl QsQueryConfig {
     }
 }
 
-impl From<QsQueryConfig> for QsConfig {
-    fn from(config: QsQueryConfig) -> Self {
-        Self::new(config.max_depth, config.strict)
-    }
-}
-
 impl Default for QsQueryConfig {
     fn default() -> Self {
-        Self {
-            max_depth: 5,
-            strict: true,
-            error_handler: None,
-        }
+        Self::new()
     }
 }
