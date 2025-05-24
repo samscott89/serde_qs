@@ -538,12 +538,15 @@ fn expect_map<'a, 'qs>(
 
 #[cfg(test)]
 mod test {
-    use std::iter::FromIterator;
+    use std::{borrow::Cow, iter::FromIterator};
 
     use crate::Config;
 
-    use super::*;
+    use super::{parse, ParsedValue};
+
     use pretty_assertions::assert_eq;
+
+    type Map<'a> = super::ParsedMap<'a>;
 
     static DEFAULT_CONFIG: Config = Config {
         max_depth: 10,
@@ -563,7 +566,7 @@ mod test {
     #[test]
     fn parse_empty() {
         let parsed = parse(b"", DEFAULT_CONFIG).unwrap();
-        assert_eq!(parsed, Default::default())
+        assert_eq!(parsed, Map::default())
     }
 
     #[test]
