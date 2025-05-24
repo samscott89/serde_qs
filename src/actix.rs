@@ -185,15 +185,12 @@ pub struct QsQueryConfig {
 
 static DEFAULT_QUERY_CONFIG: QsQueryConfig = QsQueryConfig {
     ehandler: None,
-    qs_config: QsConfig::default(),
+    qs_config: QsConfig::new(),
 };
 
 static DEFAULT_FORM_CONFIG: QsQueryConfig = QsQueryConfig {
     ehandler: None,
-    qs_config: QsConfig {
-        use_form_encoding: true,
-        ..QsConfig::default()
-    },
+    qs_config: QsConfig::new().use_form_encoding(true),
 };
 
 impl QsQueryConfig {

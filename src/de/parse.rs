@@ -51,7 +51,7 @@ impl<'a> From<&'a str> for Key<'a> {
 
 impl<'a> From<&'a [u8]> for Key<'a> {
     fn from(s: &'a [u8]) -> Self {
-        Key::String(Cow::Borrowed(s.into()))
+        Key::String(Cow::Borrowed(s))
     }
 }
 
