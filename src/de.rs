@@ -1,40 +1,40 @@
 //! Deserialization support for querystrings.
-
-//! ### An overview of the design of `QsDeserializer`
 //!
-//! This code is designed to handle non-ordered query parameters. For example,
-//! `struct { a: Vec<u8>, b: String }` might be serialized as either
-//! `a[0]=1&a[1]=2&b=Hello or a[1]=2&b=Hello&a[0]=1`.
+//! ## Design Overview
 //!
-//! In order to cover the latter case, we have two options: scan through the
-//! string each time we need to find a particular key - worst case O(n^2 )
-//! running time; or pre-parse the list into a map structure, and then
-//! deserialize the map.
+//! The deserializer uses a two-pass approach to handle arbitrary parameter ordering:
 //!
-//! We opt for the latter. But a TODO is implement the first case, which could
-//! potentially be more desirable, especially when the keys are known to be in
-//! order.
+//! 1. **Parse phase**: The querystring is parsed into an intermediate tree structure
+//!    (`ParsedValue`) that represents the nested data. This handles bracket notation
+//!    and builds the appropriate hierarchy.
 //!
-//! The `parse` module handles this step of deserializing a querystring into the
-//! map structure. This uses `rust_url::percent_encoding` to handle
-//! first converting the string.
+//! 2. **Deserialize phase**: The parsed tree is traversed and deserialized into the
+//!    target Rust types using serde's visitor pattern.
 //!
-//! From here, there are two main `Deserializer` objects: `QsDeserializer` and
-//! `LevelDeserializer`.
+//! ## Key Components
 //!
-//! The former is the top-level deserializer which is effectively only capable
-//! of deserializing map-like objects (i.e. those with (key, value) pairs).
-//! Hence, structs, maps, and enums are supported at this level.
+//! - **`QsDeserializer`**: The top-level deserializer that handles structs and maps.
+//!   It can only deserialize map-like structures (key-value pairs).
 //!
-//! Each key is a `String`, and deserialized from a `String`. The values are
-//! `Level` elements. This is a recursive structure which can either be a "flat
-//! value", i.e. just a string, or a sequence or map of these elements. This can
-//! be thought of as similar to the `serde_json::Value` enum.
+//! - **`parse` module**: Converts raw querystrings into `ParsedValue` trees,
+//!   handling URL decoding and bracket notation parsing.
 //!
-//! Each `Level` can be deserialized through `LevelDeserializer`. This will
-//! recursively call back to the top level `QsDeserializer` for maps, or when
-//! `Level` is a flat value it will attempt to deserialize it to a primitive via
-//! `ParsableStringDeserializer`.
+//! - **`ParsedValueDeserializer`**: Deserializes the intermediate `ParsedValue`
+//!   representation into target types. Handles nested maps, sequences, and primitives.
+//!
+//! ## Example Flow
+//!
+//! Given `user[name]=John&user[ids][0]=1&user[ids][1]=2`, the parser creates:
+//! ```text
+//! Map {
+//!   "user" => Map {
+//!     "name" => String("John"),
+//!     "ids" => Sequence [String("1"), String("2")]
+//!   }
+//! }
+//! ```
+//!
+//! This intermediate structure is then deserialized into the target Rust types.
 
 mod parse;
 mod string_parser;
