@@ -71,6 +71,17 @@ impl Default for Config {
 }
 
 impl Config {
+    #[deprecated(
+        since = "1.0",
+        note = "construct using public fields instead, e.g. Config { max_depth: 0, ..Default::default() }"
+    )]
+    pub const fn new(max_depth: usize, use_form_encoding: bool) -> Self {
+        Self {
+            max_depth,
+            use_form_encoding,
+        }
+    }
+
     /// Deserializes a querystring from a `&[u8]` using this `Config`.
     pub fn deserialize_bytes<'de, T: de::Deserialize<'de>>(self, input: &'de [u8]) -> Result<T> {
         T::deserialize(Deserializer::with_config(self, input)?)
