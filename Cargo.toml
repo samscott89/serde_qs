@@ -62,6 +62,7 @@ test = true
 [[bench]]
 name = "serde_qs_benchmarks"
 harness = false
+required-features = ["benchmarks"]
 
 [profile.profiling]
 inherits = "release"

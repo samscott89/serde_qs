@@ -82,9 +82,8 @@ where
             .await
             .unwrap_or_else(|_| Extension(QsQueryConfig::default()));
         let error_handler = qs_config.error_handler.clone();
-        let config: crate::Config = qs_config.into();
         let query = parts.uri.query().unwrap_or_default();
-        match config.deserialize_str::<T>(query) {
+        match qs_config.config.deserialize_str::<T>(query) {
             Ok(value) => Ok(QsQuery(value)),
             Err(err) => match error_handler {
                 Some(handler) => Err((handler)(err)),
@@ -163,8 +162,8 @@ where
             .unwrap_or_else(|_| Extension(QsQueryConfig::default()));
         if let Some(query) = parts.uri.query() {
             let error_handler = qs_config.error_handler.clone();
-            let config: crate::Config = qs_config.into();
-            config
+            qs_config
+                .config
                 .deserialize_str::<T>(query)
                 .map(|query| OptionalQsQuery(Some(query)))
                 .map_err(|err| match error_handler {
@@ -273,8 +272,11 @@ pub struct QsQueryConfig {
 
 impl QsQueryConfig {
     /// Create new config wrapper
-    pub fn new() -> Self {
-        Self::default()
+    pub const fn new() -> Self {
+        Self {
+            config: crate::Config::default(),
+            error_handler: None,
+        }
     }
 
     pub fn config(mut self, config: crate::Config) -> Self {
@@ -292,20 +294,8 @@ impl QsQueryConfig {
     }
 }
 
-impl From<QsQueryConfig> for crate::Config {
-    fn from(config: QsQueryConfig) -> Self {
-        Self {
-            config,
-            ..crate::Config::default()
-        }
-    }
-}
-
 impl Default for QsQueryConfig {
     fn default() -> Self {
-        Self {
-            config: crate::Config::default(),
-            error_handler: None,
-        }
+        Self::new()
     }
 }

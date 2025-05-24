@@ -63,10 +63,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self {
-            max_depth: 5,
-            use_form_encoding: cfg!(feature = "default_to_form_encoding"),
-        }
+        Self::default()
     }
 }
 
@@ -79,6 +76,13 @@ impl Config {
         Self {
             max_depth,
             use_form_encoding,
+        }
+    }
+
+    pub const fn default() -> Self {
+        Self {
+            max_depth: 5,
+            use_form_encoding: cfg!(feature = "default_to_form_encoding"),
         }
     }
 
