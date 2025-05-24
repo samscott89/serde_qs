@@ -120,6 +120,78 @@
 //! }
 //! ```
 //!
+//! ## Helpers for Common Scenarios
+//!
+//! The `helpers` module provides utilities for common patterns when working with
+//! querystrings, particularly for handling delimited values within a single parameter.
+//!
+//! ### Comma-Separated Values
+//!
+//! Compatible with OpenAPI 3.0 `style=form` parameters:
+//!
+//! ```rust
+//! use serde::{Deserialize, Serialize};
+//!
+//! #[derive(Debug, PartialEq, Deserialize, Serialize)]
+//! struct Query {
+//!     #[serde(with = "serde_qs::helpers::comma_separated")]
+//!     ids: Vec<u64>,
+//! }
+//!
+//! # fn main() {
+//! // Deserialize from comma-separated string
+//! let query: Query = serde_qs::from_str("ids=1,2,3,4").unwrap();
+//! assert_eq!(query.ids, vec![1, 2, 3, 4]);
+//!
+//! // Serialize back to comma-separated
+//! let qs = serde_qs::to_string(&query).unwrap();
+//! assert_eq!(qs, "ids=1,2,3,4");
+//! # }
+//! ```
+//!
+//! ### Other Delimiters
+//!
+//! Also supports pipe (`|`) and space delimited values:
+//!
+//! ```rust
+//! use serde::{Deserialize, Serialize};
+//!
+//! #[derive(Debug, PartialEq, Deserialize, Serialize)]
+//! struct Query {
+//!     #[serde(with = "serde_qs::helpers::pipe_delimited")]
+//!     tags: Vec<String>,
+//!     #[serde(with = "serde_qs::helpers::space_delimited")]
+//!     words: Vec<String>,
+//! }
+//!
+//! # fn main() {
+//! let query: Query = serde_qs::from_str("tags=foo|bar|baz&words=hello+world").unwrap();
+//! assert_eq!(query.tags, vec!["foo", "bar", "baz"]);
+//! assert_eq!(query.words, vec!["hello", "world"]);
+//! # }
+//! ```
+//!
+//! ### Custom Delimiters
+//!
+//! For other delimiters, use the generic helper:
+//!
+//! ```rust
+//! use serde::{Deserialize, Serialize};
+//! use serde_qs::helpers::generic_delimiter::{deserialize, serialize};
+//!
+//! #[derive(Debug, PartialEq, Deserialize, Serialize)]
+//! struct Query {
+//!     #[serde(deserialize_with = "deserialize::<_, _, '.'>")]
+//!     #[serde(serialize_with = "serialize::<_, _, '.'>")]
+//!     versions: Vec<u8>,
+//! }
+//!
+//! # fn main() {
+//! let query: Query = serde_qs::from_str("versions=1.2.3").unwrap();
+//! assert_eq!(query.versions, vec![1, 2, 3]);
+//! # }
+//! ```
+//!
 //! ## Flatten workaround
 //!
 //! A current [known limitation](https://github.com/serde-rs/serde/issues/1183)
