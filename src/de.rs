@@ -39,81 +39,16 @@
 mod parse;
 mod string_parser;
 
-use crate::error::{Error, Result};
+use crate::{
+    error::{Error, Result},
+    Config,
+};
 
-use parse::{Key, ParsedValue, ParsingOptions};
+use parse::{Key, ParsedValue};
 use serde::de;
 use string_parser::StringParsingDeserializer;
 
 use std::borrow::Cow;
-
-/// To override the default serialization parameters, first construct a new
-/// Config.
-///
-/// The `strict` parameter controls whether the deserializer will tolerate
-/// encoded brackets as part of the key. For example, serializing the field
-/// `a = vec![12]` might give `a[0]=12`. In strict mode, the only string accepted
-/// will be this string, whereas in non-strict mode, this can also be deserialized
-/// from `a%5B0%5D=12`. Strict mode is more accurate for cases where it a field
-/// may contain square brackets.
-/// In non-strict mode, the deserializer will generally tolerate unexpected
-/// characters.
-///
-/// A `max_depth` of 0 implies no nesting: the result will be a flat map.
-/// This is mostly useful when the maximum nested depth is known beforehand,
-/// to prevent denial of service attacks by providing incredibly deeply nested
-/// inputs.
-///
-/// The default value for `max_depth` is 5, and the default mode is `strict=true`.
-///
-/// ```
-/// use serde_qs::Config;
-/// use std::collections::HashMap;
-///
-/// let config = Config::new(0);
-/// let map: HashMap<String, String> = config.deserialize_str("a[b][c]=1")
-///                                          .unwrap();
-/// assert_eq!(map.get("a[b][c]").unwrap(), "1");
-///
-/// let config = Config::new(10);
-/// let map: HashMap<String, HashMap<String, HashMap<String, String>>> =
-///             config.deserialize_str("a[b][c]=1").unwrap();
-/// assert_eq!(map.get("a").unwrap().get("b").unwrap().get("c").unwrap(), "1");
-/// ```
-///
-#[derive(Clone, Copy)]
-pub struct Config {
-    /// Specifies the maximum depth key that `serde_qs` will attempt to
-    /// deserialize. Default is 5.
-    max_depth: usize,
-}
-
-pub const DEFAULT_CONFIG: Config = Config { max_depth: 5 };
-
-impl Default for Config {
-    fn default() -> Self {
-        DEFAULT_CONFIG
-    }
-}
-
-impl Config {
-    /// Create a new `Config` with the specified `max_depth` and `strict` mode.
-    pub fn new(max_depth: usize) -> Self {
-        Self { max_depth }
-    }
-}
-
-impl Config {
-    /// Deserializes a querystring from a `&[u8]` using this `Config`.
-    pub fn deserialize_bytes<'de, T: de::Deserialize<'de>>(&self, input: &'de [u8]) -> Result<T> {
-        T::deserialize(QsDeserializer::with_config(self, input)?)
-    }
-
-    /// Deserializes a querystring from a `&str` using this `Config`.
-    pub fn deserialize_str<'de, T: de::Deserialize<'de>>(&self, input: &'de str) -> Result<T> {
-        self.deserialize_bytes(input.as_bytes())
-    }
-}
 
 /// Deserializes a querystring from a `&[u8]`.
 ///
@@ -183,19 +118,14 @@ pub struct QsDeserializer<'a> {
 
 impl<'a> QsDeserializer<'a> {
     /// Returns a new `QsDeserializer<'a>`.
-    pub fn with_config(config: &Config, input: &'a [u8]) -> Result<Self> {
-        let parsed = parse::parse(
-            input,
-            ParsingOptions {
-                max_depth: config.max_depth,
-            },
-        )?;
+    pub fn with_config(config: Config, input: &'a [u8]) -> Result<Self> {
+        let parsed = parse::parse(input, config)?;
 
         Ok(Self { parsed })
     }
 
     pub fn new(input: &'a [u8]) -> Result<Self> {
-        Self::with_config(&Config::default(), input)
+        Self::with_config(Default::default(), input)
     }
 
     fn as_nested(&mut self) -> MapDeserializer<'_, 'a> {
@@ -726,13 +656,29 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         self.deserialize_str(visitor)
     }
 
+    fn deserialize_ignored_any<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        match self.0 {
+            // for ignored values, we wont attempt to parse the value
+            // as a UTF8 string, but rather just pass the bytes along.
+            // since the value is ignored anyway, this is great since
+            // we'll just drop it and avoid raising UTF8 errors.
+            ParsedValue::String(cow) => match cow {
+                Cow::Borrowed(s) => visitor.visit_borrowed_bytes(s),
+                Cow::Owned(s) => visitor.visit_byte_buf(s),
+            },
+            _ => self.deserialize_any(visitor),
+        }
+    }
+
     forward_to_deserialize_any! {
         char
         bytes
         byte_buf
         unit_struct
         identifier
-        ignored_any
     }
 
     forward_to_string_parser! {

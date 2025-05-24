@@ -16,30 +16,13 @@ impl<'a, E> Clone for StringParsingDeserializer<'a, E> {
     }
 }
 
-pub fn decode_utf8(value: Cow<'_, [u8]>) -> Result<Cow<'_, str>, Utf8Error> {
+pub fn decode_utf8<'a>(value: Cow<'a, [u8]>) -> Result<Cow<'a, str>, Utf8Error> {
     Ok(match value {
         Cow::Borrowed(bytes) => {
             let s = std::str::from_utf8(bytes)?;
             Cow::Borrowed(s)
         }
-        Cow::Owned(bytes) => {
-            if cfg!(feature = "permissive_decoding") {
-                // TODO(Sam): replace this with `String::from_utf8_lossy_owned`
-                // when it stabilizes
-                if let Cow::Owned(string) = String::from_utf8_lossy(&bytes) {
-                    Cow::Owned(string)
-                } else {
-                    // SAFETY: `String::from_utf8_lossy`'s contract ensures that if
-                    // it returns a `Cow::Borrowed`, it is a valid UTF-8 string.
-                    // Otherwise, it returns a new allocation of an owned `String`, with
-                    // replacement characters for invalid sequences, which is returned
-                    // above.
-                    Cow::Owned(unsafe { String::from_utf8_unchecked(bytes) })
-                }
-            } else {
-                Cow::Owned(String::from_utf8(bytes).map_err(|e| e.utf8_error())?)
-            }
-        }
+        Cow::Owned(bytes) => Cow::Owned(String::from_utf8(bytes).map_err(|e| e.utf8_error())?),
     })
 }
 

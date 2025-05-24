@@ -193,15 +193,18 @@ compile_error!(
     r#"The `actix2` feature was removed in v0.13 due to CI issues and minimal interest in continuing support"#
 );
 
+mod config;
+#[doc(inline)]
+pub use config::Config;
 mod de;
 mod error;
 pub mod helpers;
 mod ser;
 
 #[doc(inline)]
-pub use de::{from_bytes, from_str};
+pub use de::QsDeserializer as Deserializer;
 #[doc(inline)]
-pub use de::{Config, QsDeserializer as Deserializer};
+pub use de::{from_bytes, from_str};
 pub use error::Error;
 #[doc(inline)]
 pub use ser::{to_string, to_writer, QsSerializer};

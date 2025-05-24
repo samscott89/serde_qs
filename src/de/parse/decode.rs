@@ -1,11 +1,12 @@
 use std::borrow::Cow;
 
 #[inline(always)]
-fn char_to_digit(c: u8) -> Option<u8> {
-    if c >= b'0' && c <= b'9' {
-        Some(c - b'0')
-    } else {
-        None
+fn char_to_hexdigit(c: u8) -> Option<u8> {
+    match c {
+        b'0'..=b'9' => Some(c - b'0'),
+        b'a'..=b'f' => Some(c - b'a' + 10),
+        b'A'..=b'F' => Some(c - b'A' + 10),
+        _ => None,
     }
 }
 
@@ -41,10 +42,10 @@ pub fn decode(input: &[u8]) -> Cow<'_, [u8]> {
 
             // first attempt to decode the next two bytes
             // if this fails, we'll skip over the invalid percent-encoded character
-            let Some(h) = bytes_iter.next().and_then(|(_, b)| char_to_digit(*b)) else {
+            let Some(h) = bytes_iter.next().and_then(|(_, b)| char_to_hexdigit(*b)) else {
                 continue;
             };
-            let Some(l) = bytes_iter.next().and_then(|(_, b)| char_to_digit(*b)) else {
+            let Some(l) = bytes_iter.next().and_then(|(_, b)| char_to_hexdigit(*b)) else {
                 continue;
             };
 
@@ -83,5 +84,23 @@ fn extend_no_alloc(bytes: &mut Vec<u8>, slice: &[u8]) {
             false,
             "this should be unreachable -- we should have allocated enough space"
         )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn decode_brackets() {
+        use super::decode;
+        use pretty_assertions::assert_eq;
+
+        let input = b"a%5Bb%5D=1";
+        let expected = b"a[b]=1";
+        let decoded = decode(input);
+        assert_eq!(decoded.as_ref(), expected);
+
+        let input = b"a%5Bb%5D%5Bc%5D=1";
+        let expected = b"a[b][c]=1";
+        assert_eq!(decode(input).as_ref(), expected);
     }
 }

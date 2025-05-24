@@ -174,21 +174,30 @@ fn serialize_bytes() {
             serializer.serialize_bytes(self.0)
         }
     }
-    let bytes = Bytes(b"hello, world!");
-    let s = qs::to_string(&Query { bytes }).unwrap();
-    assert_eq!(s, "bytes=hello,+world%21");
+    let query = Query {
+        bytes: Bytes(b"hello, world!"),
+    };
+    let s = qs::to_string(&query).unwrap();
+    assert_eq!(s, "bytes=hello,+world!");
+
+    let form_config = qs::Config {
+        use_form_encoding: true,
+        ..qs::Config::default()
+    };
+    let s = form_config.serialize_string(&query).unwrap();
+    assert_eq!(s, "bytes=hello%2C%20world%21");
 }
 
 #[test]
-fn serialize_hashmap_keys() {
+fn serialize_map_keys() {
     // Issue: https://github.com/samscott89/serde_qs/issues/45
 
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-    struct HashParams {
-        attrs: std::collections::HashMap<String, String>,
+    struct MapParams {
+        attrs: std::collections::BTreeMap<String, String>,
     }
 
-    let data = HashParams {
+    let data = MapParams {
         attrs: vec![
             ("key 1!".to_owned(), "val 1".to_owned()),
             ("key 2!".to_owned(), "val 2".to_owned()),
@@ -197,10 +206,7 @@ fn serialize_hashmap_keys() {
         .collect(),
     };
     let s = qs::to_string(&data).unwrap();
-    assert!(
-        s == "attrs[key+1%21]=val+1&attrs[key+2%21]=val+2"
-            || s == "attrs[key+2%21]=val+2&attrs[key+1%21]=val+1"
-    );
+    assert_eq!(s, "attrs[key+1!]=val+1&attrs[key+2!]=val+2");
 }
 
 #[test]

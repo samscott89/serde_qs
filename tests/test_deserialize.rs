@@ -24,7 +24,7 @@ struct QueryParams {
 // qs::from_str. All types are inferred by the compiler.
 macro_rules! map_test {
     ($string:expr, $($mapvars:tt)*) => {
-        let config = qs::Config::new(5);
+        let config = qs::Config { max_depth: 5, .. Default::default() };
         let testmap: HashMap<_, _> = config.deserialize_str($string).unwrap();
         let expected_map = hash_to_map!(New $($mapvars)*);
         assert_eq!(testmap, expected_map);
@@ -589,9 +589,8 @@ fn returns_errors() {
     println!("{}", params.unwrap_err());
 }
 
-#[cfg(not(feature = "permissive_decoding"))]
 #[test]
-fn strict_mode_on() {
+fn querystring_decoding() {
     #[derive(Deserialize, Serialize, Debug, PartialEq)]
     struct Test {
         a: u8,
@@ -602,11 +601,22 @@ fn strict_mode_on() {
         vec: Vec<Test>,
     }
 
-    let config = qs::Config::default();
+    let config = qs::Config {
+        use_form_encoding: false,
+        ..Default::default()
+    };
 
-    let params: Result<Query, _> = config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
-    assert!(params.is_err());
-    println!("{}", params.unwrap_err());
+    // with querystring encoding, the brackets are considered part of the key
+    // so this errors with unknown field
+    let err = config
+        .deserialize_str::<Query>("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2")
+        .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("unknown field `vec[0][a]`, expected `vec`"),
+        "got {}",
+        err
+    );
 
     #[derive(Deserialize, Serialize, Debug, PartialEq)]
     struct OddTest {
@@ -616,7 +626,7 @@ fn strict_mode_on() {
 
     let params = OddTest { a: 12 };
     let enc_params = qs::to_string(&params).unwrap();
-    println!("Encoded as: {}", enc_params);
+    // println!("Encoded as: {}", enc_params);
     let rec_params: Result<OddTest, _> = config.deserialize_str(&enc_params);
     assert_eq!(rec_params.unwrap(), params);
 
@@ -624,9 +634,16 @@ fn strict_mode_on() {
     struct Query2 {
         vec: Vec<u32>,
     }
-    let repeated_key: Result<Query2, _> = config.deserialize_str("vec%5B%5D=1&vec%5B%5D=2");
-    assert!(repeated_key.is_err());
-    println!("{}", repeated_key.unwrap_err());
+    // with querystring encoding, the brackets are considered part of the key
+    // so this errors with missing field (since `vec` is not present)
+    let err = config
+        .deserialize_str::<Query2>("vec%5B%5D=1&vec%5B%5D=2")
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("missing field `vec`"),
+        "got: {}",
+        err
+    );
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct StringQueryParam {
@@ -638,9 +655,8 @@ fn strict_mode_on() {
     assert!(invalid_utf8.is_err());
 }
 
-#[cfg(feature = "permissive_decoding")]
 #[test]
-fn strict_mode_off() {
+fn formencoded_decoding() {
     #[derive(Deserialize, Serialize, Debug, PartialEq)]
     struct Test {
         a: u8,
@@ -651,7 +667,10 @@ fn strict_mode_off() {
         vec: Vec<Test>,
     }
 
-    let config = qs::Config::new(5);
+    let config = qs::Config {
+        use_form_encoding: true,
+        ..Default::default()
+    };
 
     let params: Result<Query, _> = config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
     assert_eq!(
@@ -716,10 +735,6 @@ fn strict_mode_off() {
     struct StringQueryParam {
         field: String,
     }
-
-    // Ensure loose mode invalid UTF-8 percent encoded characters become � U+FFFD.
-    let valid_utf8: StringQueryParam = config.deserialize_str("field=%E9").unwrap();
-    assert_eq!(valid_utf8.field, "�");
 }
 
 #[test]
@@ -977,12 +992,19 @@ fn depth_one() {
         vec: Vec<String>,
     }
 
-    let c = serde_qs::Config::new(1);
+    let default_config = serde_qs::Config {
+        max_depth: 1,
+        use_form_encoding: false,
+    };
+    let form_config = serde_qs::Config {
+        max_depth: 1,
+        use_form_encoding: true,
+    };
 
     //  works correct
     let s = "id=2";
     assert_eq!(
-        c.deserialize_str::<Form>(s).unwrap(),
+        default_config.deserialize_str::<Form>(s).unwrap(),
         Form {
             id: 2,
             ..Default::default()
@@ -991,29 +1013,26 @@ fn depth_one() {
 
     let s = "name=test";
     assert_eq!(
-        c.deserialize_str::<Form>(s).unwrap(),
+        default_config.deserialize_str::<Form>(s).unwrap(),
         Form {
             name: "test".to_string(),
             ..Default::default()
         }
     );
 
-    #[cfg(feature = "permissive_decoding")]
-    {
-        let s = "id=3&name=&vec%5B1%5D=Vector";
-        assert_eq!(
-            c.deserialize_str::<Form>(s).unwrap(),
-            Form {
-                id: 3,
-                name: "".to_string(),
-                vec: vec!["Vector".to_string()],
-            }
-        );
-    }
+    let s = "id=3&name=&vec%5B1%5D=Vector";
+    assert_eq!(
+        form_config.deserialize_str::<Form>(s).unwrap(),
+        Form {
+            id: 3,
+            name: "".to_string(),
+            vec: vec!["Vector".to_string()],
+        }
+    );
 
     let s = "vec[0]=Vector";
     assert_eq!(
-        c.deserialize_str::<Form>(s).unwrap(),
+        default_config.deserialize_str::<Form>(s).unwrap(),
         Form {
             id: 0,
             name: "".to_string(),
@@ -1021,32 +1040,29 @@ fn depth_one() {
         }
     );
 
-    #[cfg(feature = "permissive_decoding")]
-    {
-        let s = "vec%5B1%5D=Vector";
-        assert_eq!(
-            c.deserialize_str::<Form>(s).unwrap(),
-            Form {
-                id: 0,
-                name: "".to_string(),
-                vec: vec!["Vector".to_string()],
-            }
-        );
+    let s = "vec%5B1%5D=Vector";
+    assert_eq!(
+        form_config.deserialize_str::<Form>(s).unwrap(),
+        Form {
+            id: 0,
+            name: "".to_string(),
+            vec: vec!["Vector".to_string()],
+        }
+    );
 
-        let s = "name=&vec%5B1%5D=Vector";
-        assert_eq!(
-            c.deserialize_str::<Form>(s).unwrap(),
-            Form {
-                id: 0,
-                name: "".to_string(),
-                vec: vec!["Vector".to_string()],
-            }
-        );
-    }
+    let s = "name=&vec%5B1%5D=Vector";
+    assert_eq!(
+        form_config.deserialize_str::<Form>(s).unwrap(),
+        Form {
+            id: 0,
+            name: "".to_string(),
+            vec: vec!["Vector".to_string()],
+        }
+    );
 
     let s = "name=&vec[0]=Vector";
     assert_eq!(
-        c.deserialize_str::<Form>(s).unwrap(),
+        default_config.deserialize_str::<Form>(s).unwrap(),
         Form {
             id: 0,
             name: "".to_string(),
@@ -1055,7 +1071,7 @@ fn depth_one() {
     );
     let s = "name=test&vec[0]=Vector";
     assert_eq!(
-        c.deserialize_str::<Form>(s).unwrap(),
+        default_config.deserialize_str::<Form>(s).unwrap(),
         Form {
             id: 0,
             name: "test".to_string(),
@@ -1369,5 +1385,32 @@ fn deserialize_map_with_uuid_keys() {
             .get("ffffffff-ffff-ffff-ffff-ffffffffffff")
             .cloned(),
         Some(4)
+    );
+}
+
+#[test]
+fn invalid_utf8() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct StringQueryParam {
+        field: String,
+    }
+
+    // Invalid UTF8 characters cause errors _if_ they are used
+    let err = qs::from_str::<StringQueryParam>("field=%E9").unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("incomplete utf-8 byte sequence from inde"),
+        "got: {}",
+        err
+    );
+
+    // But if they are not used, we can still deserialize
+    let params = "field=valid&unused=%E9";
+    let query: StringQueryParam = qs::from_str(params).unwrap();
+    assert_eq!(
+        query,
+        StringQueryParam {
+            field: "valid".to_string(),
+        }
     );
 }

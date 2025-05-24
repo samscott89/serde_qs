@@ -1,10 +1,13 @@
 //! Serialization support for querystrings.
 
+mod encode;
+
+use encode::encode;
+
 use serde::ser;
 
 use crate::error::*;
 
-use std::borrow::Cow;
 use std::fmt::Display;
 use std::io::Write;
 use std::str;
@@ -36,12 +39,8 @@ use std::str;
 /// # }
 /// ```
 pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
-    // initialize the buffer with 128 bytes
-    // this is a guess based on what `serde_json` does
-    let mut buffer = Vec::with_capacity(128);
-    let mut serializer = QsSerializer::new(&mut buffer);
-    input.serialize(&mut serializer)?;
-    String::from_utf8(buffer).map_err(Error::from)
+    let config = crate::Config::default();
+    config.serialize_string(input)
 }
 
 /// Serializes a value into a generic writer object.
@@ -72,8 +71,8 @@ pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
 /// # }
 /// ```
 pub fn to_writer<T: ser::Serialize, W: Write>(input: &T, writer: &mut W) -> Result<()> {
-    let mut serializer = QsSerializer::new(writer);
-    input.serialize(&mut serializer)
+    let config = crate::Config::default();
+    config.serialize_to_writer(input, writer)
 }
 
 /// A serializer for the querystring format.
@@ -88,15 +87,17 @@ pub struct QsSerializer<W: Write> {
     writer: W,
     first_kv: bool,
     key: Vec<Vec<u8>>,
+    config: crate::Config,
 }
 
 impl<W: Write> QsSerializer<W> {
     /// Creates a new `QsSerializer` with the given writer.
-    pub fn new(writer: W) -> Self {
+    pub fn new(writer: W, config: crate::Config) -> Self {
         Self {
             writer,
             first_kv: true,
             key: Vec::with_capacity(4),
+            config,
         }
     }
 }
@@ -112,7 +113,7 @@ impl<W: Write> QsSerializer<W> {
         if !first_key_segment {
             segment.push(b'[');
         }
-        for encoded in encode(newkey) {
+        for encoded in encode(newkey, self.config.use_form_encoding) {
             segment.extend_from_slice(&encoded);
         }
         if !first_key_segment {
@@ -133,13 +134,13 @@ impl<W: Write> QsSerializer<W> {
             } else {
                 self.writer.write_all(b"&")?;
             }
-            for encoded in encode(newkey) {
+            for encoded in encode(newkey, self.config.use_form_encoding) {
                 self.writer.write_all(&encoded)?;
             }
         } else {
             self.write_key_stack()?;
             self.writer.write_all(b"[")?;
-            for encoded in encode(newkey) {
+            for encoded in encode(newkey, self.config.use_form_encoding) {
                 self.writer.write_all(&encoded)?;
             }
             self.writer.write_all(b"]")?;
@@ -182,7 +183,7 @@ impl<W: Write> QsSerializer<W> {
     fn write_value(&mut self, value: &[u8]) -> Result<()> {
         self.write_key_stack()?;
         self.writer.write_all(b"=")?;
-        for encoded in encode(value) {
+        for encoded in encode(value, self.config.use_form_encoding) {
             self.writer.write_all(&encoded)?;
         }
         Ok(())
@@ -749,30 +750,4 @@ impl<W: Write> ser::Serializer for KeySerializer<'_, W> {
         self.qs.push_key(v.as_bytes())?;
         Ok(())
     }
-}
-
-use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
-
-const QS_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
-    .remove(b' ')
-    .remove(b'*')
-    .remove(b'-')
-    .remove(b'.')
-    .remove(b',')
-    .remove(b'|')
-    .remove(b'_');
-
-fn encode(b: &[u8]) -> impl Iterator<Item = Cow<'_, [u8]>> + '_ {
-    percent_encoding::percent_encode(b, QS_ENCODE_SET).map(|s| {
-        if s.as_bytes().contains(&b' ') {
-            Cow::Owned(
-                s.as_bytes()
-                    .iter()
-                    .map(|b| if *b == b' ' { b'+' } else { *b })
-                    .collect(),
-            )
-        } else {
-            Cow::Borrowed(s.as_bytes())
-        }
-    })
 }

@@ -20,6 +20,14 @@ pub enum Key<'a> {
     String(Cow<'a, [u8]>),
 }
 
+impl<'a> Key<'a> {
+    /// In some cases, we would rather push an empty key
+    /// (e.g. if we have `foo=1&=2`, then we'll have a map `{ "foo": 1, "": 2 }`).
+    fn empty_key() -> Self {
+        Key::String(Cow::Borrowed(b""))
+    }
+}
+
 impl fmt::Debug for Key<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{self}")
@@ -90,13 +98,8 @@ impl fmt::Debug for ParsedValue<'_> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct ParsingOptions {
-    pub max_depth: usize,
-}
-
-pub fn parse<'qs>(encoded_string: &'qs [u8], options: ParsingOptions) -> Result<ParsedMap<'qs>> {
-    let mut parser = Parser::new(encoded_string, options.max_depth);
+pub fn parse<'qs>(encoded_string: &'qs [u8], config: crate::Config) -> Result<ParsedMap<'qs>> {
+    let mut parser = Parser::new(encoded_string, config);
     let mut output = Map::default();
     parser.parse(&mut output)?;
 
@@ -111,7 +114,7 @@ struct Parser<'qs> {
     iter: Iter<'qs, u8>,
     index: usize,
     acc: (usize, usize),
-    max_depth: usize,
+    config: crate::Config,
 }
 
 impl Parser<'_> {
@@ -120,8 +123,9 @@ impl Parser<'_> {
         self.index += 1;
         let mut next = self.iter.next().copied();
 
-        if cfg!(feature = "permissive_decoding") {
-            // in non-strict mode, we will eagerly decode any bracket
+        if self.config.use_form_encoding {
+            // in formencoding mode, we will eagerly decode any
+            // percent-encoded brackets
             if matches!(next, Some(b'%')) {
                 let iter = self.iter.as_slice();
                 if iter.len() >= 2 {
@@ -152,13 +156,13 @@ impl Parser<'_> {
 }
 
 impl<'qs> Parser<'qs> {
-    pub fn new(encoded: &'qs [u8], max_depth: usize) -> Self {
+    pub fn new(encoded: &'qs [u8], config: crate::Config) -> Self {
         Parser {
             inner: encoded,
             iter: encoded.iter(),
             acc: (0, 0),
             index: 0,
-            max_depth,
+            config,
         }
     }
 
@@ -225,39 +229,40 @@ impl<'qs> Parser<'qs> {
     ///
     /// Returns `Ok(false)` when there is no more string to parse.
     fn parse(&mut self, root_map: &mut ParsedMap<'qs>) -> Result<()> {
-        let no_nesting = self.max_depth == 0;
+        if self.inner.is_empty() {
+            // empty string -- nothing to parse
+            return Ok(());
+        }
+        let no_nesting = self.config.max_depth == 0;
         loop {
             let Some(x) = self.next() else {
                 // we reached the end of the string
-                // without encountering a terminating value (e.g. `=` or `&`)
-                // nor a nested key (e.g. `[`)
-                // we can insert the empty node
-                // and the return `None` since there is nothing more to do
+                // push the key (if exists) with a null value
                 if let Some(key) = self.collect_key()? {
                     insert_unique(self, root_map, key, ParsedValue::Null)?;
                 }
+
+                // we've finished parsing the string
                 return Ok(());
             };
 
             // process root key
             match x {
                 b'&' => {
-                    // simplest case -- we have a simple key with no value
+                    // we have a simple key with no value
                     // insert an empty node and continue
-                    let Some(key) = self.collect_key()? else {
-                        // empty key -- we can skip this
-                        self.clear_acc();
-                        continue;
-                    };
-                    insert_unique(self, root_map, key, ParsedValue::Null)?;
+                    if let Some(key) = self.collect_key()? {
+                        // if we have no key, we'll skip it entirely to avoid creating empty
+                        // key, value pairs
+                        insert_unique(self, root_map, key, ParsedValue::Null)?;
+                    }
                 }
                 b'=' => {
                     // we have a simple key with a value
                     // parse the value and insert it into the map
-                    let key = self.collect_key()?.ok_or_else(|| {
-                        // empty key
-                        super::Error::parse_err("empty key", self.index)
-                    })?;
+                    // if they key is empty, since we have an explicit `=` we'll use
+                    // an empty key
+                    let key = self.collect_key()?.unwrap_or_else(Key::empty_key);
                     let value = self.parse_value()?;
                     insert_unique(self, root_map, key, value)?;
                 }
@@ -265,10 +270,7 @@ impl<'qs> Parser<'qs> {
                     // we have a nested key
                     // first get the first segment of the key
                     // and parse the rest of the key
-                    let root = self.collect_key()?.ok_or_else(|| {
-                        // empty key
-                        super::Error::parse_err("empty key", self.index)
-                    })?;
+                    let root = self.collect_key()?.unwrap_or_else(Key::empty_key);
                     let node = root_map.entry(root).or_insert(ParsedValue::Uninitialized);
                     // parse the key and insert it into the map
                     self.parse_nested_key(node, 0)?;
@@ -290,7 +292,7 @@ impl<'qs> Parser<'qs> {
         current_node: &mut ParsedValue<'qs>,
         depth: usize,
     ) -> Result<()> {
-        let reached_max_depth = depth >= self.max_depth;
+        let reached_max_depth = depth >= self.config.max_depth;
         if !reached_max_depth {
             // if we haven't reached the maximum depth yet, we can clear the accumulator
             // otherwise, we want to keep the accumulated `[` character
@@ -541,20 +543,29 @@ fn expect_map<'a, 'qs>(
 mod test {
     use std::iter::FromIterator;
 
+    use crate::Config;
+
     use super::*;
     use pretty_assertions::assert_eq;
 
-    static TEST_CONFIG: ParsingOptions = ParsingOptions { max_depth: 10 };
+    static DEFAULT_CONFIG: Config = Config {
+        max_depth: 10,
+        use_form_encoding: false,
+    };
+    static FORM_ENCODING_CONFIG: Config = Config {
+        use_form_encoding: true,
+        ..DEFAULT_CONFIG
+    };
 
     #[test]
     fn parse_empty() {
-        let parsed = parse(b"", TEST_CONFIG).unwrap();
+        let parsed = parse(b"", DEFAULT_CONFIG).unwrap();
         assert_eq!(parsed, Default::default())
     }
 
     #[test]
     fn parse_map() {
-        let parsed = parse(b"abc=def", TEST_CONFIG).unwrap();
+        let parsed = parse(b"abc=def", DEFAULT_CONFIG).unwrap();
         assert_eq!(
             parsed,
             Map::from_iter([("abc".into(), ParsedValue::String(b"def".into()))])
@@ -563,19 +574,19 @@ mod test {
 
     #[test]
     fn parse_map_no_value() {
-        let parsed = parse(b"abc", TEST_CONFIG).unwrap();
+        let parsed = parse(b"abc", DEFAULT_CONFIG).unwrap();
         assert_eq!(parsed, Map::from_iter([("abc".into(), ParsedValue::Null)]));
     }
 
     #[test]
     fn parse_map_empty_value() {
-        let parsed = parse(b"abc=", TEST_CONFIG).unwrap();
+        let parsed = parse(b"abc=", DEFAULT_CONFIG).unwrap();
         assert_eq!(parsed, Map::from_iter([("abc".into(), ParsedValue::Null)]));
     }
 
     #[test]
     fn parse_sequence() {
-        let parsed = parse(b"abc[]=1&abc[]=2", TEST_CONFIG).unwrap();
+        let parsed = parse(b"abc[]=1&abc[]=2", DEFAULT_CONFIG).unwrap();
         assert_eq!(
             parsed,
             // NOTE: we cannot have a top-level sequence since we need a key to group
@@ -592,7 +603,7 @@ mod test {
 
     #[test]
     fn parse_ordered_sequence() {
-        let parsed = parse(b"abc[1]=1&abc[0]=0", TEST_CONFIG).unwrap();
+        let parsed = parse(b"abc[1]=1&abc[0]=0", DEFAULT_CONFIG).unwrap();
         assert_eq!(
             parsed,
             Map::from_iter([(
@@ -607,7 +618,7 @@ mod test {
 
     #[test]
     fn parse_nested_map() {
-        let parsed = parse(b"abc[def]=ghi", TEST_CONFIG).unwrap();
+        let parsed = parse(b"abc[def]=ghi", DEFAULT_CONFIG).unwrap();
         assert_eq!(
             parsed,
             Map::from_iter([(
@@ -622,7 +633,7 @@ mod test {
 
     #[test]
     fn parse_empty_and_sequence() {
-        let parse_err = parse(b"abc&abc[]=1", TEST_CONFIG).unwrap_err();
+        let parse_err = parse(b"abc&abc[]=1", DEFAULT_CONFIG).unwrap_err();
         assert!(
             parse_err
                 .to_string()
@@ -634,7 +645,7 @@ mod test {
 
     #[test]
     fn parse_many() {
-        let parsed = parse(b"e[B]&v[V1][x]=12&v[V1][y]=300&u=12", TEST_CONFIG).unwrap();
+        let parsed = parse(b"e[B]&v[V1][x]=12&v[V1][y]=300&u=12", DEFAULT_CONFIG).unwrap();
         assert_eq!(
             parsed,
             Map::from_iter([
@@ -657,10 +668,16 @@ mod test {
         );
     }
 
-    #[cfg(not(feature = "permissive_decoding"))]
     #[test]
-    fn parse_strict() {
-        let parsed = parse(b"a[b][c][d][e][f][g][h]=i", ParsingOptions { max_depth: 5 }).unwrap();
+    fn parse_max_depth() {
+        let parsed = parse(
+            b"a[b][c][d][e][f][g][h]=i",
+            Config {
+                max_depth: 5,
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         assert_eq!(
             parsed,
@@ -689,12 +706,11 @@ mod test {
         );
     }
 
-    #[cfg(feature = "permissive_decoding")]
     #[test]
-    fn parse_encoded_brackets() {
+    fn parse_formencoded_brackets() {
         // encoded in the key
         // in non-strict mode, the brackets are eagerly decoded
-        let parsed = parse(b"abc%5Bdef%5D=ghi", TEST_CONFIG).unwrap();
+        let parsed = parse(b"abc%5Bdef%5D=ghi", FORM_ENCODING_CONFIG).unwrap();
         assert_eq!(
             parsed,
             Map::from_iter([(
@@ -706,27 +722,26 @@ mod test {
             )])
         );
 
-        let parsed = parse(b"foo=%5BHello%5D", TEST_CONFIG).unwrap();
+        let parsed = parse(b"foo=%5BHello%5D", FORM_ENCODING_CONFIG).unwrap();
         assert_eq!(
             parsed,
             Map::from_iter([("foo".into(), ParsedValue::String(b"[Hello]".into()))])
         );
     }
 
-    #[cfg(not(feature = "permissive_decoding"))]
     #[test]
     fn parse_encoded_brackets() {
-        let strict_config = ParsingOptions { max_depth: 10 };
         // encoded in the key
-        // in strict mode, the brackets are not decoded
-        let parsed = parse(b"abc%5Bdef%5D=ghi", strict_config).unwrap();
+        // in strict mode, the brackets are not decoded, so we end up with a key containing
+        // brackets
+        let parsed = parse(b"abc%5Bdef%5D=ghi", DEFAULT_CONFIG).unwrap();
         assert_eq!(
             parsed,
             Map::from_iter([("abc[def]".into(), ParsedValue::String(b"ghi".into()))])
         );
 
         // encoded in the value
-        let parsed = parse(b"foo=%5BHello%5D", strict_config).unwrap();
+        let parsed = parse(b"foo=%5BHello%5D", DEFAULT_CONFIG).unwrap();
         assert_eq!(
             parsed,
             Map::from_iter([("foo".into(), ParsedValue::String(b"[Hello]".into()))])

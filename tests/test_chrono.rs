@@ -18,9 +18,19 @@ fn test_dates() {
             .and_hms_nano(21, 45, 59, 324310806),
     };
 
-    let s = qs::to_string(&params).unwrap();
-    assert_eq!(s, "date_time=2014-11-28T21%3A45%3A59.324310806%2B09%3A00");
+    let default_config = qs::Config::default();
+    let s = default_config.serialize_string(&params).unwrap();
+    assert_eq!(s, "date_time=2014-11-28T21:45:59.324310806%2B09:00");
 
+    let data: Params = qs::from_str(&s).unwrap();
+    assert_eq!(data, params);
+
+    let form_config = qs::Config {
+        use_form_encoding: true,
+        ..default_config
+    };
+    let s = form_config.serialize_string(&params).unwrap();
+    assert_eq!(s, "date_time=2014-11-28T21%3A45%3A59.324310806%2B09%3A00");
     let data: Params = qs::from_str(&s).unwrap();
     assert_eq!(data, params);
 }
