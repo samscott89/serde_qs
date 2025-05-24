@@ -250,6 +250,38 @@ fn optional_seq() {
 }
 
 #[test]
+fn seq_of_optionals() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query {
+        vec: Vec<Option<u8>>,
+    }
+
+    let params = "vec";
+    let query = Query { vec: vec![] };
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, query);
+
+    let params = "vec[]";
+    let query = Query { vec: vec![None] };
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, query);
+
+    let params = "vec[0]=1&vec[1]=2";
+    let query = Query {
+        vec: vec![Some(1), Some(2)],
+    };
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, query);
+
+    let params = "vec[]&vec[]=2";
+    let query = Query {
+        vec: vec![None, Some(2)],
+    };
+    let rec_params: Query = qs::from_str(params).unwrap();
+    assert_eq!(rec_params, query);
+}
+
+#[test]
 fn optional_struct() {
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct Query {

@@ -400,6 +400,14 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
             ))
         }
     }
+
+    fn size_hint(&self) -> Option<usize> {
+        if let Some(field_order) = self.field_order {
+            Some(field_order.len())
+        } else {
+            Some(self.parsed.len())
+        }
+    }
 }
 
 impl<'a, 'de: 'a> de::EnumAccess<'de> for MapDeserializer<'a, 'de> {
@@ -469,6 +477,13 @@ impl<'de, I: Iterator<Item = ParsedValue<'de>>> de::SeqAccess<'de> for Seq<'de, 
             seed.deserialize(ValueDeserializer(v)).map(Some)
         } else {
             Ok(None)
+        }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        match self.0.size_hint() {
+            (lower, Some(upper)) if lower == upper => Some(upper),
+            _ => None,
         }
     }
 }
