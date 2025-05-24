@@ -63,23 +63,26 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self::default()
+        Self::new()
     }
 }
 
 impl Config {
-    pub const fn new(max_depth: usize, use_form_encoding: bool) -> Self {
-        Self {
-            max_depth,
-            use_form_encoding,
-        }
-    }
-
-    pub const fn default() -> Self {
+    pub const fn new() -> Self {
         Self {
             max_depth: 5,
             use_form_encoding: cfg!(feature = "default_to_form_encoding"),
         }
+    }
+
+    pub const fn max_depth(mut self, max_depth: usize) -> Self {
+        self.max_depth = max_depth;
+        self
+    }
+
+    pub const fn use_form_encoding(mut self, use_form_encoding: bool) -> Self {
+        self.use_form_encoding = use_form_encoding;
+        self
     }
 
     /// Deserializes a querystring from a `&[u8]` using this `Config`.

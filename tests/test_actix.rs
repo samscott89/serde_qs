@@ -130,7 +130,9 @@ fn test_custom_qs_config() {
     futures::executor::block_on(async {
         let req =
             TestRequest::with_uri("/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true")
-                .app_data(QsQueryConfig::default().qs_config(QsConfig::new(5, false)))
+                .app_data(
+                    QsQueryConfig::default().qs_config(QsConfig::new().use_form_encoding(true)),
+                )
                 .to_srv_request();
 
         let (req, mut pl) = req.into_parts();

@@ -260,7 +260,7 @@ impl std::error::Error for QsQueryRejection {
 /// fn main() {
 ///     let app = Router::<()>::new()
 ///         .route("/users", get(filter_users))
-///         .layer(Extension(QsQueryConfig::new(5, false)
+///         .layer(Extension(QsQueryConfig::new().config(Config::default())
 ///             .error_handler(|err| {
 ///                 QsQueryRejection::new(err, StatusCode::UNPROCESSABLE_ENTITY)
 ///         })));
@@ -274,7 +274,7 @@ impl QsQueryConfig {
     /// Create new config wrapper
     pub const fn new() -> Self {
         Self {
-            config: crate::Config::default(),
+            config: crate::Config::new(),
             error_handler: None,
         }
     }
