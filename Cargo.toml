@@ -26,9 +26,11 @@ thiserror = "2.0"
 tracing = { version = "0.1", optional = true }
 warp-framework = { package = "warp", version = "0.3", default-features = false, optional = true }
 
+# used in benchmarks
+criterion = { version = "0.5", features = ["html_reports"], optional = true }
+
 [dev-dependencies]
 chrono = { version = "0.4", features = ["serde"] }
-criterion = { version = "0.5", features = ["html_reports"] }
 csv = "=1.2.2"
 pretty_assertions = "1.0"
 rand = "0.9"
@@ -48,6 +50,7 @@ actix = []
 warp = ["futures", "tracing", "warp-framework"]
 axum = ["axum-framework", "futures"]
 indexmap = ["dep:indexmap"]
+benchmarks = ["dep:criterion"]
 
 [package.metadata.docs.rs]
 features = ["actix4", "warp", "axum"]

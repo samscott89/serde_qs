@@ -54,7 +54,7 @@ jobs:
     
     - name: Run benchmarks
       run: |
-        cargo bench --bench serde_qs_benchmarks -- --output-format json | tee benchmark_results.json
+        cargo bench --bench serde_qs_benchmarks -F criterion  -- --output-format json | tee benchmark_results.json
     
     - name: Store benchmark results
       uses: benchmark-action/github-action-benchmark@v1
@@ -149,12 +149,12 @@ jobs:
     - name: Run baseline benchmarks
       run: |
         cd base
-        cargo bench --bench serde_qs_benchmarks -- --output-format json > ../baseline.json
+        cargo bench --bench serde_qs_benchmarks -F criterion -- --output-format json > ../baseline.json
         cd ..
         
     - name: Run PR benchmarks
       run: |
-        cargo bench --bench serde_qs_benchmarks -- --output-format json > pr.json
+        cargo bench --bench serde_qs_benchmarks -F criterion -- --output-format json > pr.json
         
     - name: Compare performance
       run: |
