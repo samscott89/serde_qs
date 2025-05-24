@@ -6,7 +6,6 @@ use axum_framework as axum;
 
 use std::sync::Arc;
 
-use crate::de::Config as QsConfig;
 use crate::error::Error as QsError;
 
 use axum::{
@@ -83,7 +82,7 @@ where
             .await
             .unwrap_or_else(|_| Extension(QsQueryConfig::default()));
         let error_handler = qs_config.error_handler.clone();
-        let config: QsConfig = qs_config.into();
+        let config: crate::Config = qs_config.into();
         let query = parts.uri.query().unwrap_or_default();
         match config.deserialize_str::<T>(query) {
             Ok(value) => Ok(QsQuery(value)),
@@ -164,7 +163,7 @@ where
             .unwrap_or_else(|_| Extension(QsQueryConfig::default()));
         if let Some(query) = parts.uri.query() {
             let error_handler = qs_config.error_handler.clone();
-            let config: QsConfig = qs_config.into();
+            let config: crate::Config = qs_config.into();
             config
                 .deserialize_str::<T>(query)
                 .map(|query| OptionalQsQuery(Some(query)))
@@ -268,19 +267,19 @@ impl std::error::Error for QsQueryRejection {
 ///         })));
 /// }
 pub struct QsQueryConfig {
-    max_depth: usize,
-    strict: bool,
+    config: crate::Config,
     error_handler: Option<Arc<dyn Fn(QsError) -> QsQueryRejection + Send + Sync>>,
 }
 
 impl QsQueryConfig {
     /// Create new config wrapper
-    pub fn new(max_depth: usize, strict: bool) -> Self {
-        Self {
-            max_depth,
-            strict,
-            error_handler: None,
-        }
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn config(mut self, config: crate::Config) -> Self {
+        self.config = config;
+        self
     }
 
     /// Set custom error handler
@@ -293,17 +292,19 @@ impl QsQueryConfig {
     }
 }
 
-impl From<QsQueryConfig> for QsConfig {
+impl From<QsQueryConfig> for crate::Config {
     fn from(config: QsQueryConfig) -> Self {
-        Self::new(config.max_depth, config.strict)
+        Self {
+            config,
+            ..crate::Config::default()
+        }
     }
 }
 
 impl Default for QsQueryConfig {
     fn default() -> Self {
         Self {
-            max_depth: 5,
-            strict: true,
+            config: crate::Config::default(),
             error_handler: None,
         }
     }

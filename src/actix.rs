@@ -2,8 +2,8 @@
 //!
 //! Enable with the `actix4`, `actix3` or `actix2` features.
 
-use crate::de::Config as QsConfig;
 use crate::error::Error as QsError;
+use crate::Config as QsConfig;
 
 #[cfg(feature = "actix3")]
 use actix_web3 as actix_web;
@@ -115,7 +115,9 @@ where
 
     #[inline]
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let query_config = req.app_data::<QsQueryConfig>().unwrap_or(&DEFAULT_CONFIG);
+        let query_config = req
+            .app_data::<QsQueryConfig>()
+            .unwrap_or(&DEFAULT_QUERY_CONFIG);
 
         let res = query_config
             .qs_config
@@ -181,9 +183,17 @@ pub struct QsQueryConfig {
     qs_config: QsConfig,
 }
 
-static DEFAULT_CONFIG: QsQueryConfig = QsQueryConfig {
+static DEFAULT_QUERY_CONFIG: QsQueryConfig = QsQueryConfig {
     ehandler: None,
-    qs_config: crate::de::DEFAULT_CONFIG,
+    qs_config: QsConfig::default(),
+};
+
+static DEFAULT_FORM_CONFIG: QsQueryConfig = QsQueryConfig {
+    ehandler: None,
+    qs_config: QsConfig {
+        use_form_encoding: true,
+        ..QsConfig::default()
+    },
 };
 
 impl QsQueryConfig {
@@ -276,7 +286,7 @@ where
 
         let query_config: QsQueryConfig = req
             .app_data::<QsQueryConfig>()
-            .unwrap_or(&DEFAULT_CONFIG)
+            .unwrap_or(&DEFAULT_FORM_CONFIG)
             .clone();
         async move {
             let mut bytes = web::BytesMut::new();
