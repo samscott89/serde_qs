@@ -66,13 +66,28 @@ impl<'a> Key<'a> {
 }
 
 /// An intermediate representation of the parsed query string.
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum ParsedValue<'qs> {
     Map(ParsedMap<'qs>),
     Sequence(Vec<ParsedValue<'qs>>),
     String(Cow<'qs, [u8]>),
     Null,
     Uninitialized,
+}
+
+impl fmt::Debug for ParsedValue<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParsedValue::Map(m) => f
+                .debug_map()
+                .entries(m.iter().map(|(k, v)| (k, v)))
+                .finish(),
+            ParsedValue::Sequence(s) => f.debug_list().entries(s.iter()).finish(),
+            ParsedValue::String(s) => write!(f, "String({})", String::from_utf8_lossy(s)),
+            ParsedValue::Null => write!(f, "Null"),
+            ParsedValue::Uninitialized => write!(f, "Unintialized"),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]

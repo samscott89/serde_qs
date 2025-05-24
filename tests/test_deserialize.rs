@@ -1207,3 +1207,83 @@ fn nested_tuple() {
         err
     );
 }
+
+#[test]
+fn untagged_enum() {
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct A {
+        x: String,
+        a: String,
+    }
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct B {
+        x: String,
+        b: String,
+    }
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    #[serde(untagged)]
+    enum Q {
+        A(A),
+        B(B),
+    }
+
+    let q = "x=1&a=2";
+    let a: Q = serde_qs::from_str(q).unwrap();
+    assert_eq!(
+        a,
+        Q::A(A {
+            x: "1".to_string(),
+            a: "2".to_string()
+        })
+    );
+
+    let q = "x=1&b=2";
+    let a: Q = serde_qs::from_str(q).unwrap();
+    assert_eq!(
+        a,
+        Q::B(B {
+            x: "1".to_string(),
+            b: "2".to_string()
+        })
+    );
+}
+
+#[test]
+fn newtype_structs() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct NewU8(u8);
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct NewU16(u16);
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        a: NewU8,
+        b: NewU16,
+    }
+
+    let q = "a=1&b=2";
+    let result: Query = serde_qs::from_str(q).unwrap();
+    assert_eq!(
+        result,
+        Query {
+            a: NewU8(1),
+            b: NewU16(2)
+        }
+    );
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct NewQuery(Query);
+
+    let q = "a=1&b=2";
+    let result: NewQuery = serde_qs::from_str(q).unwrap();
+    assert_eq!(
+        result,
+        NewQuery(Query {
+            a: NewU8(1),
+            b: NewU16(2)
+        })
+    );
+}

@@ -262,7 +262,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        self.deserialize_map(visitor)
+        visitor.visit_newtype_struct(self)
     }
 
     fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value>
