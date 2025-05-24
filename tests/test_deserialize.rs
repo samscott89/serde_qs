@@ -743,8 +743,7 @@ fn square_brackets_in_values() {
 }
 
 #[test]
-#[ignore]
-fn deserialize_flatten() {
+fn deserialize_flatten_bug() {
     #[derive(Deserialize, Serialize, Debug, PartialEq)]
     struct Query {
         a: u8,
@@ -760,16 +759,18 @@ fn deserialize_flatten() {
     }
 
     let params = "a=1&limit=100&offset=50&remaining=true";
-    let query = Query {
-        a: 1,
-        common: CommonParams {
-            limit: 100,
-            offset: 50,
-            remaining: true,
-        },
-    };
-    let rec_query: Result<Query, _> = qs::from_str(params);
-    assert_eq!(rec_query.unwrap(), query);
+
+    let err = qs::from_str::<Query>(params).unwrap_err();
+    // see: https://github.com/serde-rs/serde/issues/1183
+    // this is a limitation in serde which prevents us from knowing
+    // what type the parameters are and we default to string
+    // when we don't know
+    assert!(
+        err.to_string()
+            .contains("invalid type: string \"100\", expected u64"),
+        "got {}",
+        err
+    );
 }
 
 #[test]
