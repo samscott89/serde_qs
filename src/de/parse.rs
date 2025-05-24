@@ -554,8 +554,8 @@ mod test {
         ..DEFAULT_CONFIG
     };
 
-    impl From<&str> for ParsedValue<'_> {
-        fn from(s: &str) -> Self {
+    impl<'a> From<&'a str> for ParsedValue<'a> {
+        fn from(s: &'a str) -> Self {
             ParsedValue::String(Cow::Borrowed(s.as_bytes()))
         }
     }
