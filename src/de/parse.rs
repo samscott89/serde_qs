@@ -20,7 +20,7 @@ pub enum Key<'a> {
     String(Cow<'a, [u8]>),
 }
 
-impl<'a> Key<'a> {
+impl Key<'_> {
     /// In some cases, we would rather push an empty key
     /// (e.g. if we have `foo=1&=2`, then we'll have a map `{ "foo": 1, "": 2 }`).
     fn empty_key() -> Self {
@@ -55,7 +55,7 @@ impl<'a> From<&'a [u8]> for Key<'a> {
     }
 }
 
-impl<'a> From<usize> for Key<'a> {
+impl From<usize> for Key<'_> {
     fn from(i: usize) -> Self {
         Key::Int(i)
     }
@@ -88,7 +88,7 @@ impl fmt::Debug for ParsedValue<'_> {
         match self {
             ParsedValue::Map(m) => f
                 .debug_map()
-                .entries(m.iter().map(|(k, v)| (k, v)))
+                .entries(m.iter())
                 .finish(),
             ParsedValue::Sequence(s) => f.debug_list().entries(s.iter()).finish(),
             ParsedValue::String(s) => write!(f, "String({})", String::from_utf8_lossy(s)),
@@ -98,7 +98,7 @@ impl fmt::Debug for ParsedValue<'_> {
     }
 }
 
-pub fn parse<'qs>(encoded_string: &'qs [u8], config: crate::Config) -> Result<ParsedMap<'qs>> {
+pub fn parse(encoded_string: &[u8], config: crate::Config) -> Result<ParsedMap<'_>> {
     let mut parser = Parser::new(encoded_string, config);
     let mut output = Map::default();
     parser.parse(&mut output)?;

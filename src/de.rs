@@ -287,7 +287,7 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
         if let Some(field_order) = &mut self.field_order {
             for (idx, field) in field_order.iter().enumerate() {
                 let field_key = (*field).into();
-                if let Some(value) = crate::map::remove(&mut self.parsed, &field_key) {
+                if let Some(value) = crate::map::remove(self.parsed, &field_key) {
                     *field_order = &field_order[idx + 1..];
                     self.popped_value = Some(value);
                     return seed
@@ -299,7 +299,7 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
 
         // once we've exhausted the field order, we can
         // just iterate remaining elements in the map
-        if let Some((key, value)) = crate::map::pop_first(&mut self.parsed) {
+        if let Some((key, value)) = crate::map::pop_first(self.parsed) {
             self.popped_value = Some(value);
             let has_bracket = matches!(key, Key::String(ref s) if s.contains(&b'['));
             key.deserialize_seed(seed)
@@ -348,7 +348,7 @@ impl<'a, 'de: 'a> de::EnumAccess<'de> for MapDeserializer<'a, 'de> {
     where
         V: de::DeserializeSeed<'de>,
     {
-        if let Some((key, value)) = crate::map::pop_first(&mut self.parsed) {
+        if let Some((key, value)) = crate::map::pop_first(self.parsed) {
             self.popped_value = Some(value);
             Ok((key.deserialize_seed(seed)?, self))
         } else {
@@ -620,11 +620,11 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
             }),
             ParsedValue::Null => {
                 let mut empty_map = parse::ParsedMap::default();
-                return visitor.visit_map(MapDeserializer {
+                visitor.visit_map(MapDeserializer {
                     parsed: &mut empty_map,
                     field_order: None,
                     popped_value: None,
-                });
+                })
             }
             _ => self.deserialize_any(visitor),
         }

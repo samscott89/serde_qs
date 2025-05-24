@@ -68,10 +68,6 @@ impl Default for Config {
 }
 
 impl Config {
-    #[deprecated(
-        since = "1.0",
-        note = "construct using public fields instead, e.g. Config { max_depth: 0, ..Default::default() }"
-    )]
     pub const fn new(max_depth: usize, use_form_encoding: bool) -> Self {
         Self {
             max_depth,

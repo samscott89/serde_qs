@@ -160,11 +160,11 @@ impl<W: Write> QsSerializer<W> {
             self.writer.write_all(b"&")?;
         }
         let Some(first_segment) = self.key.first() else {
-            return Err(Error::Custom(format!("internal error: no key found")));
+            return Err(Error::Custom("internal error: no key found".to_string()));
         };
 
         // write the key segments
-        self.writer.write_all(&first_segment)?;
+        self.writer.write_all(first_segment)?;
         for segment in self.key.iter().skip(1) {
             self.writer.write_all(segment)?;
         }
@@ -175,7 +175,7 @@ impl<W: Write> QsSerializer<W> {
     fn pop_key(&mut self) -> Result<()> {
         let popped = self.key.pop();
         if popped.is_none() {
-            return Err(Error::Custom(format!("internal error: no key found")));
+            return Err(Error::Custom("internal error: no key found".to_string()));
         }
         Ok(())
     }
@@ -480,7 +480,7 @@ impl<W: Write> ser::SerializeTupleStruct for QsSeq<'_, W> {
     }
 }
 
-impl<'a, W: Write> ser::SerializeStruct for &'a mut QsSerializer<W> {
+impl<W: Write> ser::SerializeStruct for &mut QsSerializer<W> {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
@@ -496,7 +496,7 @@ impl<'a, W: Write> ser::SerializeStruct for &'a mut QsSerializer<W> {
     }
 }
 
-impl<'s, W: Write> ser::SerializeStructVariant for &'s mut QsSerializer<W> {
+impl<W: Write> ser::SerializeStructVariant for &mut QsSerializer<W> {
     type Ok = ();
     type Error = Error;
 
@@ -535,7 +535,7 @@ impl<W: Write> ser::SerializeMap for QsMap<'_, W> {
         T: ser::Serialize + ?Sized,
     {
         self.empty = false;
-        key.serialize(KeySerializer::new(&mut self.qs))?;
+        key.serialize(KeySerializer::new(self.qs))?;
         Ok(())
     }
 

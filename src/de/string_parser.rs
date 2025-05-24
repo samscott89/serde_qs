@@ -7,7 +7,7 @@ pub struct StringParsingDeserializer<'a, E> {
     marker: PhantomData<E>,
 }
 
-impl<'a, E> Clone for StringParsingDeserializer<'a, E> {
+impl<E> Clone for StringParsingDeserializer<'_, E> {
     fn clone(&self) -> Self {
         StringParsingDeserializer {
             value: self.value.clone(),
@@ -16,7 +16,7 @@ impl<'a, E> Clone for StringParsingDeserializer<'a, E> {
     }
 }
 
-pub fn decode_utf8<'a>(value: Cow<'a, [u8]>) -> Result<Cow<'a, str>, Utf8Error> {
+pub fn decode_utf8(value: Cow<'_, [u8]>) -> Result<Cow<'_, str>, Utf8Error> {
     Ok(match value {
         Cow::Borrowed(bytes) => {
             let s = std::str::from_utf8(bytes)?;
@@ -121,7 +121,7 @@ where
     }
 }
 
-impl<'a, E> fmt::Debug for StringParsingDeserializer<'a, E> {
+impl<E> fmt::Debug for StringParsingDeserializer<'_, E> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter
             .debug_struct("StringParsingDeserializer")
