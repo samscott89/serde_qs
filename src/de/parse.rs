@@ -45,13 +45,13 @@ impl fmt::Display for Key<'_> {
 
 impl<'a> From<&'a str> for Key<'a> {
     fn from(s: &'a str) -> Self {
-        Key::String(s.as_bytes().into())
+        Self::from(s.as_bytes())
     }
 }
 
 impl<'a> From<&'a [u8]> for Key<'a> {
     fn from(s: &'a [u8]) -> Self {
-        Key::String(s.into())
+        Key::String(Cow::Borrowed(s.into()))
     }
 }
 
@@ -554,6 +554,12 @@ mod test {
         ..DEFAULT_CONFIG
     };
 
+    impl From<&str> for ParsedValue<'_> {
+        fn from(s: &str) -> Self {
+            ParsedValue::String(Cow::Borrowed(s.as_bytes()))
+        }
+    }
+
     #[test]
     fn parse_empty() {
         let parsed = parse(b"", DEFAULT_CONFIG).unwrap();
@@ -563,10 +569,7 @@ mod test {
     #[test]
     fn parse_map() {
         let parsed = parse(b"abc=def", DEFAULT_CONFIG).unwrap();
-        assert_eq!(
-            parsed,
-            Map::from_iter([("abc".into(), ParsedValue::String(b"def".into()))])
-        );
+        assert_eq!(parsed, Map::from_iter([("abc".into(), "def".into())]));
     }
 
     #[test]
@@ -590,10 +593,7 @@ mod test {
             // the values by
             Map::from_iter([(
                 "abc".into(),
-                ParsedValue::Sequence(vec![
-                    ParsedValue::String(b"1".into()),
-                    ParsedValue::String(b"2".into())
-                ])
+                ParsedValue::Sequence(vec!["1".into(), "2".into()])
             )])
         );
     }
@@ -606,8 +606,8 @@ mod test {
             Map::from_iter([(
                 "abc".into(),
                 ParsedValue::Map(Map::from_iter([
-                    (1.into(), ParsedValue::String(b"1".into())),
-                    (0.into(), ParsedValue::String(b"0".into()))
+                    (1.into(), "1".into()),
+                    (0.into(), "0".into())
                 ]))
             )])
         );
@@ -620,10 +620,7 @@ mod test {
             parsed,
             Map::from_iter([(
                 "abc".into(),
-                ParsedValue::Map(Map::from_iter([(
-                    "def".into(),
-                    ParsedValue::String(b"ghi".into())
-                )]))
+                ParsedValue::Map(Map::from_iter([("def".into(), "ghi".into())]))
             )])
         );
     }
@@ -650,14 +647,14 @@ mod test {
                     "e".into(),
                     ParsedValue::Map(Map::from_iter([("B".into(), ParsedValue::Null)]))
                 ),
-                ("u".into(), ParsedValue::String(b"12".into())),
+                ("u".into(), "12".into()),
                 (
                     "v".into(),
                     ParsedValue::Map(Map::from_iter([(
                         "V1".into(),
                         ParsedValue::Map(Map::from_iter([
-                            ("x".into(), ParsedValue::String(b"12".into())),
-                            ("y".into(), ParsedValue::String(b"300".into()))
+                            ("x".into(), "12".into()),
+                            ("y".into(), "300".into())
                         ]))
                     )]))
                 ),
@@ -692,7 +689,7 @@ mod test {
                                     "f".into(),
                                     ParsedValue::Map(Map::from_iter([(
                                         "[g][h]".into(),
-                                        ParsedValue::String(b"i".into())
+                                        "i".into()
                                     )]))
                                 )]))
                             )]))
@@ -712,18 +709,12 @@ mod test {
             parsed,
             Map::from_iter([(
                 "abc".into(),
-                ParsedValue::Map(Map::from_iter([(
-                    "def".into(),
-                    ParsedValue::String(b"ghi".into())
-                )]))
+                ParsedValue::Map(Map::from_iter([("def".into(), "ghi".into())]))
             )])
         );
 
         let parsed = parse(b"foo=%5BHello%5D", FORM_ENCODING_CONFIG).unwrap();
-        assert_eq!(
-            parsed,
-            Map::from_iter([("foo".into(), ParsedValue::String(b"[Hello]".into()))])
-        );
+        assert_eq!(parsed, Map::from_iter([("foo".into(), "[Hello]".into())]));
     }
 
     #[test]
@@ -732,16 +723,10 @@ mod test {
         // in strict mode, the brackets are not decoded, so we end up with a key containing
         // brackets
         let parsed = parse(b"abc%5Bdef%5D=ghi", DEFAULT_CONFIG).unwrap();
-        assert_eq!(
-            parsed,
-            Map::from_iter([("abc[def]".into(), ParsedValue::String(b"ghi".into()))])
-        );
+        assert_eq!(parsed, Map::from_iter([("abc[def]".into(), "ghi".into())]));
 
         // encoded in the value
         let parsed = parse(b"foo=%5BHello%5D", DEFAULT_CONFIG).unwrap();
-        assert_eq!(
-            parsed,
-            Map::from_iter([("foo".into(), ParsedValue::String(b"[Hello]".into()))])
-        );
+        assert_eq!(parsed, Map::from_iter([("foo".into(), "[Hello]".into())]));
     }
 }

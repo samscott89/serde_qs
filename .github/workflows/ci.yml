@@ -5,8 +5,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-# Make sure CI fails on all warnings, including Clippy lints
-  RUSTFLAGS: "-Dwarnings"
 
 jobs:
   lint:
@@ -27,7 +25,7 @@ jobs:
       - name: Run formatting
         run: cargo fmt --all --check
       - name: Run Clippy
-        run: cargo clippy --all-targets -F "${{ matrix.feature }}"
+        run: cargo clippy --all-targets -F "${{ matrix.feature }}" -D warnings
 
   test:
     name: Run tests
