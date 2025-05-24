@@ -86,10 +86,7 @@ pub enum ParsedValue<'qs> {
 impl fmt::Debug for ParsedValue<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ParsedValue::Map(m) => f
-                .debug_map()
-                .entries(m.iter())
-                .finish(),
+            ParsedValue::Map(m) => f.debug_map().entries(m.iter()).finish(),
             ParsedValue::Sequence(s) => f.debug_list().entries(s.iter()).finish(),
             ParsedValue::String(s) => write!(f, "String({})", String::from_utf8_lossy(s)),
             ParsedValue::Null => write!(f, "Null"),
