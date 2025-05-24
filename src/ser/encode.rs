@@ -45,6 +45,20 @@ const FORM_URLENCODED_SET: &AsciiSet = &percent_encoding::NON_ALPHANUMERIC
     .remove(b'.')
     .remove(b'_');
 
+/// Encodes bytes for use in a querystring, applying percent-encoding as needed.
+///
+/// This function supports two encoding modes:
+///
+/// ## Query-String Encoding (default)
+/// Uses the minimal WHATWG query percent-encode set, which is more permissive.
+/// Spaces are encoded as `+` for better readability.
+///
+/// ## Form Encoding
+/// Uses the stricter `application/x-www-form-urlencoded` encoding.
+/// This encodes most non-alphanumeric characters, including brackets.
+/// Spaces are percent-encoded as `%20`.
+///
+/// The function returns an iterator to avoid allocations when no encoding is needed.
 pub fn encode(b: &[u8], use_form_encoding: bool) -> impl Iterator<Item = Cow<'_, [u8]>> + '_ {
     let set = if use_form_encoding {
         FORM_URLENCODED_SET

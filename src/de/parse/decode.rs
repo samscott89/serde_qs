@@ -10,9 +10,14 @@ fn char_to_hexdigit(c: u8) -> Option<u8> {
     }
 }
 
-/// Decodes the input string, applying the following:
-/// - Replaces `+` with a space
-/// - Decodes percent-encoded characters
+/// Decodes URL-encoded bytes into their original form.
+///
+/// This function performs two transformations:
+/// - Replaces `+` with a space (as per URL encoding rules)
+/// - Decodes percent-encoded characters (e.g., `%20` → space, `%5B` → `[`)
+///
+/// The function avoids allocations when possible by returning a borrowed slice
+/// if no decoding is needed.
 #[inline(always)]
 pub fn decode(input: &[u8]) -> Cow<'_, [u8]> {
     if input.is_empty() {

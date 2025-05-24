@@ -5,17 +5,19 @@ use serde::de;
 use crate::error::Result;
 use crate::{Deserializer, Serializer};
 
-/// To override the default serialization parameters, first construct a new
-/// Config.
+/// Configuration for serialization and deserialization behavior.
 ///
-/// TODO(Sam): update docs on `use_form_encoding`.
+/// The `Config` struct allows you to customize how `serde_qs` handles
+/// querystrings, including nesting depth limits and encoding preferences.
 ///
-/// A `max_depth` of 0 implies no nesting: the result will be a flat map.
-/// This is mostly useful when the maximum nested depth is known beforehand,
-/// to prevent denial of service attacks by providing incredibly deeply nested
-/// inputs.
+/// ## Nesting Depth
 ///
-/// The default value for `max_depth` is 5, and the default mode is `strict=true`.
+/// The `max_depth` parameter controls how deeply nested structures can be.
+/// This is important for preventing denial-of-service attacks from maliciously
+/// crafted inputs with excessive nesting. A `max_depth` of 0 means no nesting
+/// is allowed (flat key-value pairs only).
+///
+/// Default value: `max_depth = 5`
 ///
 /// ```
 /// use serde_qs::Config;

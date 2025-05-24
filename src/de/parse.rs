@@ -14,6 +14,11 @@ pub type ParsedMap<'qs> = Map<Key<'qs>, ParsedValue<'qs>>;
 
 mod decode;
 
+/// Represents a key in the parsed querystring.
+///
+/// Keys can be either integers (for array indices) or strings (for object keys).
+/// This allows the parser to handle both `items[0]=foo` (integer key) and
+/// `user[name]=bar` (string key) notations.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Key<'a> {
     Int(usize),
@@ -74,6 +79,15 @@ impl<'a> Key<'a> {
 }
 
 /// An intermediate representation of the parsed query string.
+///
+/// This enum represents the different types of values that can appear in a querystring.
+/// The parser builds a tree of these values before the final deserialization step.
+///
+/// - `Map`: Nested objects like `user[name]=John&user[age]=30`
+/// - `Sequence`: Arrays like `ids[0]=1&ids[1]=2`
+/// - `String`: Leaf values containing the actual data
+/// - `Null`: Empty values like `key=` or standalone keys like `flag`
+/// - `Uninitialized`: Used internally during parsing for placeholder values
 #[derive(PartialEq)]
 pub enum ParsedValue<'qs> {
     Map(ParsedMap<'qs>),
@@ -104,8 +118,13 @@ pub fn parse(encoded_string: &[u8], config: crate::Config) -> Result<ParsedMap<'
 }
 
 /// The `Parser` struct is a stateful querystring parser.
-/// It iterates over a slice of bytes, with a range to track the current
-/// start/end points of a value.
+///
+/// It iterates over a slice of bytes, maintaining an accumulator range `(start, end)`
+/// to track the current segment being parsed. This approach avoids allocations
+/// by working directly with slices of the input string.
+///
+/// The parser handles bracket notation for nested structures and supports both
+/// query-string encoding and form encoding modes.
 struct Parser<'qs> {
     inner: &'qs [u8],
     iter: Iter<'qs, u8>,
@@ -220,11 +239,12 @@ impl<'qs> Parser<'qs> {
             .map(|v| v.map_or(ParsedValue::Null, ParsedValue::String))
     }
 
-    /// This is the top ParsedValue parsing function. It checks the first character to
-    /// decide the type of key (nested, sequence, etc.) and to call the
-    /// approprate parsing function.
+    /// Main parsing entry point that processes the querystring into a map structure.
     ///
-    /// Returns `Ok(false)` when there is no more string to parse.
+    /// This function handles the top-level parsing logic, identifying key-value pairs
+    /// and delegating to specialized parsing functions for nested structures.
+    /// It processes the input byte-by-byte, handling special characters like
+    /// `&` (pair separator), `=` (key-value separator), and `[`/`]` (nesting).
     fn parse(&mut self, root_map: &mut ParsedMap<'qs>) -> Result<()> {
         if self.inner.is_empty() {
             // empty string -- nothing to parse

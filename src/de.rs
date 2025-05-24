@@ -656,6 +656,31 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         self.deserialize_str(visitor)
     }
 
+    fn deserialize_bytes<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        let s = match self.0 {
+            ParsedValue::String(s) => s,
+            ParsedValue::Sequence(mut seq) => get_last_string_value(&mut seq)?,
+            ParsedValue::Null => {
+                return visitor.visit_bytes(&[]);
+            }
+            _ => return self.deserialize_any(visitor),
+        };
+        match s {
+            Cow::Borrowed(s) => visitor.visit_borrowed_bytes(s),
+            Cow::Owned(s) => visitor.visit_byte_buf(s),
+        }
+    }
+
+    fn deserialize_byte_buf<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.deserialize_bytes(visitor)
+    }
+
     fn deserialize_ignored_any<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
@@ -675,8 +700,6 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
 
     forward_to_deserialize_any! {
         char
-        bytes
-        byte_buf
         unit_struct
         identifier
     }

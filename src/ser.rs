@@ -77,12 +77,21 @@ pub fn to_writer<T: ser::Serialize, W: Write>(input: &T, writer: &mut W) -> Resu
 
 /// A serializer for the querystring format.
 ///
-/// * Supported top-level inputs are structs and maps.
+/// This serializer converts Rust data structures into URL-encoded querystrings
+/// with support for nested structures using bracket notation.
 ///
-/// * Supported values are currently most primitive types, structs, maps and
-///   sequences. Sequences are serialized with an incrementing key index.
+/// ## Key Features
 ///
-/// * Newtype structs defer to their inner values.
+/// * **Nested structures**: Serializes nested objects as `parent[child]=value`
+/// * **Arrays**: Serializes sequences with indices like `items[0]=a&items[1]=b`
+/// * **Type support**: Handles primitives, strings, structs, maps, and sequences
+/// * **Encoding modes**: Supports both query-string and form encoding
+///
+/// ## Implementation Details
+///
+/// The serializer maintains a key stack to build nested paths. For example,
+/// when serializing `{user: {name: "John"}}`, it pushes "user" onto the stack,
+/// then serializes "name" as `user[name]=John`.
 pub struct QsSerializer<W: Write> {
     writer: W,
     first_kv: bool,
@@ -103,10 +112,12 @@ impl<W: Write> QsSerializer<W> {
 }
 
 impl<W: Write> QsSerializer<W> {
-    /// Pushes the new key onto the key stack.
+    /// Pushes a new key segment onto the key stack for nested structures.
     ///
-    /// This is used to build up the key in cases where
-    /// we have a nested structure.
+    /// This method builds the bracket notation for nested keys. For example:
+    /// - First key "user" becomes: `user`
+    /// - Second key "name" becomes: `user[name]`
+    /// - Third key "first" becomes: `user[name][first]`
     fn push_key(&mut self, newkey: &[u8]) -> Result<()> {
         let first_key_segment = self.key.is_empty();
         let mut segment = Vec::with_capacity(newkey.len() + 2);
@@ -123,10 +134,11 @@ impl<W: Write> QsSerializer<W> {
         Ok(())
     }
 
-    /// Immediately writes the new key to the writer
+    /// Writes a key directly to output without adding to the stack.
     ///
-    /// Prefer this over `push_key` when you know there is no
-    /// nested structure and you want to save the allocation.
+    /// This is an optimization for leaf values where we know there won't be
+    /// any further nesting. It avoids the allocation of pushing to the key stack
+    /// and immediately writes the full key path to the output.
     fn write_key(&mut self, newkey: &[u8]) -> Result<()> {
         if self.key.is_empty() {
             if self.first_kv {

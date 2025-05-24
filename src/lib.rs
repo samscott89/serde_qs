@@ -1,23 +1,19 @@
 //! Serde support for querystring-style strings
 //!
-//! Querystrings are not formally defined and loosely take the form of
-//! _nested_ urlencoded queries.
+//! This library provides serialization and deserialization of querystrings
+//! with support for arbitrarily nested structures. Unlike `serde_urlencoded`,
+//! which only handles flat key-value pairs, `serde_qs` supports complex nested
+//! data using bracket notation (e.g., `user[name]=John&user[age]=30`).
 //!
-//! This library aims for compatability with the syntax of
-//! [qs](https://github.com/ljharb/qs) and also of the
-//! [`Rack::Utils::parse_nested_query`](https://www.rubydoc.info/gems/rack/3.1.15/Rack/Utils#parse_nested_query-class_method)
-//! implementation.
+//! ## Why use `serde_qs`?
 //!
-//! ## Supported Types
+//! - **Nested structure support**: Serialize/deserialize complex structs and maps
+//! - **Array support**: Handle vectors and sequences with indexed notation
+//! - **Framework integration**: Built-in support for Actix-web, Axum, and Warp
+//! - **Compatible syntax**: Works with `qs` (JavaScript) and Rack (Ruby)
 //!
-//! TODO: Uppdate this to clarify that ~all types are supported here.
-//! However `qs` can only really represent map-like structures.
 //!
-//! ## Usage
-//!
-//! See the examples folder for a more detailed introduction.
-//!
-//! Serializing/Deserializing is designed to work with maps and structs.
+//! ## Basic Usage
 //!
 //! ```
 //! #[macro_use]
@@ -59,43 +55,70 @@
 //! # }
 //! ```
 //!
-//! ## Strict vs Non-Strict modes
+//! ## Supported Types
 //!
-//! `serde_qs` supports two operating modes, which can be specified using
-//! [`Config`](struct.Config.html).
-//! Strict mode has two parts:
-//! - how `serde_qs` handles square brackets
-//! - how `serde_qs` handles invalid UTF-8 percent decoded characters
+//! `serde_qs` supports all serde-compatible types:
 //!
-//! ### Square Brackets
+//! - **Primitives**: strings, integers (u8-u64, i8-i64), floats (f32, f64), booleans
+//! - **Strings**: UTF-8 strings (invalid UTF-8 handling configurable)
+//! - **Bytes**: `Vec<u8>` and `&[u8]` for raw binary data
+//! - **Collections**: `Vec<T>`, `HashMap<K, V>`, `BTreeMap<K, V>`, arrays
+//! - **Options**: `Option<T>` (missing values deserialize to `None`)
+//! - **Structs**: Named and tuple structs with nested fields
+//! - **Enums**: Externally tagged, internally tagged, and untagged representations
 //!
-//! Technically, square brackets should be encoded in URLs as `%5B` and `%5D`.
-//! However, they are often used in their raw format to specify querystrings
-//! such as `a[b]=123`.
+//! Note: Top-level types must be structs or maps. Primitives and sequences
+//! cannot be deserialized at the top level. And untagged representations
+//! have some limitations (see Flatten Workaround section).
 //!
-//! In strict mode, `serde_qs` will only tolerate unencoded square brackets
-//! to denote nested keys. So `a[b]=123` will decode as `{"a": {"b": 123}}`.
-//! This means that encoded square brackets can actually be part of the key.
-//! `a[b%5Bc%5D]=123` becomes `{"a": {"b[c]": 123}}`.
+//! ## Query-String vs Form Encoding
 //!
-//! However, since some implementations will automatically encode everything
-//! in the URL, we also have a non-strict mode. This means that `serde_qs`
-//! will assume that any encoded square brackets in the string were meant to
-//! be taken as nested keys. From the example before, `a[b%5Bc%5D]=123` will
-//! now become `{"a": {"b": {"c": 123 }}}`.
+//! By default, `serde_qs` uses **query-string encoding** which is more permissive:
+//! - Spaces encoded as `+`
+//! - Minimal percent-encoding (brackets remain unencoded)
+//! - Example: `name=John+Doe&items[0]=apple`
 //!
-//! Non-strict mode can be useful when, as said before, some middleware
-//! automatically encodes the brackets. But care must be taken to avoid
-//! using keys with square brackets in them, or unexpected things can
-//! happen.
+//! The main benefit of query-string encoding is that it allows for more compact
+//! representations of nested structures, and supports square brackets in
+//! key names.
 //!
-//! ### Invalid UTF-8 Percent Encodings
+//! **Form encoding** (`application/x-www-form-urlencoded`) is stricter:
+//! - Spaces encoded as `%20`
+//! - Most special characters percent-encoded
+//! - Example: `name=John%20Doe&items%5B0%5D=apple`
 //!
-//! Sometimes querystrings may have percent-encoded data which does not decode
-//! to UTF-8. In some cases it is useful for this to cause errors, which is how
-//! `serde_qs` works in strict mode (the default). Whereas in other cases it
-//! can be useful to just replace such data with the unicode replacement
-//! character (� `U+FFFD`), which is how `serde_qs` works in non-strict mode.
+//! Form encoding is useful for compability with HTML forms and other
+//! applications that eagerly encode brackets.
+//!
+//! Configure encoding mode:
+//! ```rust
+//! use serde_qs::Config;
+//!
+//! // Use form encoding
+//! let config = Config::new().use_form_encoding(true);
+//! let qs = config.serialize_string(&my_struct)?;
+//! ```
+//!
+//! ## UTF-8 Handling
+//!
+//! By default, `serde_qs` requires valid UTF-8 in string values. If your data
+//! may contain non-UTF-8 bytes, consider serializing to `Vec<u8>` instead of
+//! `String`. Non-UTF-8 bytes in ignored fields will not cause errors.
+//!
+//! ```rust
+//! #[derive(Deserialize)]
+//! struct Data {
+//!     // This field can handle raw bytes
+//!     raw_data: Vec<u8>,
+//!     
+//!     // This field requires valid UTF-8
+//!     text: String,
+//!     
+//!     // This field is skipped if not present
+//!     #[serde(default)]
+//!     optional: Option<String>,
+//! }
+//! ```
 //!
 //! ## Flatten workaround
 //!
