@@ -3,7 +3,7 @@ use std::io::Write;
 use serde::de;
 
 use crate::error::Result;
-use crate::{Deserializer, QsSerializer};
+use crate::{Deserializer, Serializer};
 
 /// To override the default serialization parameters, first construct a new
 /// Config.
@@ -101,7 +101,7 @@ impl Config {
         // initialize the buffer with 128 bytes
         // this is a guess based on what `serde_json` does
         let mut buffer = Vec::with_capacity(128);
-        let mut serializer = QsSerializer::new(&mut buffer, self);
+        let mut serializer = Serializer::new(&mut buffer, self);
         input.serialize(&mut serializer)?;
         String::from_utf8(buffer).map_err(crate::Error::from)
     }
@@ -112,7 +112,7 @@ impl Config {
         input: &T,
         writer: &mut W,
     ) -> Result<()> {
-        let mut serializer = QsSerializer::new(writer, self);
+        let mut serializer = Serializer::new(writer, self);
         input.serialize(&mut serializer)
     }
 }
