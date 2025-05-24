@@ -66,10 +66,6 @@ fn main() {
 
     // However, the best way is to use serde_qs to deserialize the entire thing
     // into a struct:
-    //
-    // (For this round trip to work, it's necessary to parse the query string
-    // in non-strict mode, to allow parsing of url_encoded square brackets
-    // in the key. See the lib.rs documentation for why).
     let params: QueryParams = serde_qs::from_str(&encoded).unwrap();
     assert_eq!(params, example_params);
     println!("`serde_qs` from_str to struct:\n\t{:?}", params);

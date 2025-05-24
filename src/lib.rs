@@ -69,7 +69,7 @@
 //!
 //! Note: Top-level types must be structs or maps. Primitives and sequences
 //! cannot be deserialized at the top level. And untagged representations
-//! have some limitations (see Flatten Workaround section).
+//! have some limitations (see [Flatten Workaround](#flatten-workaround) section).
 //!
 //! ## Query-String vs Form Encoding
 //!

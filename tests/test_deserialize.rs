@@ -650,7 +650,7 @@ fn querystring_decoding() {
         field: String,
     }
 
-    // Ensure strict mode produces an error for invalid UTF-8 percent encoded characters.
+    // Ensure invalid UTF-8 percent encoded characters produce an error.
     let invalid_utf8: Result<StringQueryParam, _> = config.deserialize_str("field=%E9");
     assert!(invalid_utf8.is_err());
 }
@@ -714,7 +714,7 @@ fn formencoded_decoding() {
     let enc_params = qs::to_string(&params).unwrap();
     println!("Encoded as: {}", enc_params);
 
-    // Non-strict decoding cannot necessarily handle these weird scenerios.
+    // Form encoding cannot necessarily handle these weird scenarios.
     let rec_params: Result<OddTest, _> = config.deserialize_str(&enc_params);
     assert!(rec_params.is_err());
     println!("{}", rec_params.unwrap_err());

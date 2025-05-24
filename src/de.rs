@@ -307,7 +307,7 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
                 .map_err(|e| {
                     if has_bracket {
                         de::Error::custom(
-                            format!("{e}\nInvalid field contains an encoded bracket -- did you mean to use non-strict mode?\n  https://docs.rs/serde_qs/latest/serde_qs/#strict-vs-non-strict-modes")
+                            format!("{e}\nInvalid field contains an encoded bracket -- consider using form encoding mode\n  https://docs.rs/serde_qs/latest/serde_qs/#query-string-vs-form-encoding")
                         )
                     } else {
                         e
