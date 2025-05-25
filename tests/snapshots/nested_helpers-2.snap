@@ -1,0 +1,11 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+info:
+  use_form_encoding: true
+snapshot_kind: text
+---
+data[0][name]=item1&
+data[0][tags]=tag1%2Ctag2&
+data[1][name]=item2&
+data[1][tags]=tag3%2Ctag4%2Ctag5

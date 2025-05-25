@@ -1,0 +1,36 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+info:
+  use_form_encoding: false
+snapshot_kind: text
+---
+complex_tuple[0][0]=first&
+complex_tuple[0][1][0]=1&
+complex_tuple[0][1][1]=2&
+complex_tuple[0][1][2]=3&
+complex_tuple[1][0]=second&
+complex_tuple[2][0]=third&
+complex_tuple[2][1][0]=4&
+complex_tuple[2][1][1]=5&
+deep_option=deeply+nested&
+map_of_vecs[colors][0]=red&
+map_of_vecs[colors][1]=blue&
+map_of_vecs[sizes][0]=small&
+map_of_vecs[sizes][1]=medium&
+map_of_vecs[sizes][2]=large&
+matrix[0][0]=1&
+matrix[0][1]=2&
+matrix[0][2]=3&
+matrix[1][0]=4&
+matrix[1][1]=5&
+matrix[1][2]=6&
+matrix[2][0]=7&
+matrix[2][1]=8&
+matrix[2][2]=9&
+maybe_vec_maybe[0]=hello&
+maybe_vec_maybe[2]=world&
+vec_of_maps[0][a]=1&
+vec_of_maps[0][b]=2&
+vec_of_maps[1][x]=10&
+vec_of_maps[1][y]=20

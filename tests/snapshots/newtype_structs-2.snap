@@ -1,8 +1,11 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized
+expression: serialized_pretty
 info:
   use_form_encoding: true
 snapshot_kind: text
 ---
-a=1&b=2
+id=12345&
+name=alice&
+email=alice%40example.com&
+age=25

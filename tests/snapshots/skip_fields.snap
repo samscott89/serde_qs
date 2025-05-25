@@ -1,0 +1,6 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized
+snapshot_kind: text
+---
+visible=you+can+see+me&skip_de=not+deserialized

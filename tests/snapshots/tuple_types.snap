@@ -1,0 +1,18 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+info:
+  use_form_encoding: false
+snapshot_kind: text
+---
+unit&
+pair[0]=42&
+pair[1]=answer&
+triple[0]=true&
+triple[1]=3.14&
+triple[2]=255&
+nested_tuple[0][0]=nested&
+nested_tuple[0][1]=-100&
+nested_tuple[1][0]=1&
+nested_tuple[1][1]=2&
+nested_tuple[1][2]=3

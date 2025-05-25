@@ -1,0 +1,15 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+info:
+  use_form_encoding: false
+snapshot_kind: text
+---
+external[Struct][a]=ext&
+external[Struct][b]=false&
+external[internal][type]=Struct&
+external[internal][value]=int&
+external[adjacent][t][Newtype]&
+external[adjacent][c]=adj&
+external[untagged]=100&
+external[optional_enum][Unit]

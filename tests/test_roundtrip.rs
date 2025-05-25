@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
 
 /// macro for testing roundtrip serialization and deserialization
@@ -7,30 +8,46 @@ use std::collections::{BTreeMap, HashMap};
 /// the function name
 macro_rules! roundtrip_test {
     (
-        $data:expr
+        $input:expr
+        $(, $params:ident)*
     ) => {
-        let data = &$data;
+        let data = $input;
 
         for form_encoding in [false, true] {
             let config = serde_qs::Config::new().use_form_encoding(form_encoding);
 
             insta::with_settings!({
+                prepend_module_to_snapshot => false,
                 raw_info => &insta::internals::Content::Map(vec![(
                     "use_form_encoding".into(),
                     form_encoding.into()
                 )])
             }, {
-                let serialized = config.serialize_string(data).expect("serialize");
+                let serialized = config.serialize_string(&data).expect("serialize");
+
+                #[allow(unused_mut)]
+                let mut serialized_lines = serialized
+                    .split('&').collect::<Vec<_>>();
+
+                // Sort the parameters if requested
+
+                $(
+                    if stringify!($params) == "sort_params" {
+                        serialized_lines.sort_unstable();
+                    }
+                )*
+                let serialized_pretty = serialized_lines.join("&\n");
+
                 // snapshot the serialized string for easy introspection
                 // and to track changes
-                insta::assert_snapshot!(serialized);
+                insta::assert_snapshot!(serialized_pretty);
 
                 let deserialized = config
                     .deserialize_str(serialized.as_str())
                     .expect("deserialize");
 
                 // check we get the same data back
-                pretty_assertions::assert_eq!(data, &deserialized);
+                pretty_assertions::assert_eq!(&data, &deserialized);
             });
         }
     };
@@ -145,7 +162,7 @@ fn nested_options() {
         opt_struct: Some(FlatStruct { a: 10, b: 20 }),
         opt_empty_string: Some(String::new()),
     });
-    
+
     roundtrip_test!(NestedOptions {
         opt_opt_string: Some(Some("nested".to_string())),
         opt_struct: None,
@@ -169,10 +186,7 @@ fn vector_types() {
         empty_vec: vec![],
         single_vec: vec!["only one".to_string()],
         multi_vec: vec![1, 2, 3, 4, 5],
-        vec_of_structs: vec![
-            FlatStruct { a: 1, b: 2 },
-            FlatStruct { a: 3, b: 4 },
-        ],
+        vec_of_structs: vec![FlatStruct { a: 1, b: 2 }, FlatStruct { a: 3, b: 4 },],
     });
 }
 
@@ -222,21 +236,24 @@ fn map_types() {
     let mut string_map = HashMap::new();
     string_map.insert("key1".to_string(), "value1".to_string());
     string_map.insert("key2".to_string(), "value2".to_string());
-    
+
     let mut int_key_map = HashMap::new();
     int_key_map.insert(1, "one".to_string());
     int_key_map.insert(2, "two".to_string());
-    
+
     let mut struct_value_map = HashMap::new();
     struct_value_map.insert("first".to_string(), FlatStruct { a: 10, b: 20 });
     struct_value_map.insert("second".to_string(), FlatStruct { a: 30, b: 40 });
-    
-    roundtrip_test!(MapTypes {
-        empty_map: HashMap::new(),
-        string_map,
-        int_key_map,
-        struct_value_map,
-    });
+
+    roundtrip_test!(
+        MapTypes {
+            empty_map: HashMap::new(),
+            string_map,
+            int_key_map,
+            struct_value_map,
+        },
+        sort_params
+    );
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
@@ -251,19 +268,19 @@ fn btree_map_types() {
     ordered_map.insert("alpha".to_string(), 1);
     ordered_map.insert("beta".to_string(), 2);
     ordered_map.insert("gamma".to_string(), 3);
-    
+
     let mut inner_map1 = BTreeMap::new();
     inner_map1.insert("x".to_string(), "foo".to_string());
     inner_map1.insert("y".to_string(), "bar".to_string());
-    
+
     let mut inner_map2 = BTreeMap::new();
     inner_map2.insert("a".to_string(), "baz".to_string());
-    
+
     let mut nested_map = BTreeMap::new();
     nested_map.insert("first".to_string(), inner_map1);
     nested_map.insert("second".to_string(), inner_map2);
     nested_map.insert("empty".to_string(), BTreeMap::new());
-    
+
     roundtrip_test!(BTreeMapTypes {
         ordered_map,
         nested_map,
@@ -434,11 +451,17 @@ fn skip_fields() {
         skip_ser: "not serialized".to_string(),
         skip_de: "not deserialized".to_string(),
     };
-    
+
     let config = serde_qs::Config::new();
     let serialized = config.serialize_string(&data).expect("serialize");
-    insta::assert_snapshot!(serialized);
-    
+    insta::with_settings!({
+        prepend_module_to_snapshot => false
+    }, {
+        // snapshot the serialized string for easy introspection
+        // and to track changes
+        insta::assert_snapshot!(serialized);
+    });
+
     // Deserialize and check that skip fields have their defaults
     let deserialized: SkipFields = config.deserialize_str(&serialized).expect("deserialize");
     assert_eq!(deserialized.visible, data.visible);
@@ -473,18 +496,14 @@ fn skip_serializing_if_fields() {
         maybe_zero: 42,
         always_present: "always".to_string(),
     });
-    
+
     // With values that should be skipped
-    let data = SkipSerializingIf {
+    roundtrip_test!(SkipSerializingIf {
         maybe_string: None,
         maybe_vec: vec![],
         maybe_zero: 0,
         always_present: "still here".to_string(),
-    };
-    
-    let config = serde_qs::Config::new();
-    let serialized = config.serialize_string(&data).expect("serialize");
-    insta::assert_snapshot!(serialized);
+    });
 }
 
 // ========== SERDE ATTRIBUTES: DEFAULT ==========
@@ -517,15 +536,18 @@ fn default_fields() {
         default_vec: vec!["a".to_string(), "b".to_string()],
         normal_field: "required".to_string(),
     });
-    
+
     // Test deserialization with missing fields
     let config = serde_qs::Config::new();
     let partial = "normal_field=required";
     let deserialized: WithDefaults = config.deserialize_str(partial).expect("deserialize");
-    
+
     assert_eq!(deserialized.default_string, ""); // Default::default()
     assert_eq!(deserialized.default_number, 42); // custom default
-    assert_eq!(deserialized.default_vec, vec!["default1".to_string(), "default2".to_string()]); // custom default
+    assert_eq!(
+        deserialized.default_vec,
+        vec!["default1".to_string(), "default2".to_string()]
+    ); // custom default
     assert_eq!(deserialized.normal_field, "required");
 }
 
@@ -548,16 +570,16 @@ fn alias_fields() {
         message: "hello world".to_string(),
         normal: 42,
     });
-    
+
     // Test deserialization with aliases
     let config = serde_qs::Config::new();
-    
+
     // Using primary alias
     let with_alias1 = "name=bob&message=hi&normal=1";
     let deserialized: WithAliases = config.deserialize_str(with_alias1).expect("deserialize");
     assert_eq!(deserialized.user_name, "bob");
     assert_eq!(deserialized.message, "hi");
-    
+
     // Using secondary alias
     let with_alias2 = "username=charlie&msg=bye&normal=2";
     let deserialized: WithAliases = config.deserialize_str(with_alias2).expect("deserialize");
@@ -602,7 +624,7 @@ fn flatten_fields() {
             zip: "12345".to_string(),
         },
     });
-    
+
     // Multiple levels with flatten
     roundtrip_test!(Company {
         company_name: "Acme Corp".to_string(),
@@ -630,12 +652,15 @@ fn flatten_map() {
     extra.insert("color".to_string(), "blue".to_string());
     extra.insert("size".to_string(), "large".to_string());
     extra.insert("custom_field".to_string(), "custom_value".to_string());
-    
-    roundtrip_test!(WithFlattenedMap {
-        id: 42,
-        name: "Widget".to_string(),
-        extra,
-    });
+
+    roundtrip_test!(
+        WithFlattenedMap {
+            id: 42,
+            name: "Widget".to_string(),
+            extra,
+        },
+        sort_params
+    );
 }
 
 // ========== ENUM REPRESENTATIONS ==========
@@ -651,12 +676,13 @@ enum ExternallyTagged {
 
 #[test]
 fn externally_tagged_enum() {
-    roundtrip_test!(vec![
-        ExternallyTagged::Unit,
-        ExternallyTagged::Newtype("hello".to_string()),
-        ExternallyTagged::Tuple(1, 2),
-        ExternallyTagged::Struct { a: "test".to_string(), b: true },
-    ]);
+    roundtrip_test!(ExternallyTagged::Unit);
+    roundtrip_test!(ExternallyTagged::Newtype("hello".to_string()));
+    roundtrip_test!(ExternallyTagged::Tuple(1, 2));
+    roundtrip_test!(ExternallyTagged::Struct {
+        a: "test".to_string(),
+        b: true,
+    });
 }
 
 // Internally tagged
@@ -670,15 +696,15 @@ enum InternallyTagged {
 
 #[test]
 fn internally_tagged_enum() {
-    roundtrip_test!(vec![
-        InternallyTagged::Unit,
-        InternallyTagged::Struct { value: "test".to_string() },
-        InternallyTagged::Complex { 
-            x: 10, 
-            y: 20, 
-            data: vec!["a".to_string(), "b".to_string()] 
-        },
-    ]);
+    roundtrip_test!(InternallyTagged::Unit);
+    roundtrip_test!(InternallyTagged::Struct {
+        value: "test".to_string()
+    });
+    roundtrip_test!(InternallyTagged::Complex {
+        x: 10,
+        y: 20,
+        data: vec!["a".to_string(), "b".to_string()]
+    });
 }
 
 // Adjacently tagged
@@ -693,12 +719,13 @@ enum AdjacentlyTagged {
 
 #[test]
 fn adjacently_tagged_enum() {
-    roundtrip_test!(vec![
-        AdjacentlyTagged::Unit,
-        AdjacentlyTagged::Newtype("adjacent".to_string()),
-        AdjacentlyTagged::Tuple(3, 4),
-        AdjacentlyTagged::Struct { name: "item".to_string(), count: 42 },
-    ]);
+    roundtrip_test!(AdjacentlyTagged::Unit);
+    roundtrip_test!(AdjacentlyTagged::Newtype("adjacent".to_string()));
+    roundtrip_test!(AdjacentlyTagged::Tuple(3, 4));
+    roundtrip_test!(AdjacentlyTagged::Struct {
+        name: "item".to_string(),
+        count: 42
+    });
 }
 
 // Untagged
@@ -713,12 +740,12 @@ enum Untagged {
 
 #[test]
 fn untagged_enum() {
-    roundtrip_test!(vec![
-        Untagged::Bool(true),
-        Untagged::Number(42),
-        Untagged::Text("untagged".to_string()),
-        Untagged::Struct { field: "value".to_string() },
-    ]);
+    roundtrip_test!(Untagged::Bool(true));
+    roundtrip_test!(Untagged::Number(42));
+    roundtrip_test!(Untagged::Text("untagged".to_string()));
+    roundtrip_test!(Untagged::Struct {
+        field: "value".to_string()
+    });
 }
 
 // Mixed enum representations in nested structures
@@ -734,8 +761,13 @@ struct MixedEnums {
 #[test]
 fn mixed_enum_representations() {
     roundtrip_test!(MixedEnums {
-        external: ExternallyTagged::Struct { a: "ext".to_string(), b: false },
-        internal: InternallyTagged::Struct { value: "int".to_string() },
+        external: ExternallyTagged::Struct {
+            a: "ext".to_string(),
+            b: false
+        },
+        internal: InternallyTagged::Struct {
+            value: "int".to_string()
+        },
         adjacent: AdjacentlyTagged::Newtype("adj".to_string()),
         untagged: Untagged::Number(100),
         optional_enum: Some(ExternallyTagged::Unit),
@@ -748,19 +780,19 @@ fn mixed_enum_representations() {
 struct ComplexNested {
     // Option containing Vec of Options
     maybe_vec_maybe: Option<Vec<Option<String>>>,
-    
+
     // Vec of Vecs
     matrix: Vec<Vec<i32>>,
-    
+
     // HashMap with Vec values
     map_of_vecs: HashMap<String, Vec<String>>,
-    
+
     // Vec of HashMaps
     vec_of_maps: Vec<HashMap<String, i32>>,
-    
+
     // Deeply nested Option
     deep_option: Option<Option<Option<String>>>,
-    
+
     // Mixed nesting with tuple
     complex_tuple: Vec<(String, Option<Vec<i32>>)>,
 }
@@ -768,29 +800,46 @@ struct ComplexNested {
 #[test]
 fn complex_nested_structures() {
     let mut map_of_vecs = HashMap::new();
-    map_of_vecs.insert("colors".to_string(), vec!["red".to_string(), "blue".to_string()]);
-    map_of_vecs.insert("sizes".to_string(), vec!["small".to_string(), "medium".to_string(), "large".to_string()]);
-    
+    map_of_vecs.insert(
+        "colors".to_string(),
+        vec!["red".to_string(), "blue".to_string()],
+    );
+    map_of_vecs.insert(
+        "sizes".to_string(),
+        vec![
+            "small".to_string(),
+            "medium".to_string(),
+            "large".to_string(),
+        ],
+    );
+
     let mut map1 = HashMap::new();
     map1.insert("a".to_string(), 1);
     map1.insert("b".to_string(), 2);
-    
+
     let mut map2 = HashMap::new();
     map2.insert("x".to_string(), 10);
     map2.insert("y".to_string(), 20);
-    
-    roundtrip_test!(ComplexNested {
-        maybe_vec_maybe: Some(vec![Some("hello".to_string()), None, Some("world".to_string())]),
-        matrix: vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
-        map_of_vecs,
-        vec_of_maps: vec![map1, map2],
-        deep_option: Some(Some(Some("deeply nested".to_string()))),
-        complex_tuple: vec![
-            ("first".to_string(), Some(vec![1, 2, 3])),
-            ("second".to_string(), None),
-            ("third".to_string(), Some(vec![4, 5])),
-        ],
-    });
+
+    roundtrip_test!(
+        ComplexNested {
+            maybe_vec_maybe: Some(vec![
+                Some("hello".to_string()),
+                None,
+                Some("world".to_string())
+            ]),
+            matrix: vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
+            map_of_vecs,
+            vec_of_maps: vec![map1, map2],
+            deep_option: Some(Some(Some("deeply nested".to_string()))),
+            complex_tuple: vec![
+                ("first".to_string(), Some(vec![1, 2, 3])),
+                ("second".to_string(), None),
+                ("third".to_string(), Some(vec![4, 5])),
+            ],
+        },
+        sort_params
+    );
 }
 
 // Test with all None/empty values
@@ -804,7 +853,7 @@ fn complex_nested_empty() {
         deep_option: None,
         complex_tuple: vec![],
     });
-    
+
     // Test with Some(empty) and Some(None) values
     roundtrip_test!(ComplexNested {
         maybe_vec_maybe: Some(vec![]),
@@ -930,10 +979,386 @@ fn newtype_collections() {
     let mut scores_map = HashMap::new();
     scores_map.insert("relevance".to_string(), 95);
     scores_map.insert("quality".to_string(), 87);
-    
-    roundtrip_test!(Document {
-        title: "Test Document".to_string(),
-        tags: Tags(vec!["rust".to_string(), "serde".to_string(), "testing".to_string()]),
-        scores: Scores(scores_map),
+
+    roundtrip_test!(
+        Document {
+            title: "Test Document".to_string(),
+            tags: Tags(vec![
+                "rust".to_string(),
+                "serde".to_string(),
+                "testing".to_string()
+            ]),
+            scores: Scores(scores_map),
+        },
+        sort_params
+    );
+}
+
+// ========== UNIT STRUCTS AND UNIT TYPE ==========
+
+// Unit struct
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct UnitStruct;
+
+// Unit-like enum variants were already tested, but let's test unit structs in containers
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct ContainsUnits {
+    unit_value: (),
+    unit_struct: UnitStruct,
+    optional_unit: Option<()>,
+    vec_of_units: Vec<UnitStruct>,
+    tuple_with_unit: (String, (), i32),
+}
+
+#[test]
+fn unit_types() {
+    roundtrip_test!(ContainsUnits {
+        unit_value: (),
+        unit_struct: UnitStruct,
+        optional_unit: Some(()),
+        vec_of_units: vec![UnitStruct, UnitStruct, UnitStruct],
+        tuple_with_unit: ("test".to_string(), (), 42),
+    });
+
+    // Test with None for optional unit
+    roundtrip_test!(ContainsUnits {
+        unit_value: (),
+        unit_struct: UnitStruct,
+        optional_unit: None,
+        vec_of_units: vec![],
+        tuple_with_unit: ("empty".to_string(), (), 0),
+    });
+}
+
+// PhantomData (zero-sized type)
+use std::marker::PhantomData;
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct TypedId<T> {
+    value: u64,
+    #[serde(skip)]
+    _phantom: PhantomData<T>,
+}
+
+impl<T> TypedId<T> {
+    fn new(value: u64) -> Self {
+        Self {
+            value,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct User;
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct Post;
+
+#[test]
+fn phantom_data_types() {
+    roundtrip_test!(TypedId::<User>::new(100));
+    roundtrip_test!(TypedId::<Post>::new(1000));
+}
+
+// ========== SPECIAL CASES AND EDGE CASES ==========
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct EdgeCases {
+    // Empty string vs None
+    empty_string: String,
+    optional_empty: Option<String>,
+
+    // Zero values
+    zero_i32: i32,
+    zero_f64: f64,
+    zero_u8: u8,
+
+    // Special float values
+    nan_value: f32,
+    infinity: f64,
+    neg_infinity: f64,
+
+    // Very large numbers
+    max_u64: u64,
+    min_i64: i64,
+
+    // Unicode strings
+    unicode: String,
+    emoji: String,
+
+    // Special characters
+    special_chars: String,
+}
+
+#[test]
+fn edge_case_values() {
+    roundtrip_test!(EdgeCases {
+        empty_string: "".to_string(),
+        optional_empty: Some("".to_string()),
+        zero_i32: 0,
+        zero_f64: 0.0,
+        zero_u8: 0,
+        nan_value: f32::NAN,
+        infinity: f64::INFINITY,
+        neg_infinity: f64::NEG_INFINITY,
+        max_u64: u64::MAX,
+        min_i64: i64::MIN,
+        unicode: "Hello 世界 🌍".to_string(),
+        emoji: "🚀🎉🔥💯".to_string(),
+        special_chars: "a&b=c?d#e".to_string(),
+    });
+}
+
+// Test with all empty collections
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct AllEmpty {
+    empty_vec: Vec<i32>,
+    empty_vec_vec: Vec<Vec<String>>,
+    empty_hashmap: HashMap<String, i32>,
+    empty_btreemap: BTreeMap<i32, String>,
+    empty_option_vec: Option<Vec<bool>>,
+    empty_string: String,
+}
+
+#[test]
+fn all_empty_collections() {
+    roundtrip_test!(AllEmpty {
+        empty_vec: vec![],
+        empty_vec_vec: vec![],
+        empty_hashmap: HashMap::new(),
+        empty_btreemap: BTreeMap::new(),
+        empty_option_vec: Some(vec![]),
+        empty_string: String::new(),
+    });
+}
+
+// Very deeply nested structure
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct VeryDeep {
+    level1: Option<Box<VeryDeep>>,
+    value: String,
+}
+
+#[test]
+fn very_deep_nesting() {
+    let deep = VeryDeep {
+        level1: Some(Box::new(VeryDeep {
+            level1: Some(Box::new(VeryDeep {
+                level1: Some(Box::new(VeryDeep {
+                    level1: Some(Box::new(VeryDeep {
+                        level1: None,
+                        value: "deepest".to_string(),
+                    })),
+                    value: "level4".to_string(),
+                })),
+                value: "level3".to_string(),
+            })),
+            value: "level2".to_string(),
+        })),
+        value: "level1".to_string(),
+    };
+
+    roundtrip_test!(deep);
+}
+
+// Single element collections
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct SingleElements {
+    single_vec: Vec<String>,
+    single_map: HashMap<String, i32>,
+    single_option: Option<Vec<u8>>,
+    single_char_string: String,
+}
+
+#[test]
+fn single_element_collections() {
+    let mut single_map = HashMap::new();
+    single_map.insert("only".to_string(), 42);
+
+    roundtrip_test!(SingleElements {
+        single_vec: vec!["single".to_string()],
+        single_map,
+        single_option: Some(vec![255]),
+        single_char_string: "x".to_string(),
+    });
+}
+
+// ========== HELPER ATTRIBUTES ==========
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct WithHelpers {
+    // Comma-separated values
+    #[serde(with = "serde_qs::helpers::comma_separated")]
+    comma_values: Vec<String>,
+
+    // Pipe-delimited values
+    #[serde(with = "serde_qs::helpers::pipe_delimited")]
+    pipe_values: Vec<i32>,
+
+    // Space-delimited values
+    #[serde(with = "serde_qs::helpers::space_delimited")]
+    space_values: Vec<String>,
+
+    // Generic delimiter (using dot)
+    #[serde(deserialize_with = "serde_qs::helpers::generic_delimiter::deserialize::<_, _, '.'>")]
+    #[serde(serialize_with = "serde_qs::helpers::generic_delimiter::serialize::<_, _, '.'>")]
+    dot_values: Vec<u8>,
+
+    // Normal vec for comparison
+    normal_vec: Vec<String>,
+}
+
+#[test]
+fn helper_attributes() {
+    roundtrip_test!(WithHelpers {
+        comma_values: vec![
+            "apple".to_string(),
+            "banana".to_string(),
+            "cherry".to_string()
+        ],
+        pipe_values: vec![1, 2, 3, 4, 5],
+        space_values: vec!["hello".to_string(), "world".to_string()],
+        dot_values: vec![10, 20, 30],
+        normal_vec: vec!["normal".to_string(), "array".to_string()],
+    });
+
+    // Test with empty vecs
+    roundtrip_test!(WithHelpers {
+        comma_values: vec![],
+        pipe_values: vec![],
+        space_values: vec![],
+        dot_values: vec![],
+        normal_vec: vec![],
+    });
+
+    // Test with single elements
+    roundtrip_test!(WithHelpers {
+        comma_values: vec!["single".to_string()],
+        pipe_values: vec![42],
+        space_values: vec!["one".to_string()],
+        dot_values: vec![255],
+        normal_vec: vec!["alone".to_string()],
+    });
+}
+
+// Test helpers with special characters and edge cases
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct HelperEdgeCases {
+    // Values containing the delimiter
+    #[serde(with = "serde_qs::helpers::comma_separated")]
+    tricky_comma: Vec<String>,
+
+    #[serde(with = "serde_qs::helpers::pipe_delimited")]
+    numbers_with_negatives: Vec<i32>,
+
+    #[serde(with = "serde_qs::helpers::space_delimited")]
+    unicode_words: Vec<String>,
+}
+
+#[test]
+fn helper_edge_cases() {
+    roundtrip_test!(HelperEdgeCases {
+        // Note: these values don't contain commas to avoid parsing issues
+        tricky_comma: vec![
+            "first".to_string(),
+            "second".to_string(),
+            "third".to_string()
+        ],
+        numbers_with_negatives: vec![-10, 0, 10, -5, 5],
+        unicode_words: vec!["Hello".to_string(), "世界".to_string(), "🌍".to_string()],
+    });
+}
+
+// Nested structure with helpers
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct NestedWithHelpers {
+    data: Vec<InnerWithHelpers>,
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct InnerWithHelpers {
+    name: String,
+    #[serde(with = "serde_qs::helpers::comma_separated")]
+    tags: Vec<String>,
+}
+
+#[test]
+fn nested_helpers() {
+    roundtrip_test!(NestedWithHelpers {
+        data: vec![
+            InnerWithHelpers {
+                name: "item1".to_string(),
+                tags: vec!["tag1".to_string(), "tag2".to_string()],
+            },
+            InnerWithHelpers {
+                name: "item2".to_string(),
+                tags: vec!["tag3".to_string(), "tag4".to_string(), "tag5".to_string()],
+            },
+        ],
+    });
+}
+
+// ========== BORROWED VS OWNED DATA ==========
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct WithCow<'a> {
+    // Cow<str> - can be borrowed or owned
+    #[serde(borrow)]
+    cow_str: Cow<'a, str>,
+
+    // Always owned for comparison
+    owned_string: String,
+
+    // Vec of Cow strings
+    #[serde(borrow)]
+    cow_vec: Vec<Cow<'a, str>>,
+}
+
+#[test]
+fn cow_types() {
+    // Test with owned data
+    roundtrip_test!(WithCow {
+        cow_str: Cow::Owned("owned cow".to_string()),
+        owned_string: "always owned".to_string(),
+        cow_vec: vec![
+            Cow::Owned("first".to_string()),
+            Cow::Owned("second".to_string()),
+        ],
+    });
+
+    // Note: We can't test borrowed data in roundtrip because
+    // serialization always produces owned strings
+}
+
+// Test that demonstrates owned vs borrowed doesn't affect serialization
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct StringVariants {
+    owned: String,
+    vec_owned: Vec<String>,
+}
+
+#[test]
+fn string_ownership() {
+    roundtrip_test!(StringVariants {
+        owned: "hello world".to_string(),
+        vec_owned: vec!["one".to_string(), "two".to_string(), "three".to_string()],
+    });
+}
+
+// Bytes data (borrowed slice can't be tested in roundtrip)
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+struct BytesData {
+    #[serde(with = "serde_bytes")]
+    byte_vec: Vec<u8>,
+
+    regular_u8_vec: Vec<u8>,
+}
+
+#[test]
+fn bytes_types() {
+    roundtrip_test!(BytesData {
+        byte_vec: vec![0, 1, 2, 255, 128, 64],
+        regular_u8_vec: vec![10, 20, 30, 40],
     });
 }

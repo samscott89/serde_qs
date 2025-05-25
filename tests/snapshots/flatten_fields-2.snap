@@ -1,0 +1,12 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+info:
+  use_form_encoding: true
+snapshot_kind: text
+---
+name=Alice&
+age=30&
+street=123%20Main%20St&
+city=Springfield&
+zip=12345

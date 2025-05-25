@@ -1,0 +1,20 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+info:
+  use_form_encoding: false
+snapshot_kind: text
+---
+bool_val=true&
+i8_val=-128&
+i16_val=-32768&
+i32_val=-2147483648&
+i64_val=-9223372036854775808&
+u8_val=255&
+u16_val=65535&
+u32_val=4294967295&
+u64_val=18446744073709551615&
+f32_val=3.14159&
+f64_val=2.718281828&
+char_val=%F0%9F%A6%80&
+string_val=Hello,+world!+%E4%BD%A0%E5%A5%BD%E4%B8%96%E7%95%8C

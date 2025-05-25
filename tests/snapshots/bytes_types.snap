@@ -1,0 +1,12 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+info:
+  use_form_encoding: false
+snapshot_kind: text
+---
+byte_vec=%00%01%02%FF%80@&
+regular_u8_vec[0]=10&
+regular_u8_vec[1]=20&
+regular_u8_vec[2]=30&
+regular_u8_vec[3]=40

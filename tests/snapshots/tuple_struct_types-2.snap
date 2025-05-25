@@ -1,0 +1,16 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+info:
+  use_form_encoding: true
+snapshot_kind: text
+---
+ts[0]=100&
+ts[1]=tuple%20struct&
+ts[2]=false&
+vec_of_tuples[0][0]=1&
+vec_of_tuples[0][1]=2&
+vec_of_tuples[1][0]=3&
+vec_of_tuples[1][1]=4&
+vec_of_tuples[2][0]=5&
+vec_of_tuples[2][1]=6

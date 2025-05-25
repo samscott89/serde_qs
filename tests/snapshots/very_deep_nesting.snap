@@ -1,0 +1,12 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+info:
+  use_form_encoding: false
+snapshot_kind: text
+---
+level1[level1][level1][level1][value]=deepest&
+level1[level1][level1][value]=level4&
+level1[level1][value]=level3&
+level1[value]=level2&
+value=level1

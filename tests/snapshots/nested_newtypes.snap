@@ -1,0 +1,8 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized
+info:
+  use_form_encoding: false
+snapshot_kind: text
+---
+=nested+newtype

@@ -1,0 +1,15 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+info:
+  use_form_encoding: false
+snapshot_kind: text
+---
+unit[UnitVariant]&
+newtype[NewtypeVariant]=hello&
+tuple[TupleVariant][0]=42&
+tuple[TupleVariant][1]=true&
+tuple[struct_variant][StructVariant][x]=3.14&
+tuple[struct_variant][StructVariant][y]=test&
+tuple[struct_variant][vec_of_enums][0][UnitVariant]&
+tuple[struct_variant][vec_of_enums][1][NewtypeVariant]=in+vec

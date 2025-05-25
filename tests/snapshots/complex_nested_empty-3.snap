@@ -1,0 +1,13 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+info:
+  use_form_encoding: false
+snapshot_kind: text
+---
+maybe_vec_maybe&
+matrix[0]&
+map_of_vecs&
+vec_of_maps[0]&
+complex_tuple[0][0]=empty&
+complex_tuple[0][1]
