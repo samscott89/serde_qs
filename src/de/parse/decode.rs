@@ -47,6 +47,7 @@ pub fn decode(input: &[u8]) -> Cow<'_, [u8]> {
 
             // first attempt to decode the next two bytes
             // if this fails, we'll skip over the invalid percent-encoded character
+            // this follows the same approach as the `percent-encoding` crate
             let Some(h) = bytes_iter.next().and_then(|(_, b)| char_to_hexdigit(*b)) else {
                 continue;
             };

@@ -5,7 +5,6 @@ info:
   use_form_encoding: false
 snapshot_kind: text
 ---
-opt_opt_string=&
-opt_struct[a]=10&
-opt_struct[b]=20&
-opt_empty_string=
+opt_opt_string=nested&
+opt_struct&
+opt_empty_string

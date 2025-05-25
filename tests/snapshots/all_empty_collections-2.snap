@@ -5,9 +5,9 @@ info:
   use_form_encoding: true
 snapshot_kind: text
 ---
-maybe_vec_maybe&
-matrix=&
-map_of_vecs=&
-vec_of_maps=&
-nested_option&
-complex_tuple=
+empty_vec=&
+empty_vec_vec=&
+empty_hashmap=&
+empty_btreemap=&
+empty_option_vec=&
+empty_string=

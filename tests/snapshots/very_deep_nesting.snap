@@ -5,6 +5,7 @@ info:
   use_form_encoding: false
 snapshot_kind: text
 ---
+level1[level1][level1][level1][level1]=&
 level1[level1][level1][level1][value]=deepest&
 level1[level1][level1][value]=level4&
 level1[level1][value]=level3&

@@ -2,7 +2,7 @@
 source: tests/test_roundtrip.rs
 expression: serialized_pretty
 info:
-  use_form_encoding: false
+  use_form_encoding: true
 snapshot_kind: text
 ---
 complex_tuple[0][0]=first&
@@ -31,7 +31,7 @@ matrix[2][2]=9&
 maybe_vec_maybe[0]=hello&
 maybe_vec_maybe[1]&
 maybe_vec_maybe[2]=world&
-nested_option=deeply+nested&
+nested_option=deeply%20nested&
 vec_of_maps[0][a]=1&
 vec_of_maps[0][b]=2&
 vec_of_maps[1][x]=10&

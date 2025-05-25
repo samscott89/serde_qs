@@ -5,7 +5,9 @@ info:
   use_form_encoding: false
 snapshot_kind: text
 ---
-matrix&
-map_of_vecs&
-vec_of_maps&
-complex_tuple
+maybe_vec_maybe&
+matrix=&
+map_of_vecs=&
+vec_of_maps=&
+nested_option&
+complex_tuple=

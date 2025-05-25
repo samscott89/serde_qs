@@ -5,7 +5,7 @@ info:
   use_form_encoding: false
 snapshot_kind: text
 ---
-empty_vec&
+empty_vec=&
 single_vec[0]=only+one&
 multi_vec[0]=1&
 multi_vec[1]=2&

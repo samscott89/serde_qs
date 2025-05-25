@@ -286,10 +286,11 @@ impl<'qs> Parser<'qs> {
                     // we have a nested key
                     // first get the first segment of the key
                     // and parse the rest of the key
+                    let key_start = self.acc.0;
                     let root = self.collect_key()?.unwrap_or_else(Key::empty_key);
                     let node = root_map.entry(root).or_insert(ParsedValue::Uninitialized);
                     // parse the key and insert it into the map
-                    self.parse_nested_key(node, 0)?;
+                    self.parse_nested_key(node, 0, key_start)?;
                 }
                 _ => {
                     // for any other character
@@ -307,6 +308,7 @@ impl<'qs> Parser<'qs> {
         &mut self,
         current_node: &mut ParsedValue<'qs>,
         depth: usize,
+        input_start: usize,
     ) -> Result<()> {
         let reached_max_depth = depth >= self.config.max_depth;
         if !reached_max_depth {
@@ -334,10 +336,15 @@ impl<'qs> Parser<'qs> {
                     parse_sequence_value(self, &mut seq)?;
                     *current_node = ParsedValue::Sequence(seq);
                 }
-                ParsedValue::Map(_)
-                | ParsedValue::String(_)
-                | ParsedValue::Null
-                | ParsedValue::NoValue => {
+                ParsedValue::Map(map) => {
+                    let full_key = &self.inner[input_start..self.acc.0 - 1];
+                    let key = std::str::from_utf8(full_key).unwrap_or("<invalid key>");
+                    return Err(super::Error::parse_err(
+                        format!("invalid input: the key `{key}` appears in the input as both a sequence and a map (with keys {})", map.keys().map(|k| k.to_string()).collect::<Vec<_>>().join(", ")),
+                        self.index,
+                    ));
+                }
+                ParsedValue::String(_) | ParsedValue::Null | ParsedValue::NoValue => {
                     return Err(super::Error::parse_err(
                         "invalid input: the same key is used for both a value and a sequence",
                         self.index,
@@ -418,7 +425,7 @@ impl<'qs> Parser<'qs> {
                                 // we have a nested key
                                 let node = map.entry(segment).or_insert(ParsedValue::Uninitialized);
                                 // parse the key and insert it into the map
-                                self.parse_nested_key(node, depth + 1)?;
+                                self.parse_nested_key(node, depth + 1, input_start)?;
                             }
                             _ => {
                                 let char = x as char;
@@ -756,5 +763,92 @@ mod test {
         // encoded in the value
         let parsed = parse(b"foo=%5BHello%5D", DEFAULT_CONFIG).unwrap();
         assert_eq!(parsed, Map::from_iter([("foo".into(), "[Hello]".into())]));
+    }
+
+    #[test]
+    fn extra_bracket() {
+        let err = parse(b"vec[[]=1&vec[]=2", DEFAULT_CONFIG).unwrap_err();
+
+        // I _think_ this is the best error message we can return in this case
+        // since `'['` is technically a valid key here (although should never be produced by `serde_qs`)
+        assert!(
+            err.to_string()
+                .contains("invalid input: the key `vec` appears in the input as both a sequence and a map (with keys \"[\")"),
+            "got: {}",
+            err
+        );
+
+        let err = parse(b"vec[foo][1][[]=1&vec[foo][1][]=2", DEFAULT_CONFIG).unwrap_err();
+
+        assert!(
+            err.to_string()
+                .contains("invalid input: the key `vec[foo][1]` appears in the input as both a sequence and a map (with keys \"[\")"),
+            "got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn adjacent_enums() {
+        let parsed = parse(b"unit[UnitVariant]&newtype[NewtypeVariant]=hello&tuple[TupleVariant][0]=42&tuple[TupleVariant][1]=true&tuple[struct_variant][StructVariant][x]=3.14&tuple[struct_variant][StructVariant][y]=test&tuple[struct_variant][vec_of_enums][0][UnitVariant]&tuple[struct_variant][vec_of_enums][1][NewtypeVariant]=in+vec", DEFAULT_CONFIG).unwrap();
+        assert_eq!(
+            parsed,
+            Map::from_iter([
+                (
+                    "unit".into(),
+                    ParsedValue::Map(Map::from_iter([(
+                        "UnitVariant".into(),
+                        ParsedValue::NoValue
+                    )]))
+                ),
+                (
+                    "newtype".into(),
+                    ParsedValue::Map(Map::from_iter([("NewtypeVariant".into(), "hello".into())]))
+                ),
+                (
+                    "tuple".into(),
+                    ParsedValue::Map(Map::from_iter([
+                        (
+                            "TupleVariant".into(),
+                            ParsedValue::Map(Map::from_iter([
+                                (0.into(), "42".into()),
+                                (1.into(), "true".into())
+                            ]))
+                        ),
+                        (
+                            "struct_variant".into(),
+                            ParsedValue::Map(Map::from_iter([
+                                (
+                                    "StructVariant".into(),
+                                    ParsedValue::Map(Map::from_iter([
+                                        ("x".into(), "3.14".into()),
+                                        ("y".into(), "test".into())
+                                    ]))
+                                ),
+                                (
+                                    "vec_of_enums".into(),
+                                    ParsedValue::Map(Map::from_iter([
+                                        (
+                                            0.into(),
+                                            ParsedValue::Map(Map::from_iter([(
+                                                "UnitVariant".into(),
+                                                ParsedValue::NoValue
+                                            )]))
+                                        ),
+                                        (
+                                            1.into(),
+                                            ParsedValue::Map(Map::from_iter([(
+                                                "NewtypeVariant".into(),
+                                                "in vec".into()
+                                            )]))
+                                        )
+                                    ]))
+                                )
+                            ]))
+                        )
+                    ]))
+                ),
+            ])
+        )
     }
 }

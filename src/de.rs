@@ -575,10 +575,10 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        if matches!(self.0, ParsedValue::NoValue) {
-            visitor.visit_none()
-        } else {
-            visitor.visit_some(self)
+        match self.0 {
+            ParsedValue::NoValue => visitor.visit_none(),
+            ParsedValue::Null => visitor.visit_some(ValueDeserializer(ParsedValue::NoValue)),
+            _ => visitor.visit_some(self),
         }
     }
 
@@ -645,7 +645,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         let s = match self.0 {
             ParsedValue::String(s) => s,
             ParsedValue::Sequence(mut seq) => get_last_string_value(&mut seq)?,
-            ParsedValue::Null => {
+            ParsedValue::Null | ParsedValue::NoValue => {
                 return visitor.visit_str("");
             }
             _ => return self.deserialize_any(visitor),
@@ -671,7 +671,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         let s = match self.0 {
             ParsedValue::String(s) => s,
             ParsedValue::Sequence(mut seq) => get_last_string_value(&mut seq)?,
-            ParsedValue::Null => {
+            ParsedValue::Null | ParsedValue::NoValue => {
                 return visitor.visit_bytes(&[]);
             }
             _ => return self.deserialize_any(visitor),

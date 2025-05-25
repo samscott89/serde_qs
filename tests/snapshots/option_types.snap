@@ -5,6 +5,7 @@ info:
   use_form_encoding: false
 snapshot_kind: text
 ---
+opt_none&
 opt_some_string=Hello&
 opt_some_int=42&
 opt_some_bool=true&

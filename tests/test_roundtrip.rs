@@ -790,8 +790,13 @@ struct ComplexNested {
     // Vec of HashMaps
     vec_of_maps: Vec<HashMap<String, i32>>,
 
+    // Nested Option
+    nested_option: Option<Option<String>>,
+
     // Deeply nested Option
-    deep_option: Option<Option<Option<String>>>,
+    // NOTE: we cannot support this since there's no way
+    // to differentiate the layers of options
+    // deep_option: Option<Option<Option<String>>>,
 
     // Mixed nesting with tuple
     complex_tuple: Vec<(String, Option<Vec<i32>>)>,
@@ -831,7 +836,7 @@ fn complex_nested_structures() {
             matrix: vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
             map_of_vecs,
             vec_of_maps: vec![map1, map2],
-            deep_option: Some(Some(Some("deeply nested".to_string()))),
+            nested_option: Some(Some("deeply nested".to_string())),
             complex_tuple: vec![
                 ("first".to_string(), Some(vec![1, 2, 3])),
                 ("second".to_string(), None),
@@ -850,7 +855,7 @@ fn complex_nested_empty() {
         matrix: vec![],
         map_of_vecs: HashMap::new(),
         vec_of_maps: vec![],
-        deep_option: None,
+        nested_option: None,
         complex_tuple: vec![],
     });
 
@@ -860,7 +865,7 @@ fn complex_nested_empty() {
         matrix: vec![vec![]],
         map_of_vecs: HashMap::new(),
         vec_of_maps: vec![HashMap::new()],
-        deep_option: Some(None),
+        nested_option: Some(None),
         complex_tuple: vec![("empty".to_string(), Some(vec![]))],
     });
 }

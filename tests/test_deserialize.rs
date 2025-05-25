@@ -254,8 +254,8 @@ fn optional_seq() {
     }
 
     deserialize_test("", &Query { vec: None });
-    deserialize_test("vec", &Query { vec: Some(vec![]) });
-    deserialize_test_err::<Query>("vec=", "cannot parse integer from empty string");
+    deserialize_test("vec", &Query { vec: None });
+    deserialize_test("vec=", &Query { vec: Some(vec![]) });
     deserialize_test(
         "vec[0]=1&vec[1]=2",
         &Query {
@@ -296,7 +296,12 @@ fn optional_struct() {
 
     deserialize_test("", &Query { address: None });
     deserialize_test("address", &Query { address: None });
-    deserialize_test("address=", &Query { address: None });
+    // `address=` implies we have a "null" value which cannot be deserialized
+    // into an address
+    deserialize_test_err::<Query>(
+        "address=",
+        "invalid type: unit value, expected struct Address",
+    );
     deserialize_test(
         "address[city]=Carrot+City&address[postcode]=12345",
         &Query {
@@ -304,6 +309,29 @@ fn optional_struct() {
                 city: "Carrot City".to_string(),
                 postcode: "12345".to_string(),
             }),
+        },
+    );
+}
+
+#[test]
+fn nested_optionals() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query {
+        maybe_maybe: Option<Option<u8>>,
+    }
+
+    deserialize_test("", &Query { maybe_maybe: None });
+    deserialize_test("maybe_maybe", &Query { maybe_maybe: None });
+    deserialize_test(
+        "maybe_maybe=",
+        &Query {
+            maybe_maybe: Some(None),
+        },
+    );
+    deserialize_test(
+        "maybe_maybe=1",
+        &Query {
+            maybe_maybe: Some(Some(1)),
         },
     );
 }
@@ -543,8 +571,8 @@ fn returns_errors() {
         vec: Vec<u32>,
     }
 
-    deserialize_test_err::<Query>("vec[[]=1&vec[]=2", "expected `&`, `=` or `[`");
-    deserialize_test_err::<Query>("vec[\x00[]=1&vec[]=2", "expected `]`");
+    deserialize_test_err::<Query>("vec[[]=1&vec[]=2", "invalid input: the key `vec` appears in the input as both a sequence and a map (with keys \"[\")");
+    deserialize_test_err::<Query>("vec[\x00[]=1&vec[]=2", "invalid input: the key `vec` appears in the input as both a sequence and a map (with keys \"\x00[\")");
 }
 
 #[test]
@@ -648,7 +676,9 @@ fn formencoded_decoding() {
     println!("{}", rec_params.unwrap_err());
 
     // Test that we don't panic
-    deserialize_test_err_with_config::<Query>("%", "invalid percent-encoded character", config);
+    // this simply fails to deserialize since the lone `%` doesn't get decoded and
+    // just becomes a key
+    deserialize_test_err_with_config::<Query>("%", "unknown field `%`, expected `vec`", config);
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct Query2 {
@@ -1287,6 +1317,64 @@ fn invalid_utf8() {
         "field=valid&unused=%E9",
         &StringQueryParam {
             field: "valid".to_string(),
+        },
+    );
+}
+
+/// NOTE: we cannot represent `Some(Some(""))` in any meaningful way
+/// but I'm okay with that -- `serde_json` cannot differentiate betwee
+/// nested `Option`s at all: https://play.rust-lang.org/?version=stable&mode=debug&edition=2024&gist=e3c3db811eeb12388302055d50232ecb`
+#[test]
+fn levels_of_option() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query<T> {
+        a: Option<T>,
+        b: Option<Option<T>>,
+        c: Option<Option<Option<T>>>,
+    }
+
+    deserialize_test(
+        "a=1&b=2&c=3",
+        &Query::<String> {
+            a: Some("1".to_string()),
+            b: Some(Some("2".to_string())),
+            c: Some(Some(Some("3".to_string()))),
+        },
+    );
+
+    deserialize_test(
+        "a=1&b=2&c=3",
+        &Query::<u8> {
+            a: Some(1),
+            b: Some(Some(2)),
+            c: Some(Some(Some(3))),
+        },
+    );
+
+    deserialize_test(
+        "a&b&c",
+        &Query::<String> {
+            a: None,
+            b: None,
+            c: None,
+        },
+    );
+
+    deserialize_test(
+        "a=&b=&c=",
+        &Query::<String> {
+            a: Some("".to_string()),
+            b: Some(None),
+            c: Some(None),
+        },
+    );
+
+    deserialize_test(
+        "a&b=&c=",
+        &Query::<u8> {
+            a: None,
+            b: Some(None),
+            c: Some(None),
         },
     );
 }

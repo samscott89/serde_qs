@@ -5,7 +5,7 @@ info:
   use_form_encoding: false
 snapshot_kind: text
 ---
-unit&
+unit=&
 pair[0]=42&
 pair[1]=answer&
 triple[0]=true&

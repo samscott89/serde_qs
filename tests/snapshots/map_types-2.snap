@@ -5,7 +5,7 @@ info:
   use_form_encoding: true
 snapshot_kind: text
 ---
-empty_map&
+empty_map=&
 int_key_map[1]=one&
 int_key_map[2]=two&
 string_map[key1]=value1&
