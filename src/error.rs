@@ -55,6 +55,22 @@ impl Error {
     {
         Error::Parse(msg.to_string(), position)
     }
+
+    #[cfg(feature = "debug_parsed")]
+    pub fn custom<T, D: std::fmt::Debug>(msg: T, parsed: &D) -> Self
+    where
+        T: Display,
+    {
+        Error::Custom(format!("{msg}\nParsed:\n{parsed:#?}"))
+    }
+
+    #[cfg(not(feature = "debug_parsed"))]
+    pub fn custom<T, D: std::fmt::Debug>(msg: T, _parsed: &D) -> Self
+    where
+        T: Display,
+    {
+        Error::Custom(msg.to_string())
+    }
 }
 
 impl de::Error for Error {

@@ -178,7 +178,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         if self.parsed.len() > 1 {
-            return Err(de::Error::custom("input error: expecting a sequence which implies a single repeating key or with sequence indices, but found multiple keys"));
+            return Err(Error::custom("input error: expecting a sequence which implies a single repeating key or with sequence indices, but found multiple keys", &self.parsed));
         }
         // if the map is empty we can just return an empty sequence
         let Some((_, v)) = crate::map::pop_first(&mut self.parsed) else {
@@ -202,11 +202,10 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
         // we'll just ignore all the key values and attempt to deserialize
         // into a sequence
         if self.parsed.len() != len {
-            return Err(de::Error::custom(format!(
-                "expected {} elements, found {}",
-                len,
-                self.parsed.len()
-            )));
+            return Err(Error::custom(
+                format!("expected {} elements, found {}", len, self.parsed.len()),
+                &self.parsed,
+            ));
         }
         visitor.visit_seq(Seq(self.parsed.into_values()))
     }
@@ -306,8 +305,9 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
                 .map(Some)
                 .map_err(|e| {
                     if has_bracket {
-                        de::Error::custom(
+                        Error::custom(
                             format!("{e}\nInvalid field contains an encoded bracket -- consider using form encoding mode\n  https://docs.rs/serde_qs/latest/serde_qs/#query-string-vs-form-encoding")
+                            , &self.parsed
                         )
                     } else {
                         e
@@ -325,8 +325,9 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
         if let Some(v) = self.popped_value.take() {
             seed.deserialize(ValueDeserializer(v))
         } else {
-            Err(de::Error::custom(
+            Err(Error::custom(
                 "Somehow the map was empty after a non-empty key was returned",
+                &self.parsed,
             ))
         }
     }
@@ -352,7 +353,7 @@ impl<'a, 'de: 'a> de::EnumAccess<'de> for MapDeserializer<'a, 'de> {
             self.popped_value = Some(value);
             Ok((key.deserialize_seed(seed)?, self))
         } else {
-            Err(de::Error::custom("No more values"))
+            Err(Error::custom("No more values", &self.parsed))
         }
     }
 }
@@ -370,7 +371,7 @@ impl<'a, 'de: 'a> de::VariantAccess<'de> for MapDeserializer<'a, 'de> {
         if let Some(value) = self.popped_value {
             seed.deserialize(ValueDeserializer(value))
         } else {
-            Err(de::Error::custom("no value to deserialize"))
+            Err(Error::custom("no value to deserialize", &self.parsed))
         }
     }
     fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value>
@@ -380,7 +381,7 @@ impl<'a, 'de: 'a> de::VariantAccess<'de> for MapDeserializer<'a, 'de> {
         if let Some(value) = self.popped_value {
             de::Deserializer::deserialize_seq(ValueDeserializer(value), visitor)
         } else {
-            Err(de::Error::custom("no value to deserialize"))
+            Err(Error::custom("no value to deserialize", &self.parsed))
         }
     }
     fn struct_variant<V>(self, _fields: &'static [&'static str], visitor: V) -> Result<V::Value>
@@ -390,7 +391,7 @@ impl<'a, 'de: 'a> de::VariantAccess<'de> for MapDeserializer<'a, 'de> {
         if let Some(value) = self.popped_value {
             de::Deserializer::deserialize_map(ValueDeserializer(value), visitor)
         } else {
-            Err(de::Error::custom("no value to deserialize"))
+            Err(Error::custom("no value to deserialize", &self.parsed))
         }
     }
 }
@@ -422,18 +423,19 @@ struct ValueDeserializer<'a>(ParsedValue<'a>);
 
 fn get_last_string_value<'a>(seq: &mut Vec<ParsedValue<'a>>) -> Result<Cow<'a, [u8]>> {
     let Some(last) = seq.pop() else {
-        return Err(de::Error::custom(
+        return Err(Error::custom(
             "internal error: expected a string, found empty sequence",
+            &seq,
         ));
     };
 
     if let ParsedValue::String(s) = last {
         Ok(s)
     } else {
-        Err(de::Error::custom(format!(
-            "expected a string, found {:?}",
-            last
-        )))
+        Err(Error::custom(
+            format!("expected a string, found {:?}", last),
+            &seq,
+        ))
     }
 }
 
@@ -449,8 +451,9 @@ macro_rules! forward_to_string_parser {
                         get_last_string_value(&mut seq)?
                     }
                     _ => {
-                        return Err(de::Error::custom(
+                        return Err(Error::custom(
                             format!("expected a string, found {:?}", self.0),
+                            &self.0,
                         ));
                     }
                 };
@@ -476,9 +479,10 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
             }),
             ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
             ParsedValue::String(x) => StringParsingDeserializer::new(x)?.deserialize_any(visitor),
-            ParsedValue::Uninitialized => Err(de::Error::custom(
+            ParsedValue::Uninitialized => Err(Error::custom(
                 "internal error: attempted to deserialize unitialised \
                  value",
+                &self.0,
             )),
             ParsedValue::Null => visitor.visit_unit(),
         }
@@ -581,7 +585,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         if matches!(self.0, ParsedValue::Null) {
             visitor.visit_unit()
         } else {
-            Err(de::Error::custom("expected unit".to_owned()))
+            Err(Error::custom("expected unit".to_owned(), &self.0))
         }
     }
 
