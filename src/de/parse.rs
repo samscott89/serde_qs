@@ -93,7 +93,11 @@ pub enum ParsedValue<'qs> {
     Map(ParsedMap<'qs>),
     Sequence(Vec<ParsedValue<'qs>>),
     String(Cow<'qs, [u8]>),
+    /// Null value means we have a key with an _empty_ value string
+    /// e.g. `"key"=`
     Null,
+    /// NoValue means we have a key with no value at all, e.g. `"key"`
+    NoValue,
     Uninitialized,
 }
 
@@ -104,6 +108,7 @@ impl fmt::Debug for ParsedValue<'_> {
             ParsedValue::Sequence(s) => f.debug_list().entries(s.iter()).finish(),
             ParsedValue::String(s) => write!(f, "String({})", String::from_utf8_lossy(s)),
             ParsedValue::Null => write!(f, "Null"),
+            ParsedValue::NoValue => write!(f, "NoValue"),
             ParsedValue::Uninitialized => write!(f, "Unintialized"),
         }
     }
@@ -216,27 +221,21 @@ impl<'qs> Parser<'qs> {
     /// the parser.
     /// Avoids allocations when neither percent encoded, nor `'+'` values are
     /// present.
-    fn collect_str(&mut self) -> Result<Option<Cow<'qs, [u8]>>> {
-        if self.acc.0 == self.acc.1 {
-            // no bytes to parse
-            return Ok(None);
-        }
-        let decoded = decode::decode(&self.inner[self.acc.0..self.acc.1]);
-        self.clear_acc();
-        Ok(Some(decoded))
-    }
-
-    /// Extracts a string from the internal byte slice from the range tracked by
-    /// the parser.
-    /// Avoids allocations when neither percent encoded, nor `'+'` values are
-    /// present.
-    fn parse_value(&mut self) -> Result<ParsedValue<'qs>> {
+    fn collect_value(&mut self) -> Result<ParsedValue<'qs>> {
+        // clear the accumulator to start fresh
         self.clear_acc();
         while !matches!(self.next(), None | Some(b'&')) {
-            // parse up until the '&' as the value
+            // eat bytes up until the next '&' (or end of string) as the value
         }
-        self.collect_str()
-            .map(|v| v.map_or(ParsedValue::Null, ParsedValue::String))
+
+        if self.acc.0 == self.acc.1 {
+            // no bytes to parse
+            return Ok(ParsedValue::Null);
+        }
+
+        let decoded = decode::decode(&self.inner[self.acc.0..self.acc.1]);
+        self.clear_acc();
+        Ok(ParsedValue::String(decoded))
     }
 
     /// Main parsing entry point that processes the querystring into a map structure.
@@ -256,7 +255,7 @@ impl<'qs> Parser<'qs> {
                 // we reached the end of the string
                 // push the key (if exists) with a null value
                 if let Some(key) = self.collect_key()? {
-                    insert_unique(self, root_map, key, ParsedValue::Null)?;
+                    insert_unique(self, root_map, key, ParsedValue::NoValue)?;
                 }
 
                 // we've finished parsing the string
@@ -271,7 +270,7 @@ impl<'qs> Parser<'qs> {
                     if let Some(key) = self.collect_key()? {
                         // if we have no key, we'll skip it entirely to avoid creating empty
                         // key, value pairs
-                        insert_unique(self, root_map, key, ParsedValue::Null)?;
+                        insert_unique(self, root_map, key, ParsedValue::NoValue)?;
                     }
                 }
                 b'=' => {
@@ -280,7 +279,7 @@ impl<'qs> Parser<'qs> {
                     // if they key is empty, since we have an explicit `=` we'll use
                     // an empty key
                     let key = self.collect_key()?.unwrap_or_else(Key::empty_key);
-                    let value = self.parse_value()?;
+                    let value = self.collect_value()?;
                     insert_unique(self, root_map, key, value)?;
                 }
                 b'[' if !no_nesting => {
@@ -335,7 +334,10 @@ impl<'qs> Parser<'qs> {
                     parse_sequence_value(self, &mut seq)?;
                     *current_node = ParsedValue::Sequence(seq);
                 }
-                ParsedValue::Map(_) | ParsedValue::String(_) | ParsedValue::Null => {
+                ParsedValue::Map(_)
+                | ParsedValue::String(_)
+                | ParsedValue::Null
+                | ParsedValue::NoValue => {
                     return Err(super::Error::parse_err(
                         "invalid input: the same key is used for both a value and a sequence",
                         self.index,
@@ -355,7 +357,7 @@ impl<'qs> Parser<'qs> {
                         // we've reached the end of the string
                         // without encountering a terminating value (e.g. `=` or `&`)
                         let key = self.collect_key()?.expect("key cannot be empty");
-                        insert_unique(self, map, key, ParsedValue::Null)?;
+                        insert_unique(self, map, key, ParsedValue::NoValue)?;
                         return Ok(());
                     };
 
@@ -363,13 +365,13 @@ impl<'qs> Parser<'qs> {
                         b'&' => {
                             // no value
                             let key = self.collect_key()?.expect("key cannot be empty");
-                            insert_unique(self, map, key, ParsedValue::Null)?;
+                            insert_unique(self, map, key, ParsedValue::NoValue)?;
                         }
                         b'=' => {
                             // we have a simple key with a value
                             // parse the value and insert it into the map
                             let key = self.collect_key()?.expect("key cannot be empty");
-                            let value = self.parse_value()?;
+                            let value = self.collect_value()?;
                             insert_unique(self, map, key, value)?;
                         }
                         _ => {
@@ -398,18 +400,18 @@ impl<'qs> Parser<'qs> {
                             // we reached the end of the string
                             // without encountering a terminating value (e.g. `=` or `&`)
                             // nor a nested key (e.g. `[`)
-                            insert_unique(self, map, segment, ParsedValue::Null)?;
+                            insert_unique(self, map, segment, ParsedValue::NoValue)?;
                             return Ok(());
                         };
                         match x {
                             b'&' => {
                                 // no value
-                                insert_unique(self, map, segment, ParsedValue::Null)?;
+                                insert_unique(self, map, segment, ParsedValue::NoValue)?;
                             }
                             b'=' => {
                                 // we have a simple key with a value
                                 // parse the value and insert it into the map
-                                let value = self.parse_value()?;
+                                let value = self.collect_value()?;
                                 insert_unique(self, map, segment, value)?;
                             }
                             b'[' => {
@@ -467,7 +469,7 @@ fn insert_unique<'qs>(
                     seq.push(value);
                     *entry = ParsedValue::Sequence(seq);
                 }
-                ParsedValue::Null => {
+                ParsedValue::NoValue | ParsedValue::Null => {
                     return Err(Error::parse_err(
                         format!("Multiple values for the same key: {}", o.key()),
                         parser.index,
@@ -495,12 +497,12 @@ fn parse_sequence_value<'qs>(
     match parser.next() {
         Some(b'=') => {
             // Key is finished, parse up until the '&' as the value
-            let value = parser.parse_value()?;
+            let value = parser.collect_value()?;
             seq.push(value);
         }
         Some(b'&') => {
             // No value
-            seq.push(ParsedValue::Null);
+            seq.push(ParsedValue::NoValue);
         }
         Some(b'[') => {
             // we cannot handle unindexed sequences of maps
@@ -515,7 +517,7 @@ fn parse_sequence_value<'qs>(
         }
         None => {
             // The string has ended, so the value is empty.
-            seq.push(ParsedValue::Null);
+            seq.push(ParsedValue::NoValue);
         }
         _ => {
             return Err(super::Error::parse_err(
@@ -549,7 +551,7 @@ fn expect_map<'a, 'qs>(
             "invalid input: the same key is used for both a value and a nested map",
             0,
         )),
-        ParsedValue::Null => Err(super::Error::parse_err(
+        ParsedValue::NoValue | ParsedValue::Null => Err(super::Error::parse_err(
             "invalid input: the same key is used for both a unit value and a nested map",
             0,
         )),
@@ -598,11 +600,14 @@ mod test {
     #[test]
     fn parse_map_no_value() {
         let parsed = parse(b"abc", DEFAULT_CONFIG).unwrap();
-        assert_eq!(parsed, Map::from_iter([("abc".into(), ParsedValue::Null)]));
+        assert_eq!(
+            parsed,
+            Map::from_iter([("abc".into(), ParsedValue::NoValue)])
+        );
     }
 
     #[test]
-    fn parse_map_empty_value() {
+    fn parse_map_null_value() {
         let parsed = parse(b"abc=", DEFAULT_CONFIG).unwrap();
         assert_eq!(parsed, Map::from_iter([("abc".into(), ParsedValue::Null)]));
     }
@@ -668,7 +673,7 @@ mod test {
             Map::from_iter([
                 (
                     "e".into(),
-                    ParsedValue::Map(Map::from_iter([("B".into(), ParsedValue::Null)]))
+                    ParsedValue::Map(Map::from_iter([("B".into(), ParsedValue::NoValue)]))
                 ),
                 ("u".into(), "12".into()),
                 (

@@ -484,7 +484,11 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
                  value",
                 &self.0,
             )),
-            ParsedValue::Null => visitor.visit_unit(),
+
+            ParsedValue::Null => {
+                StringParsingDeserializer::new(Cow::Borrowed(b""))?.deserialize_any(visitor)
+            }
+            ParsedValue::NoValue => visitor.visit_unit(),
         }
     }
 
@@ -508,7 +512,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
             ParsedValue::String(s) => {
                 visitor.visit_seq(Seq(std::iter::once(ParsedValue::String(s))))
             }
-            ParsedValue::Null => visitor.visit_seq(Seq(std::iter::empty())),
+            ParsedValue::Null | ParsedValue::NoValue => visitor.visit_seq(Seq(std::iter::empty())),
             _ => self.deserialize_any(visitor),
         }
     }
@@ -571,7 +575,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        if matches!(self.0, ParsedValue::Null) {
+        if matches!(self.0, ParsedValue::NoValue) {
             visitor.visit_none()
         } else {
             visitor.visit_some(self)
@@ -582,7 +586,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        if matches!(self.0, ParsedValue::Null) {
+        if matches!(self.0, ParsedValue::NoValue) {
             visitor.visit_unit()
         } else {
             Err(Error::custom("expected unit".to_owned(), &self.0))
@@ -622,7 +626,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
                 field_order: None,
                 popped_value: None,
             }),
-            ParsedValue::Null => {
+            ParsedValue::Null | ParsedValue::NoValue => {
                 let mut empty_map = parse::ParsedMap::default();
                 visitor.visit_map(MapDeserializer {
                     parsed: &mut empty_map,

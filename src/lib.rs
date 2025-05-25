@@ -301,6 +301,7 @@ mod ser;
 pub use de::QsDeserializer as Deserializer;
 #[doc(inline)]
 pub use de::{from_bytes, from_str};
+
 pub use error::Error;
 #[doc(inline)]
 pub use ser::{to_string, to_writer, QsSerializer as Serializer};
