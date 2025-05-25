@@ -114,13 +114,13 @@ impl fmt::Debug for ParsedValue<'_> {
     }
 }
 
-pub fn parse(encoded_string: &[u8], config: crate::Config) -> Result<ParsedMap<'_>> {
+pub fn parse(encoded_string: &[u8], config: crate::Config) -> Result<ParsedValue<'_>> {
     let mut parser = Parser::new(encoded_string, config);
-    let mut output = Map::default();
+    let mut output = ParsedValue::Uninitialized;
     parser.parse(&mut output)?;
 
     #[cfg(feature = "debug_parsed")]
-    println!("[DEBUG] parsed: {output:?}");
+    println!("[DEBUG] parsed: {output:#?}");
 
     Ok(output)
 }
@@ -247,18 +247,22 @@ impl<'qs> Parser<'qs> {
     /// and delegating to specialized parsing functions for nested structures.
     /// It processes the input byte-by-byte, handling special characters like
     /// `&` (pair separator), `=` (key-value separator), and `[`/`]` (nesting).
-    fn parse(&mut self, root_map: &mut ParsedMap<'qs>) -> Result<()> {
+    fn parse(&mut self, root: &mut ParsedValue<'qs>) -> Result<()> {
         if self.inner.is_empty() {
             // empty string -- nothing to parse
+            *root = ParsedValue::NoValue;
             return Ok(());
         }
         let no_nesting = self.config.max_depth == 0;
         loop {
             let Some(x) = self.next() else {
                 // we reached the end of the string
-                // push the key (if exists) with a null value
                 if let Some(key) = self.collect_key()? {
-                    insert_unique(self, root_map, key, ParsedValue::NoValue)?;
+                    // we have a single lone key
+                    // which we'll treat as a key with no value
+                    let root_map: &mut Map<Key<'_>, ParsedValue<'_>> =
+                        expect_map(root, self.index)?;
+                    self.insert_unique(root_map, key, ParsedValue::NoValue)?;
                 }
 
                 // we've finished parsing the string
@@ -273,7 +277,9 @@ impl<'qs> Parser<'qs> {
                     if let Some(key) = self.collect_key()? {
                         // if we have no key, we'll skip it entirely to avoid creating empty
                         // key, value pairs
-                        insert_unique(self, root_map, key, ParsedValue::NoValue)?;
+                        let root_map: &mut Map<Key<'_>, ParsedValue<'_>> =
+                            expect_map(root, self.index)?;
+                        self.insert_unique(root_map, key, ParsedValue::NoValue)?;
                     }
                 }
                 b'=' => {
@@ -281,17 +287,25 @@ impl<'qs> Parser<'qs> {
                     // parse the value and insert it into the map
                     // if they key is empty, since we have an explicit `=` we'll use
                     // an empty key
-                    let key = self.collect_key()?.unwrap_or_else(Key::empty_key);
+                    let maybe_key = self.collect_key()?;
                     let value = self.collect_value()?;
-                    insert_unique(self, root_map, key, value)?;
+                    if let Some(key) = maybe_key {
+                        let root_map = expect_map(root, self.index)?;
+                        self.insert_unique(root_map, key, value)?;
+                    } else {
+                        self.append_value(root, value)?;
+                    }
                 }
                 b'[' if !no_nesting => {
                     // we have a nested key
                     // first get the first segment of the key
                     // and parse the rest of the key
                     let key_start = self.acc.0;
-                    let root = self.collect_key()?.unwrap_or_else(Key::empty_key);
-                    let node = root_map.entry(root).or_insert(ParsedValue::Uninitialized);
+                    let root_key = self.collect_key()?.unwrap_or_else(Key::empty_key);
+                    let root_map = expect_map(root, self.index)?;
+                    let node = root_map
+                        .entry(root_key)
+                        .or_insert(ParsedValue::Uninitialized);
                     // parse the key and insert it into the map
                     self.parse_nested_key(node, 0, key_start)?;
                 }
@@ -331,12 +345,12 @@ impl<'qs> Parser<'qs> {
             // empty key (e.g. "[]") -- parse as a sequence
             match current_node {
                 ParsedValue::Sequence(seq) => {
-                    parse_sequence_value(self, seq)?;
+                    self.parse_sequence_value(seq)?;
                 }
                 ParsedValue::Uninitialized => {
                     // initialize this node as a sequence
                     let mut seq = vec![];
-                    parse_sequence_value(self, &mut seq)?;
+                    self.parse_sequence_value(&mut seq)?;
                     *current_node = ParsedValue::Sequence(seq);
                 }
                 ParsedValue::Map(map) => {
@@ -357,7 +371,7 @@ impl<'qs> Parser<'qs> {
         } else {
             // otherwise we have a key
             // and this entry _must_ be a map
-            let map = expect_map(self, current_node)?;
+            let map = expect_map(current_node, self.index)?;
 
             if reached_max_depth {
                 // if we've reached the maximum depth already, we'll just parse the entire
@@ -367,7 +381,7 @@ impl<'qs> Parser<'qs> {
                         // we've reached the end of the string
                         // without encountering a terminating value (e.g. `=` or `&`)
                         let key = self.collect_key()?.expect("key cannot be empty");
-                        insert_unique(self, map, key, ParsedValue::NoValue)?;
+                        self.insert_unique(map, key, ParsedValue::NoValue)?;
                         return Ok(());
                     };
 
@@ -375,14 +389,14 @@ impl<'qs> Parser<'qs> {
                         b'&' => {
                             // no value
                             let key = self.collect_key()?.expect("key cannot be empty");
-                            insert_unique(self, map, key, ParsedValue::NoValue)?;
+                            self.insert_unique(map, key, ParsedValue::NoValue)?;
                         }
                         b'=' => {
                             // we have a simple key with a value
                             // parse the value and insert it into the map
                             let key = self.collect_key()?.expect("key cannot be empty");
                             let value = self.collect_value()?;
-                            insert_unique(self, map, key, value)?;
+                            self.insert_unique(map, key, value)?;
                         }
                         _ => {
                             // otherwise, continue parsing the key
@@ -410,19 +424,19 @@ impl<'qs> Parser<'qs> {
                             // we reached the end of the string
                             // without encountering a terminating value (e.g. `=` or `&`)
                             // nor a nested key (e.g. `[`)
-                            insert_unique(self, map, segment, ParsedValue::NoValue)?;
+                            self.insert_unique(map, segment, ParsedValue::NoValue)?;
                             return Ok(());
                         };
                         match x {
                             b'&' => {
                                 // no value
-                                insert_unique(self, map, segment, ParsedValue::NoValue)?;
+                                self.insert_unique(map, segment, ParsedValue::NoValue)?;
                             }
                             b'=' => {
                                 // we have a simple key with a value
                                 // parse the value and insert it into the map
                                 let value = self.collect_value()?;
-                                insert_unique(self, map, segment, value)?;
+                                self.insert_unique(map, segment, value)?;
                             }
                             b'[' => {
                                 // we have a nested key
@@ -445,103 +459,106 @@ impl<'qs> Parser<'qs> {
         }
         Ok(())
     }
-}
 
-fn insert_unique<'qs>(
-    parser: &mut Parser<'_>,
-    map: &mut ParsedMap<'qs>,
-    key: Key<'qs>,
-    value: ParsedValue<'qs>,
-) -> Result<()> {
-    match map.entry(key) {
-        Entry::Occupied(mut o) => {
-            let entry = o.get_mut();
-            match entry {
-                ParsedValue::Map(_) => {
-                    return Err(Error::parse_err(
-                        format!("Multiple values for the same key: {}", o.key()),
-                        parser.index,
-                    ));
-                }
-                ParsedValue::Sequence(parsed_values) => {
-                    // if the value is a sequence, we can just push the new value
-                    parsed_values.push(value);
-                    return Ok(());
-                }
-                ParsedValue::String(_) => {
-                    // we'll support mutliple values for the same key
-                    // by converting the existing value into a sequence
-                    // and pushing the new value into it
-                    // later we'll handle this case by taking the last value of
-                    // the sequence
-                    let existing = std::mem::replace(entry, ParsedValue::Uninitialized);
-                    let mut seq = vec![existing];
-                    seq.push(value);
-                    *entry = ParsedValue::Sequence(seq);
-                }
-                ParsedValue::NoValue | ParsedValue::Null => {
-                    return Err(Error::parse_err(
-                        format!("Multiple values for the same key: {}", o.key()),
-                        parser.index,
-                    ));
-                }
-                ParsedValue::Uninitialized => {
-                    return Err(Error::parse_err(
-                        format!("internal error: value is unintialized: {}", o.key()),
-                        parser.index,
-                    ));
-                }
+    fn insert_unique(
+        &self,
+        map: &mut ParsedMap<'qs>,
+        key: Key<'qs>,
+        value: ParsedValue<'qs>,
+    ) -> Result<()> {
+        match map.entry(key) {
+            Entry::Occupied(mut o) => {
+                let entry = o.get_mut();
+                self.append_value(entry, value)?;
+            }
+            Entry::Vacant(v) => {
+                v.insert(value);
             }
         }
-        Entry::Vacant(v) => {
-            v.insert(value);
-        }
+        Ok(())
     }
-    Ok(())
-}
 
-fn parse_sequence_value<'qs>(
-    parser: &mut Parser<'qs>,
-    seq: &mut Vec<ParsedValue<'qs>>,
-) -> Result<()> {
-    match parser.next() {
-        Some(b'=') => {
-            // Key is finished, parse up until the '&' as the value
-            let value = parser.collect_value()?;
-            seq.push(value);
+    /// Appends the parsed `value` onto the existing `entry`, returning an error if
+    /// this is not a compatible operation.
+    fn append_value(&self, entry: &mut ParsedValue<'qs>, value: ParsedValue<'qs>) -> Result<()> {
+        match entry {
+            ParsedValue::Map(m) => {
+                // if this is a map, we'll insert the value as a new map entry
+                // with an empty key
+                let entry = m
+                    .entry(Key::empty_key())
+                    .or_insert(ParsedValue::Uninitialized);
+                self.append_value(entry, value)?;
+            }
+            ParsedValue::Sequence(parsed_values) => {
+                // if the value is a sequence, we can just push the new value
+                parsed_values.push(value);
+                return Ok(());
+            }
+            ParsedValue::String(_) => {
+                // we'll support mutliple values for the same key
+                // by converting the existing value into a sequence
+                // and pushing the new value into it
+                // later we'll handle this case by taking the last value of
+                // the sequence
+                let existing = std::mem::replace(entry, ParsedValue::Uninitialized);
+                let mut seq = vec![existing];
+                seq.push(value);
+                *entry = ParsedValue::Sequence(seq);
+            }
+            ParsedValue::NoValue | ParsedValue::Null => {
+                return Err(Error::parse_err(
+                    format!("Multiple values for the same key"),
+                    self.index,
+                ));
+            }
+            ParsedValue::Uninitialized => {
+                // initialize it
+                *entry = value;
+            }
         }
-        Some(b'&') => {
-            // No value
-            seq.push(ParsedValue::NoValue);
-        }
-        Some(b'[') => {
-            // we cannot handle unindexed sequences of maps
-            // since we would have parsing ambiguity
-            // e.g. `abc[][x]=1&abc[][y]=2`
-            // could either be two entries with `x` and `y` set alternatively
-            // or a single entry with both set
-            return Err(super::Error::parse_err(
-                "unsupported: unable to parse nested maps of unindexed sequences ",
-                parser.index,
-            ));
-        }
-        None => {
-            // The string has ended, so the value is empty.
-            seq.push(ParsedValue::NoValue);
-        }
-        _ => {
-            return Err(super::Error::parse_err(
+        Ok(())
+    }
+
+    fn parse_sequence_value(&mut self, seq: &mut Vec<ParsedValue<'qs>>) -> Result<()> {
+        match self.next() {
+            Some(b'=') => {
+                // Key is finished, parse up until the '&' as the value
+                let value = self.collect_value()?;
+                seq.push(value);
+            }
+            Some(b'&') => {
+                // No value
+                seq.push(ParsedValue::NoValue);
+            }
+            Some(b'[') => {
+                // we cannot handle unindexed sequences of maps
+                // since we would have parsing ambiguity
+                // e.g. `abc[][x]=1&abc[][y]=2`
+                // could either be two entries with `x` and `y` set alternatively
+                // or a single entry with both set
+                return Err(super::Error::parse_err(
+                    "unsupported: unable to parse nested maps of unindexed sequences ",
+                    self.index,
+                ));
+            }
+            None => {
+                // The string has ended, so the value is empty.
+                seq.push(ParsedValue::NoValue);
+            }
+            _ => {
+                return Err(super::Error::parse_err(
                         "unsupported: cannot mix unindexed sequences `abc[]=...` with indexed sequences `abc[0]=...`",
-                        parser.index,
+                        self.index,
                     ));
+            }
         }
+        Ok(())
     }
-    Ok(())
 }
-
-fn expect_map<'a, 'qs>(
-    parser: &mut Parser<'qs>,
+fn expect_map<'qs, 'a>(
     node: &'a mut ParsedValue<'qs>,
+    position: usize,
 ) -> Result<&'a mut ParsedMap<'qs>> {
     match node {
         ParsedValue::Map(map) => Ok(map),
@@ -555,15 +572,15 @@ fn expect_map<'a, 'qs>(
         }
         ParsedValue::Sequence(_) => Err(super::Error::parse_err(
             "invalid input: the same key is used for both a sequence and a nested map",
-            parser.index,
+            position,
         )),
         ParsedValue::String(_) => Err(super::Error::parse_err(
             "invalid input: the same key is used for both a value and a nested map",
-            0,
+            position,
         )),
         ParsedValue::NoValue | ParsedValue::Null => Err(super::Error::parse_err(
             "invalid input: the same key is used for both a unit value and a nested map",
-            0,
+            position,
         )),
     }
 }
@@ -574,7 +591,7 @@ mod test {
 
     use crate::Config;
 
-    use super::{parse, ParsedValue};
+    use super::{parse, ParsedMap, ParsedValue};
 
     use pretty_assertions::assert_eq;
 
@@ -589,6 +606,41 @@ mod test {
         ..DEFAULT_CONFIG
     };
 
+    impl<'a> ParsedValue<'a> {
+        fn map_from_iter<K, V, I>(iter: I) -> Self
+        where
+            K: Into<super::super::Key<'a>>,
+            V: Into<ParsedValue<'a>>,
+            I: IntoIterator<Item = (K, V)>,
+        {
+            ParsedValue::Map(Map::from_iter(
+                iter.into_iter().map(|(k, v)| (k.into(), v.into())),
+            ))
+        }
+    }
+
+    fn map<'a, K, V, I>(iter: I) -> ParsedValue<'a>
+    where
+        K: Into<super::super::Key<'a>>,
+        V: Into<ParsedValue<'a>>,
+
+        I: IntoIterator<Item = (K, V)>,
+    {
+        ParsedValue::map_from_iter(iter)
+    }
+
+    impl<'a> From<ParsedMap<'a>> for ParsedValue<'a> {
+        fn from(map: ParsedMap<'a>) -> Self {
+            ParsedValue::Map(map)
+        }
+    }
+
+    impl<'a, V: Into<ParsedValue<'a>>> From<Vec<V>> for ParsedValue<'a> {
+        fn from(vec: Vec<V>) -> Self {
+            ParsedValue::Sequence(vec.into_iter().map(|v| v.into()).collect())
+        }
+    }
+
     impl<'a> From<&'a str> for ParsedValue<'a> {
         fn from(s: &'a str) -> Self {
             ParsedValue::String(Cow::Borrowed(s.as_bytes()))
@@ -598,28 +650,25 @@ mod test {
     #[test]
     fn parse_empty() {
         let parsed = parse(b"", DEFAULT_CONFIG).unwrap();
-        assert_eq!(parsed, Map::default())
+        assert_eq!(parsed, ParsedValue::Null);
     }
 
     #[test]
     fn parse_map() {
         let parsed = parse(b"abc=def", DEFAULT_CONFIG).unwrap();
-        assert_eq!(parsed, Map::from_iter([("abc".into(), "def".into())]));
+        assert_eq!(parsed, map([("abc", "def")]));
     }
 
     #[test]
     fn parse_map_no_value() {
         let parsed = parse(b"abc", DEFAULT_CONFIG).unwrap();
-        assert_eq!(
-            parsed,
-            Map::from_iter([("abc".into(), ParsedValue::NoValue)])
-        );
+        assert_eq!(parsed, map([("abc", ParsedValue::NoValue)]));
     }
 
     #[test]
     fn parse_map_null_value() {
         let parsed = parse(b"abc=", DEFAULT_CONFIG).unwrap();
-        assert_eq!(parsed, Map::from_iter([("abc".into(), ParsedValue::Null)]));
+        assert_eq!(parsed, map([("abc", ParsedValue::Null)]));
     }
 
     #[test]
@@ -629,38 +678,20 @@ mod test {
             parsed,
             // NOTE: we cannot have a top-level sequence since we need a key to group
             // the values by
-            Map::from_iter([(
-                "abc".into(),
-                ParsedValue::Sequence(vec!["1".into(), "2".into()])
-            )])
+            map([("abc", vec!["1", "2"])])
         );
     }
 
     #[test]
     fn parse_ordered_sequence() {
         let parsed = parse(b"abc[1]=1&abc[0]=0", DEFAULT_CONFIG).unwrap();
-        assert_eq!(
-            parsed,
-            Map::from_iter([(
-                "abc".into(),
-                ParsedValue::Map(Map::from_iter([
-                    (1.into(), "1".into()),
-                    (0.into(), "0".into())
-                ]))
-            )])
-        );
+        assert_eq!(parsed, map([("abc", map([(1, "1"), (0, "0")]))]));
     }
 
     #[test]
     fn parse_nested_map() {
         let parsed = parse(b"abc[def]=ghi", DEFAULT_CONFIG).unwrap();
-        assert_eq!(
-            parsed,
-            Map::from_iter([(
-                "abc".into(),
-                ParsedValue::Map(Map::from_iter([("def".into(), "ghi".into())]))
-            )])
-        );
+        assert_eq!(parsed, map([("abc", map([("def", "ghi")]))]));
     }
 
     #[test]
@@ -680,22 +711,10 @@ mod test {
         let parsed = parse(b"e[B]&v[V1][x]=12&v[V1][y]=300&u=12", DEFAULT_CONFIG).unwrap();
         assert_eq!(
             parsed,
-            Map::from_iter([
-                (
-                    "e".into(),
-                    ParsedValue::Map(Map::from_iter([("B".into(), ParsedValue::NoValue)]))
-                ),
-                ("u".into(), "12".into()),
-                (
-                    "v".into(),
-                    ParsedValue::Map(Map::from_iter([(
-                        "V1".into(),
-                        ParsedValue::Map(Map::from_iter([
-                            ("x".into(), "12".into()),
-                            ("y".into(), "300".into())
-                        ]))
-                    )]))
-                ),
+            map([
+                ("e", map([("B", ParsedValue::NoValue)])),
+                ("u", "12".into()),
+                ("v", map([("V1", map([("x", "12"), ("y", "300")]))])),
             ])
         );
     }
@@ -713,27 +732,15 @@ mod test {
 
         assert_eq!(
             parsed,
-            Map::from_iter([(
-                "a".into(),
-                ParsedValue::Map(Map::from_iter([(
-                    "b".into(),
-                    ParsedValue::Map(Map::from_iter([(
-                        "c".into(),
-                        ParsedValue::Map(Map::from_iter([(
-                            "d".into(),
-                            ParsedValue::Map(Map::from_iter([(
-                                "e".into(),
-                                ParsedValue::Map(Map::from_iter([(
-                                    "f".into(),
-                                    ParsedValue::Map(Map::from_iter([(
-                                        "[g][h]".into(),
-                                        "i".into()
-                                    )]))
-                                )]))
-                            )]))
-                        )]))
-                    )]))
-                )]))
+            map([(
+                "a",
+                map([(
+                    "b",
+                    map([(
+                        "c",
+                        map([("d", map([("e", map([("f", map([("[g][h]", "i")]))]))]))])
+                    )])
+                )])
             )])
         );
     }
@@ -743,16 +750,10 @@ mod test {
         // encoded in the key
         // in non-strict mode, the brackets are eagerly decoded
         let parsed = parse(b"abc%5Bdef%5D=ghi", FORM_ENCODING_CONFIG).unwrap();
-        assert_eq!(
-            parsed,
-            Map::from_iter([(
-                "abc".into(),
-                ParsedValue::Map(Map::from_iter([("def".into(), "ghi".into())]))
-            )])
-        );
+        assert_eq!(parsed, map([("abc", map([("def", "ghi")]))]));
 
         let parsed = parse(b"foo=%5BHello%5D", FORM_ENCODING_CONFIG).unwrap();
-        assert_eq!(parsed, Map::from_iter([("foo".into(), "[Hello]".into())]));
+        assert_eq!(parsed, map([("foo", "[Hello]")]));
     }
 
     #[test]
@@ -761,11 +762,11 @@ mod test {
         // in strict mode, the brackets are not decoded, so we end up with a key containing
         // brackets
         let parsed = parse(b"abc%5Bdef%5D=ghi", DEFAULT_CONFIG).unwrap();
-        assert_eq!(parsed, Map::from_iter([("abc[def]".into(), "ghi".into())]));
+        assert_eq!(parsed, map([("abc[def]", "ghi")]));
 
         // encoded in the value
         let parsed = parse(b"foo=%5BHello%5D", DEFAULT_CONFIG).unwrap();
-        assert_eq!(parsed, Map::from_iter([("foo".into(), "[Hello]".into())]));
+        assert_eq!(parsed, map([("foo", "[Hello]")]));
     }
 
     #[test]
@@ -794,7 +795,7 @@ mod test {
     #[test]
     fn parse_no_key() {
         let parsed = parse(b"=foo", DEFAULT_CONFIG).unwrap();
-        assert_eq!(parsed, ParsedValue::String(Cow::Borrowed("foo")));
+        assert_eq!(parsed, ParsedValue::String(Cow::Borrowed(b"foo")));
     }
 
     #[test]
@@ -802,60 +803,27 @@ mod test {
         let parsed = parse(b"unit[UnitVariant]&newtype[NewtypeVariant]=hello&tuple[TupleVariant][0]=42&tuple[TupleVariant][1]=true&tuple[struct_variant][StructVariant][x]=3.14&tuple[struct_variant][StructVariant][y]=test&tuple[struct_variant][vec_of_enums][0][UnitVariant]&tuple[struct_variant][vec_of_enums][1][NewtypeVariant]=in+vec", DEFAULT_CONFIG).unwrap();
         assert_eq!(
             parsed,
-            Map::from_iter([
+            map([
+                ("unit", map([("UnitVariant", ParsedValue::NoValue)])),
+                ("newtype", map([("NewtypeVariant", "hello")])),
                 (
-                    "unit".into(),
-                    ParsedValue::Map(Map::from_iter([(
-                        "UnitVariant".into(),
-                        ParsedValue::NoValue
-                    )]))
-                ),
-                (
-                    "newtype".into(),
-                    ParsedValue::Map(Map::from_iter([("NewtypeVariant".into(), "hello".into())]))
-                ),
-                (
-                    "tuple".into(),
-                    ParsedValue::Map(Map::from_iter([
+                    "tuple",
+                    map([
+                        ("TupleVariant", map([(0, "42"), (1, "true")])),
                         (
-                            "TupleVariant".into(),
-                            ParsedValue::Map(Map::from_iter([
-                                (0.into(), "42".into()),
-                                (1.into(), "true".into())
-                            ]))
-                        ),
-                        (
-                            "struct_variant".into(),
-                            ParsedValue::Map(Map::from_iter([
+                            "struct_variant",
+                            map([
+                                ("StructVariant", map([("x", "3.14"), ("y", "test")])),
                                 (
-                                    "StructVariant".into(),
-                                    ParsedValue::Map(Map::from_iter([
-                                        ("x".into(), "3.14".into()),
-                                        ("y".into(), "test".into())
-                                    ]))
-                                ),
-                                (
-                                    "vec_of_enums".into(),
-                                    ParsedValue::Map(Map::from_iter([
-                                        (
-                                            0.into(),
-                                            ParsedValue::Map(Map::from_iter([(
-                                                "UnitVariant".into(),
-                                                ParsedValue::NoValue
-                                            )]))
-                                        ),
-                                        (
-                                            1.into(),
-                                            ParsedValue::Map(Map::from_iter([(
-                                                "NewtypeVariant".into(),
-                                                "in vec".into()
-                                            )]))
-                                        )
-                                    ]))
+                                    "vec_of_enums",
+                                    map([
+                                        (0, map([("UnitVariant", ParsedValue::NoValue)])),
+                                        (1, map([("NewtypeVariant", "in vec")]))
+                                    ])
                                 )
-                            ]))
+                            ])
                         )
-                    ]))
+                    ])
                 ),
             ])
         )

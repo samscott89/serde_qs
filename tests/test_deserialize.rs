@@ -1080,12 +1080,10 @@ fn deserialize_primitive_errors() {
 
 #[test]
 fn deserialize_into_tuple() {
-    // oh yes, the parameters get sorted lexicographically
-    // unless you use indexmap
     #[cfg(feature = "indexmap")]
-    deserialize_test("foo=1&bar=2", &(1u8, 2u8));
+    deserialize_test("=1&=2", &(1u8, 2u8));
     #[cfg(not(feature = "indexmap"))]
-    deserialize_test("foo=1&bar=2", &(2u8, 1u8));
+    deserialize_test("=1&=2", &(1u8, 2u8));
 
     deserialize_test_err::<(u8,)>("foo=1&bar=2", "expected 1 elements, found 2");
 
@@ -1093,9 +1091,9 @@ fn deserialize_into_tuple() {
     struct Tuple(u8, u8);
 
     #[cfg(feature = "indexmap")]
-    deserialize_test("foo=1&bar=2", &Tuple(1, 2));
+    deserialize_test("=1&=2", &Tuple(1, 2));
     #[cfg(not(feature = "indexmap"))]
-    deserialize_test("foo=1&bar=2", &Tuple(2, 1));
+    deserialize_test("=1&=2", &Tuple(1, 2));
 
     deserialize_test_err::<Tuple>("foo=1", "expected 2 elements, found 1");
 }
@@ -1382,4 +1380,44 @@ fn levels_of_option() {
             c: Some(None),
         },
     );
+}
+
+#[test]
+fn empty_keys() {
+    deserialize_test("=123", &123u8);
+    deserialize_test("[0]=1&[1]=2", &vec![1u8, 2]);
+    deserialize_test("=foo", &"foo");
+    deserialize_test("=foo", &vec!["foo"]);
+    // empty key -> keep the last value if its a string
+    deserialize_test("=foo&=bar", &"bar");
+    deserialize_test("=foo&=bar", &vec!["foo", "bar"]);
+
+    let opt_string_none: Option<String> = None;
+    let opt_string_some: Option<String> = Some("foo".to_string());
+    let opt_string_some_empty: Option<String> = Some("".to_string());
+    deserialize_test("=foo", &opt_string_some);
+    deserialize_test("=", &opt_string_some_empty);
+    deserialize_test("", &opt_string_none);
+
+    // empty key -> empty key if its a map
+    deserialize_test(
+        "=foo",
+        &HashMap::<String, String>::from([("".to_string(), "bar".to_string())]),
+    );
+
+    // #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    // struct Query {
+    //     a: String,
+    //     b: String,
+    // }
+
+    // // empty keys are not allowed
+    // deserialize_test_err::<Query>("=1&b=2", "invalid input: empty key");
+    // deserialize_test_err::<Query>("a=1&=2", "invalid input: empty key");
+
+    // // but we can have empty values
+    // deserialize_test("a=&b=2", &Query {
+    //     a: "".to_string(),
+    //     b: "2".to_string(),
+    // });
 }
