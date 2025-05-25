@@ -708,12 +708,25 @@ fn externally_tagged_enum() {
 }
 
 // Internally tagged
+#[serde_with::serde_as]
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 #[serde(tag = "type")]
 enum InternallyTagged {
     Unit,
-    Struct { value: String },
-    Complex { x: i32, y: i32, data: Vec<String> },
+    Struct {
+        value: String,
+    },
+    // Similarly to untagged enums, we need a few workarounds to
+    // let complex internally tagged enums work
+    // in this case, the fields get buffered and the default
+    // inferred types don't work well with the deserializer
+    Complex {
+        #[serde_as(as = "serde_with::DisplayFromStr")]
+        x: i32,
+        #[serde_as(as = "serde_with::DisplayFromStr")]
+        y: i32,
+        data: Vec<String>,
+    },
 }
 
 #[test]
@@ -751,11 +764,12 @@ fn adjacently_tagged_enum() {
 }
 
 // Untagged
+#[serde_with::serde_as]
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 enum Untagged {
-    Bool(bool),
-    Number(i32),
+    Bool(#[serde_as(as = "serde_with::DisplayFromStr")] bool),
+    Number(#[serde_as(as = "serde_with::DisplayFromStr")] i32),
     Text(String),
     Struct { field: String },
 }
@@ -1414,4 +1428,12 @@ fn bytes_types() {
         byte_vec: vec![0, 1, 2, 255, 128, 64],
         regular_u8_vec: vec![10, 20, 30, 40],
     });
+}
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[serde(transparent)]
+struct StringWrapper(String);
+
+#[test]
+fn toplevel_string() {
+    roundtrip_test!(StringWrapper("just a string".to_string()));
 }

@@ -193,12 +193,18 @@
 //! # }
 //! ```
 //!
-//! ## Flatten workaround
+//! ## Flatten/untagged workaround
 //!
 //! A current [known limitation](https://github.com/serde-rs/serde/issues/1183)
 //! in `serde` is deserializing `#[serde(flatten)]` structs for formats which
 //! are not self-describing. This includes query strings: `12` can be an integer
 //! or a string, for example.
+//!
+//! A similar issue exists for `#[serde(untagged)]` enums, and internally-tagged enums.
+//! The default behavior using derive macros uses content buffers which defers to
+//! `deserialize_any` for deserializing the inner type. This means that any string
+//! parsing that should have happened in the deserializer will not happen,
+//! and must be done explicitly by the user.
 //!
 //! We suggest the following workaround:
 //!

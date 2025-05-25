@@ -595,7 +595,7 @@ fn querystring_decoding() {
     // with querystring encoding, the brackets are considered part of the key
     // so this errors with unknown field
     deserialize_test_err_with_config::<Query>(
-        "vec%5B0%5D%5Ba%5D=1&vec[1][a]=2",
+        "vec%5B0%5D%5Ba%5D=1",
         "unknown field `vec[0][a]`, expected `vec`",
         config,
     );
@@ -974,7 +974,7 @@ fn depth_one() {
     );
 
     deserialize_test_with_config(
-        "id=3&name=&vec%5B1%5D=Vector",
+        "id=3&name=&vec%5B0%5D=Vector",
         &Form {
             id: 3,
             name: "".to_string(),
@@ -994,7 +994,7 @@ fn depth_one() {
     );
 
     deserialize_test_with_config(
-        "vec%5B1%5D=Vector",
+        "vec%5B0%5D=Vector",
         &Form {
             id: 0,
             name: "".to_string(),
@@ -1004,7 +1004,7 @@ fn depth_one() {
     );
 
     deserialize_test_with_config(
-        "name=&vec%5B1%5D=Vector",
+        "name=&vec%5B0%5D=Vector",
         &Form {
             id: 0,
             name: "".to_string(),
@@ -1065,7 +1065,12 @@ fn deserialize_vec() {
 
     // slightly weird: we can actually handle string keys too, they will be sorted
     // lexicographically
-    deserialize_test("vec[b]=1&vec[a]=2", &vec![2u8, 1]);
+    deserialize_test_err::<Vec<u8>>(
+        "vec[b]=1&vec[a]=2",
+        "expected an integer index, found a string key `a`",
+    );
+
+    deserialize_test_err::<Vec<u8>>("vec[2]=3&vec[1]=2", "missing index, expected: 0 got 1");
 }
 
 #[test]

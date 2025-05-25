@@ -21,7 +21,7 @@ mod decode;
 /// `user[name]=bar` (string key) notations.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Key<'a> {
-    Int(usize),
+    Int(u32),
     String(Cow<'a, [u8]>),
 }
 
@@ -60,8 +60,8 @@ impl<'a> From<&'a [u8]> for Key<'a> {
     }
 }
 
-impl From<usize> for Key<'_> {
-    fn from(i: usize) -> Self {
+impl From<u32> for Key<'_> {
+    fn from(i: u32) -> Self {
         Key::Int(i)
     }
 }
@@ -118,6 +118,9 @@ pub fn parse(encoded_string: &[u8], config: crate::Config) -> Result<ParsedMap<'
     let mut parser = Parser::new(encoded_string, config);
     let mut output = Map::default();
     parser.parse(&mut output)?;
+
+    #[cfg(feature = "debug_parsed")]
+    println!("[DEBUG] parsed: {output:?}");
 
     Ok(output)
 }
@@ -206,7 +209,7 @@ impl<'qs> Parser<'qs> {
             // if all bytes are digits, we can parse it as an integer
             // SAFETY: we know that all bytes are ASCII digits
             let key = unsafe { std::str::from_utf8_unchecked(bytes) };
-            if let Ok(key) = key.parse::<usize>() {
+            if let Ok(key) = key.parse() {
                 self.clear_acc();
                 return Ok(Some(Key::Int(key)));
             }
@@ -786,6 +789,12 @@ mod test {
             "got: {}",
             err
         );
+    }
+
+    #[test]
+    fn parse_no_key() {
+        let parsed = parse(b"=foo", DEFAULT_CONFIG).unwrap();
+        assert_eq!(parsed, ParsedValue::String(Cow::Borrowed("foo")));
     }
 
     #[test]

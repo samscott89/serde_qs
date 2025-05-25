@@ -419,6 +419,60 @@ impl<'de, I: Iterator<Item = ParsedValue<'de>>> de::SeqAccess<'de> for Seq<'de, 
     }
 }
 
+impl<'a, I> OrderedSeq<'a, I>
+where
+    I: Iterator<Item = (Key<'a>, ParsedValue<'a>)>,
+{
+    /// Creates a new `OrderedSeq` from an iterator.
+    pub fn new(iter: I) -> Self {
+        Self { iter, counter: 0 }
+    }
+}
+
+struct OrderedSeq<'a, I: Iterator<Item = (Key<'a>, ParsedValue<'a>)>> {
+    iter: I,
+    counter: u32,
+}
+
+impl<'de, I: Iterator<Item = (Key<'de>, ParsedValue<'de>)>> de::SeqAccess<'de>
+    for OrderedSeq<'de, I>
+{
+    type Error = Error;
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        if let Some((k, v)) = self.iter.next() {
+            match k {
+                Key::Int(i) if i == self.counter => {
+                    self.counter.checked_add(1).ok_or_else(|| {
+                        Error::custom("cannot deserialize more than u32::MAX elements", &(k, &v))
+                    })?;
+                    seed.deserialize(ValueDeserializer(v)).map(Some)
+                }
+                Key::Int(i) => Err(Error::custom(
+                    format!("missing index, expected: {} got {i}", self.counter),
+                    &(k, v),
+                )),
+                Key::String(ref bytes) => {
+                    let key = std::str::from_utf8(bytes).unwrap_or("<non-utf8>");
+                    Err(Error::custom(
+                        format!("expected an integer index, found a string key `{key}`"),
+                        &(k, v),
+                    ))
+                }
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        // cannot provide a size hint since we might have gaps
+        None
+    }
+}
+
 struct ValueDeserializer<'a>(ParsedValue<'a>);
 
 fn get_last_string_value<'a>(seq: &mut Vec<ParsedValue<'a>>) -> Result<Cow<'a, [u8]>> {
@@ -478,11 +532,19 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.0 {
-            ParsedValue::Map(mut parsed) => visitor.visit_map(MapDeserializer {
-                parsed: &mut parsed,
-                field_order: None,
-                popped_value: None,
-            }),
+            ParsedValue::Map(mut parsed) => {
+                // scan the map to check if all keys are integers
+                // if so, we'll treat it as a sequence
+                if parsed.keys().all(|k| matches!(k, Key::Int(_))) {
+                    visitor.visit_seq(OrderedSeq::new(parsed.into_iter()))
+                } else {
+                    visitor.visit_map(MapDeserializer {
+                        parsed: &mut parsed,
+                        field_order: None,
+                        popped_value: None,
+                    })
+                }
+            }
             ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
             ParsedValue::String(x) => StringParsingDeserializer::new(x)?.deserialize_any(visitor),
             ParsedValue::Uninitialized => Err(Error::custom(
@@ -508,10 +570,10 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
                 // when using indexmap, we need to first sort the keys
                 // or they will be in
                 parsed.sort_unstable_keys();
-                visitor.visit_seq(Seq(parsed.into_values()))
+                visitor.visit_seq(OrderedSeq::new(parsed.into_iter()))
             }
             #[cfg(not(feature = "indexmap"))]
-            ParsedValue::Map(parsed) => visitor.visit_seq(Seq(parsed.into_values())),
+            ParsedValue::Map(parsed) => visitor.visit_seq(OrderedSeq::new(parsed.into_iter())),
             ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
             // if we have a single string key, but expect a sequence
             // we'll treat it as a sequence of one
