@@ -2,6 +2,28 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
 
+/// Wrapper type for f32 that compares NaN values as equal
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(transparent)]
+struct F32(f32);
+
+impl PartialEq for F32 {
+    fn eq(&self, other: &Self) -> bool {
+        (self.0.is_nan() && other.0.is_nan()) || self.0 == other.0
+    }
+}
+
+/// Wrapper type for f64 that compares NaN values as equal
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(transparent)]
+struct F64(f64);
+
+impl PartialEq for F64 {
+    fn eq(&self, other: &Self) -> bool {
+        (self.0.is_nan() && other.0.is_nan()) || self.0 == other.0
+    }
+}
+
 /// macro for testing roundtrip serialization and deserialization
 ///
 /// This is a macro so that `insta` generates snapshots with
@@ -1080,9 +1102,9 @@ struct EdgeCases {
     zero_u8: u8,
 
     // Special float values
-    nan_value: f32,
-    infinity: f64,
-    neg_infinity: f64,
+    nan_value: F32,
+    infinity: F64,
+    neg_infinity: F64,
 
     // Very large numbers
     max_u64: u64,
@@ -1104,15 +1126,41 @@ fn edge_case_values() {
         zero_i32: 0,
         zero_f64: 0.0,
         zero_u8: 0,
-        nan_value: f32::NAN,
-        infinity: f64::INFINITY,
-        neg_infinity: f64::NEG_INFINITY,
+        nan_value: F32(f32::NAN),
+        infinity: F64(f64::INFINITY),
+        neg_infinity: F64(f64::NEG_INFINITY),
         max_u64: u64::MAX,
         min_i64: i64::MIN,
         unicode: "Hello 世界 🌍".to_string(),
         emoji: "🚀🎉🔥💯".to_string(),
         special_chars: "a&b=c?d#e".to_string(),
     });
+}
+
+// Separate test for NaN handling (not used due to wrapper types above)
+#[test]
+fn nan_roundtrip_direct() {
+    #[derive(Debug, Deserialize, Serialize)]
+    struct FloatSpecials {
+        nan: f32,
+        inf: f64,
+        neg_inf: f64,
+    }
+
+    let data = FloatSpecials {
+        nan: f32::NAN,
+        inf: f64::INFINITY,
+        neg_inf: f64::NEG_INFINITY,
+    };
+
+    let config = serde_qs::Config::new();
+    let serialized = config.serialize_string(&data).expect("serialize");
+    let deserialized: FloatSpecials = config.deserialize_str(&serialized).expect("deserialize");
+
+    // Custom assertions for special float values
+    assert!(deserialized.nan.is_nan());
+    assert!(deserialized.inf.is_infinite() && deserialized.inf.is_sign_positive());
+    assert!(deserialized.neg_inf.is_infinite() && deserialized.neg_inf.is_sign_negative());
 }
 
 // Test with all empty collections
