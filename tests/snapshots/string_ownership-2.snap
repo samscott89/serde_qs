@@ -6,6 +6,6 @@ info:
 snapshot_kind: text
 ---
 owned=hello%20world&
-vec_owned[0]=one&
-vec_owned[1]=two&
-vec_owned[2]=three
+vec_owned%5B0%5D=one&
+vec_owned%5B1%5D=two&
+vec_owned%5B2%5D=three

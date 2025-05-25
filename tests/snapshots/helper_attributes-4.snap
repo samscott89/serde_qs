@@ -5,5 +5,8 @@ info:
   use_form_encoding: true
 snapshot_kind: text
 ---
-Tuple%5B0%5D=1&
-Tuple%5B1%5D=2
+comma_values=&
+pipe_values=&
+space_values=&
+dot_values=&
+normal_vec=

@@ -6,10 +6,10 @@ info:
 snapshot_kind: text
 ---
 value=root&
-children[0][value]=child1&
-children[0][children][0][value]=grandchild1&
-children[0][children][0][children]=&
-children[0][children][1][value]=grandchild2&
-children[0][children][1][children]=&
-children[1][value]=child2&
-children[1][children]=
+children%5B0%5D%5Bvalue%5D=child1&
+children%5B0%5D%5Bchildren%5D%5B0%5D%5Bvalue%5D=grandchild1&
+children%5B0%5D%5Bchildren%5D%5B0%5D%5Bchildren%5D=&
+children%5B0%5D%5Bchildren%5D%5B1%5D%5Bvalue%5D=grandchild2&
+children%5B0%5D%5Bchildren%5D%5B1%5D%5Bchildren%5D=&
+children%5B1%5D%5Bvalue%5D=child2&
+children%5B1%5D%5Bchildren%5D=

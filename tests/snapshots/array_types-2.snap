@@ -5,8 +5,8 @@ info:
   use_form_encoding: true
 snapshot_kind: text
 ---
-small_array[0]=1&
-small_array[1]=2&
-small_array[2]=3&
-string_array[0]=first&
-string_array[1]=second
+small_array%5B0%5D=1&
+small_array%5B1%5D=2&
+small_array%5B2%5D=3&
+string_array%5B0%5D=first&
+string_array%5B1%5D=second

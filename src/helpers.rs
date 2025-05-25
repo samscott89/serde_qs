@@ -52,9 +52,13 @@ pub mod generic_delimiter {
         <T as FromStr>::Err: std::fmt::Display,
     {
         let s: Cow<'_, str> = Deserialize::deserialize(deserialize)?;
-        s.split(DELIM)
-            .map(|x| x.parse::<T>().map_err(serde::de::Error::custom))
-            .collect()
+        if s.is_empty() {
+            Ok(vec![])
+        } else {
+            s.split(DELIM)
+                .map(|x| x.parse::<T>().map_err(serde::de::Error::custom))
+                .collect()
+        }
     }
 }
 
@@ -212,5 +216,29 @@ pub mod space_delimited {
         <T as FromStr>::Err: std::fmt::Display,
     {
         super::generic_delimiter::deserialize::<D, T, ' '>(deserialize)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_empty() {
+        #[derive(Debug, PartialEq, Deserialize, Serialize)]
+        struct Query {
+            #[serde(with = "comma_separated")]
+            values: Vec<u8>,
+        }
+
+        let query = Query { values: vec![] };
+        let serialized = crate::to_string(&query).unwrap();
+        assert_eq!(serialized, "values=");
+        assert_eq!(crate::from_str::<Query>(&serialized).unwrap(), query);
+        let query = Query {
+            values: vec![1, 2, 3],
+        };
+        let serialized = crate::to_string(&query).unwrap();
+        assert_eq!(serialized, "values=1,2,3");
+        assert_eq!(crate::from_str::<Query>(&serialized).unwrap(), query);
     }
 }

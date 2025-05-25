@@ -122,15 +122,45 @@ impl<W: Write> QsSerializer<W> {
     /// - Third key "first" becomes: `user[name][first]`
     fn push_key(&mut self, newkey: &[u8]) -> Result<()> {
         let first_key_segment = self.key.is_empty();
-        let mut segment = Vec::with_capacity(newkey.len() + 2);
+
+        // estimate the required capacity based on
+        // the key length and encoding
+        // note that if we do require percent-encoding
+        // the key, then we'll probably need to grow
+        // the capacity -- we're being optimistic here
+        // that the common case does not need to encode
+        let estimated_capacity = newkey.len()
+            + if first_key_segment { 0 } else { 2 }
+            + if self.config.use_form_encoding { 6 } else { 2 };
+        let mut segment = Vec::with_capacity(estimated_capacity);
         if !first_key_segment {
-            segment.push(b'[');
+            if self.config.use_form_encoding {
+                segment.extend_from_slice(b"%5B");
+            } else {
+                segment.push(b'[');
+            }
         }
-        for encoded in encode(newkey, self.config.use_form_encoding) {
-            segment.extend_from_slice(&encoded);
+
+        if newkey
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_' || *b == b'.')
+        {
+            // optimization for the case where the key
+            // is alphanumeric or a few special characters
+            // this avoids the percent-encoding overhead
+            segment.extend_from_slice(newkey);
+        } else {
+            for encoded in encode(newkey, self.config.use_form_encoding) {
+                segment.extend_from_slice(&encoded);
+            }
         }
+
         if !first_key_segment {
-            segment.push(b']');
+            if self.config.use_form_encoding {
+                segment.extend_from_slice(b"%5D");
+            } else {
+                segment.push(b']');
+            }
         }
         self.key.push(segment);
         Ok(())
@@ -153,11 +183,19 @@ impl<W: Write> QsSerializer<W> {
             }
         } else {
             self.write_key_stack()?;
-            self.writer.write_all(b"[")?;
+            if self.config.use_form_encoding {
+                self.writer.write_all(b"%5B")?;
+            } else {
+                self.writer.write_all(b"[")?;
+            }
             for encoded in encode(newkey, self.config.use_form_encoding) {
                 self.writer.write_all(&encoded)?;
             }
-            self.writer.write_all(b"]")?;
+            if self.config.use_form_encoding {
+                self.writer.write_all(b"%5D")?;
+            } else {
+                self.writer.write_all(b"]")?;
+            }
         }
         Ok(())
     }

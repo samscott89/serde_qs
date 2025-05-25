@@ -9,6 +9,6 @@ opt_none&
 opt_some_string=Hello&
 opt_some_int=42&
 opt_some_bool=true&
-opt_some_vec[0]=1&
-opt_some_vec[1]=2&
-opt_some_vec[2]=3
+opt_some_vec%5B0%5D=1&
+opt_some_vec%5B1%5D=2&
+opt_some_vec%5B2%5D=3

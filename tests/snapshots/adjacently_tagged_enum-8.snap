@@ -5,6 +5,6 @@ info:
   use_form_encoding: true
 snapshot_kind: text
 ---
-t[Struct]&
-c[name]=item&
-c[count]=42
+t%5BStruct%5D&
+c%5Bname%5D=item&
+c%5Bcount%5D=42

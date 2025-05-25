@@ -444,6 +444,12 @@ macro_rules! forward_to_string_parser {
         $(
             fn $meth<V>(self, visitor: V) -> Result<V::Value> where V: de::Visitor<'de> {
                 let s = match self.0 {
+                    ParsedValue::String(ref s) if s.is_empty() => {
+                        return Err(Error::custom(
+                            format!("expected a `{}`, found an empty string", stringify!($ty)),
+                            &self.0
+                        ));
+                    }
                     ParsedValue::String(s) => {
                         s
                     }

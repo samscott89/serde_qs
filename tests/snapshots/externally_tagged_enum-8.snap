@@ -5,5 +5,5 @@ info:
   use_form_encoding: true
 snapshot_kind: text
 ---
-Struct[a]=test&
-Struct[b]=true
+Struct%5Ba%5D=test&
+Struct%5Bb%5D=true

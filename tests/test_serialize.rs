@@ -3,12 +3,14 @@ extern crate serde_derive;
 extern crate serde_qs as qs;
 
 /// Helper function for testing serialization with default config
+#[track_caller]
 fn serialize_test<T: serde::Serialize>(data: &T, expected: &str) {
     let serialized = qs::to_string(data).expect("serialize");
     assert_eq!(serialized, expected);
 }
 
 /// Helper function for testing serialization with custom config
+#[track_caller]
 fn serialize_test_with_config<T: serde::Serialize>(data: &T, expected: &str, config: qs::Config) {
     let serialized = config.serialize_string(data).expect("serialize");
     assert_eq!(serialized, expected);
@@ -247,4 +249,40 @@ fn test_serializer_unit() {
 
     serialize_test(&A, "=");
     serialize_test(&B { t: () }, "t=");
+}
+
+#[test]
+fn formencoding() {
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    struct NestedData {
+        a: u8,
+        b: String,
+    }
+
+    #[derive(Serialize)]
+    struct Query {
+        data: Vec<NestedData>,
+    }
+
+    let query = Query {
+        data: vec![
+            NestedData {
+                a: 1,
+                b: "test!".to_string(),
+            },
+            NestedData {
+                a: 2,
+                b: "example:.".to_string(),
+            },
+        ],
+    };
+
+    let form_config = qs::Config::new().use_form_encoding(true);
+    serialize_test_with_config(
+        &query,
+        "data%5B0%5D%5Ba%5D=1&data%5B0%5D%5Bb%5D=test%21&data%5B1%5D%5Ba%5D=2&data%5B1%5D%5Bb%5D=example%3A.",
+        form_config,
+    );
 }

@@ -6,9 +6,9 @@ info:
 snapshot_kind: text
 ---
 maybe_vec_maybe=&
-matrix[0]=&
+matrix%5B0%5D=&
 map_of_vecs=&
-vec_of_maps[0]=&
+vec_of_maps%5B0%5D=&
 nested_option=&
-complex_tuple[0][0]=empty&
-complex_tuple[0][1]=
+complex_tuple%5B0%5D%5B0%5D=empty&
+complex_tuple%5B0%5D%5B1%5D=

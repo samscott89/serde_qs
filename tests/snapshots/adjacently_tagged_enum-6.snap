@@ -5,6 +5,6 @@ info:
   use_form_encoding: true
 snapshot_kind: text
 ---
-t[Tuple]&
-c[0]=3&
-c[1]=4
+t%5BTuple%5D&
+c%5B0%5D=3&
+c%5B1%5D=4

@@ -6,6 +6,6 @@ info:
 snapshot_kind: text
 ---
 opt_opt_string=&
-opt_struct[a]=10&
-opt_struct[b]=20&
+opt_struct%5Ba%5D=10&
+opt_struct%5Bb%5D=20&
 opt_empty_string=

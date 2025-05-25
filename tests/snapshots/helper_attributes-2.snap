@@ -9,5 +9,5 @@ comma_values=apple%2Cbanana%2Ccherry&
 pipe_values=1%7C2%7C3%7C4%7C5&
 space_values=hello%20world&
 dot_values=10.20.30&
-normal_vec[0]=normal&
-normal_vec[1]=array
+normal_vec%5B0%5D=normal&
+normal_vec%5B1%5D=array

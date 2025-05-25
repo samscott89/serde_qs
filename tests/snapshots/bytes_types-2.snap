@@ -6,7 +6,7 @@ info:
 snapshot_kind: text
 ---
 byte_vec=%00%01%02%FF%80%40&
-regular_u8_vec[0]=10&
-regular_u8_vec[1]=20&
-regular_u8_vec[2]=30&
-regular_u8_vec[3]=40
+regular_u8_vec%5B0%5D=10&
+regular_u8_vec%5B1%5D=20&
+regular_u8_vec%5B2%5D=30&
+regular_u8_vec%5B3%5D=40

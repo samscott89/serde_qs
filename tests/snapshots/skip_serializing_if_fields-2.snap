@@ -6,8 +6,8 @@ info:
 snapshot_kind: text
 ---
 maybe_string=present&
-maybe_vec[0]=1&
-maybe_vec[1]=2&
-maybe_vec[2]=3&
+maybe_vec%5B0%5D=1&
+maybe_vec%5B1%5D=2&
+maybe_vec%5B2%5D=3&
 maybe_zero=42&
 always_present=always

@@ -28,6 +28,13 @@ pub fn decode_utf8(value: Cow<'_, [u8]>) -> Result<Cow<'_, str>, Utf8Error> {
 
 impl<'a, E> StringParsingDeserializer<'a, E> {
     pub fn new(value: Cow<'a, [u8]>) -> Result<Self, Utf8Error> {
+        if value.is_empty() {
+            panic!()
+            // return Ok(StringParsingDeserializer {
+            //     value: Cow::Borrowed(""),
+            //     marker: PhantomData,
+            // });
+        }
         let value = decode_utf8(value)?;
         Ok(StringParsingDeserializer {
             value,
@@ -36,6 +43,13 @@ impl<'a, E> StringParsingDeserializer<'a, E> {
     }
 
     pub fn new_str(value: &'a str) -> Self {
+        if value.is_empty() {
+            panic!()
+            // return Ok(StringParsingDeserializer {
+            //     value: Cow::Borrowed(""),
+            //     marker: PhantomData,
+            // });
+        }
         StringParsingDeserializer {
             value: Cow::Borrowed(value),
             marker: PhantomData,

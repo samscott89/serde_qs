@@ -7,5 +7,5 @@ snapshot_kind: text
 ---
 cow_str=owned%20cow&
 owned_string=always%20owned&
-cow_vec[0]=first&
-cow_vec[1]=second
+cow_vec%5B0%5D=first&
+cow_vec%5B1%5D=second
