@@ -1,0 +1,7 @@
+---
+source: tests/test_roundtrip.rs
+description: "Struct { name: \"item\", count: 42 }"
+---
+t[Struct]&
+c[name]=item&
+c[count]=42

@@ -1,0 +1,11 @@
+---
+source: tests/test_roundtrip.rs
+description: "ContainsUnits { unit_value: (), unit_struct: UnitStruct, optional_unit: None, vec_of_units: [], tuple_with_unit: (\"empty\", (), 0) }"
+---
+unit_value=&
+unit_struct=&
+optional_unit&
+vec_of_units=&
+tuple_with_unit%5B0%5D=empty&
+tuple_with_unit%5B1%5D=&
+tuple_with_unit%5B2%5D=0

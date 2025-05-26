@@ -1,0 +1,10 @@
+---
+source: tests/test_roundtrip.rs
+description: "ComplexNested { maybe_vec_maybe: Some([]), matrix: [[]], map_of_vecs: {}, vec_of_maps: [{}], complex_tuple: [(\"empty\", Some([]))] }"
+---
+maybe_vec_maybe=&
+matrix[0]=&
+map_of_vecs=&
+vec_of_maps[0]=&
+complex_tuple[0][0]=empty&
+complex_tuple[0][1]=

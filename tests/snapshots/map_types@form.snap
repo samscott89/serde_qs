@@ -1,0 +1,13 @@
+---
+source: tests/test_roundtrip.rs
+description: "MapTypes { empty_map: {}, string_map: {\"key1\": \"value1\", \"key2\": \"value2\"}, int_key_map: {1: \"one\", 2: \"two\"}, struct_value_map: {\"first\": FlatStruct { a: 10, b: 20 }, \"second\": FlatStruct { a: 30, b: 40 }} }"
+---
+empty_map=&
+int_key_map%5B1%5D=one&
+int_key_map%5B2%5D=two&
+string_map%5Bkey1%5D=value1&
+string_map%5Bkey2%5D=value2&
+struct_value_map%5Bfirst%5D%5Ba%5D=10&
+struct_value_map%5Bfirst%5D%5Bb%5D=20&
+struct_value_map%5Bsecond%5D%5Ba%5D=30&
+struct_value_map%5Bsecond%5D%5Bb%5D=40

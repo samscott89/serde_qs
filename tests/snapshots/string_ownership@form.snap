@@ -1,0 +1,8 @@
+---
+source: tests/test_roundtrip.rs
+description: "StringVariants { owned: \"hello world\", vec_owned: [\"one\", \"two\", \"three\"] }"
+---
+owned=hello%20world&
+vec_owned%5B0%5D=one&
+vec_owned%5B1%5D=two&
+vec_owned%5B2%5D=three

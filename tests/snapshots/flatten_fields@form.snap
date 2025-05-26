@@ -1,0 +1,9 @@
+---
+source: tests/test_roundtrip.rs
+description: "Person { name: \"Alice\", age: 30, address: Address { street: \"123 Main St\", city: \"Springfield\", zip: \"12345\" } }"
+---
+name=Alice&
+age=30&
+street=123%20Main%20St&
+city=Springfield&
+zip=12345

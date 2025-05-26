@@ -1,0 +1,13 @@
+---
+source: tests/test_roundtrip.rs
+description: "ContainsTupleStruct { ts: TupleStruct(100, \"tuple struct\", false), vec_of_tuples: [(1, 2), (3, 4), (5, 6)] }"
+---
+ts%5B0%5D=100&
+ts%5B1%5D=tuple%20struct&
+ts%5B2%5D=false&
+vec_of_tuples%5B0%5D%5B0%5D=1&
+vec_of_tuples%5B0%5D%5B1%5D=2&
+vec_of_tuples%5B1%5D%5B0%5D=3&
+vec_of_tuples%5B1%5D%5B1%5D=4&
+vec_of_tuples%5B2%5D%5B0%5D=5&
+vec_of_tuples%5B2%5D%5B1%5D=6

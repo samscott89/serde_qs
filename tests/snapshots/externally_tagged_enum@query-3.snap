@@ -1,0 +1,6 @@
+---
+source: tests/test_roundtrip.rs
+description: "Tuple(1, 2)"
+---
+Tuple[0]=1&
+Tuple[1]=2

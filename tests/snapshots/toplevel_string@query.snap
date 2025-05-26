@@ -1,0 +1,5 @@
+---
+source: tests/test_roundtrip.rs
+description: "StringWrapper(\"just a string\")"
+---
+=just+a+string

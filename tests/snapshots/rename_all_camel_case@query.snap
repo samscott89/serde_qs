@@ -1,0 +1,8 @@
+---
+source: tests/test_roundtrip.rs
+description: "RenameAllCamelCase { first_name: \"Jane\", last_name: \"Smith\", phone_number: \"555-1234\", email_address: \"jane@example.com\" }"
+---
+firstName=Jane&
+lastName=Smith&
+phoneNumber=555-1234&
+emailAddress=jane@example.com

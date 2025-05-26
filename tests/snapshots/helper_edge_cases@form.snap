@@ -1,0 +1,7 @@
+---
+source: tests/test_roundtrip.rs
+description: "HelperEdgeCases { tricky_comma: [\"first\", \"second\", \"third\"], numbers_with_negatives: [-10, 0, 10, -5, 5], unicode_words: [\"Hello\", \"世界\", \"🌍\"] }"
+---
+tricky_comma=first%2Csecond%2Cthird&
+numbers_with_negatives=-10%7C0%7C10%7C-5%7C5&
+unicode_words=Hello%20%E4%B8%96%E7%95%8C%20%F0%9F%8C%8D

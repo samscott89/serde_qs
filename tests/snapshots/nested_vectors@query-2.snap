@@ -1,0 +1,8 @@
+---
+source: tests/test_roundtrip.rs
+description: "NestedVectors { vec_of_vecs: [[], []], vec_of_options: [Some(\"\")], option_vec: Some([]) }"
+---
+vec_of_vecs[0]=&
+vec_of_vecs[1]=&
+vec_of_options[0]=&
+option_vec=

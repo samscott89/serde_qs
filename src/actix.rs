@@ -1,9 +1,20 @@
-//! Functionality for using `serde_qs` with `actix_web`.
+//! Actix-web integration for `serde_qs`.
 //!
-//! Enable with the `actix4`, `actix3` or `actix2` features.
+//! This module provides extractors for deserializing querystrings and form data
+//! with support for nested structures in Actix-web applications.
+//!
+//! ## Features
+//!
+//! - `actix4`: Support for actix-web 4.x
+//! - `actix3`: Support for actix-web 3.x
+//!
+//! ## Why use this over actix-web's built-in extractors?
+//!
+//! Actix-web's `web::Query` and `web::Form` only support flat structures.
+//! These extractors support nested objects and arrays using bracket notation.
 
-use crate::de::Config as QsConfig;
 use crate::error::Error as QsError;
+use crate::Config as QsConfig;
 
 #[cfg(feature = "actix3")]
 use actix_web3 as actix_web;
@@ -38,7 +49,10 @@ impl ResponseError for QsError {
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
-/// Extract typed information from from the request's query.
+/// Extract typed information from the request's query string.
+///
+/// A drop-in replacement for `actix_web::web::Query` that supports nested structures.
+/// Use this when you need to deserialize querystrings with arrays or nested objects.
 ///
 /// ## Example
 ///
@@ -115,7 +129,9 @@ where
 
     #[inline]
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let query_config = req.app_data::<QsQueryConfig>().unwrap_or(&DEFAULT_CONFIG);
+        let query_config = req
+            .app_data::<QsQueryConfig>()
+            .unwrap_or(&DEFAULT_QUERY_CONFIG);
 
         let res = query_config
             .qs_config
@@ -136,7 +152,10 @@ where
 
 type ActixErrorHandler = Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError + Send + Sync>>;
 
-/// Query extractor configuration
+/// Configuration for query and form extractors.
+///
+/// Allows customization of error handling and serialization parameters
+/// for both `QsQuery` and `QsForm` extractors.
 ///
 /// ```rust
 /// # #[macro_use] extern crate serde_derive;
@@ -181,9 +200,14 @@ pub struct QsQueryConfig {
     qs_config: QsConfig,
 }
 
-static DEFAULT_CONFIG: QsQueryConfig = QsQueryConfig {
+static DEFAULT_QUERY_CONFIG: QsQueryConfig = QsQueryConfig {
     ehandler: None,
-    qs_config: crate::de::DEFAULT_CONFIG,
+    qs_config: QsConfig::new(),
+};
+
+static DEFAULT_FORM_CONFIG: QsQueryConfig = QsQueryConfig {
+    ehandler: None,
+    qs_config: QsConfig::new().use_form_encoding(true),
 };
 
 impl QsQueryConfig {
@@ -204,7 +228,10 @@ impl QsQueryConfig {
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
-/// Extract typed information from from the request's form data.
+/// Extract typed information from the request's form data.
+///
+/// A drop-in replacement for `actix_web::web::Form` that supports nested structures.
+/// Use this when you need to deserialize form data with arrays or nested objects.
 ///
 /// ## Example
 ///
@@ -276,7 +303,7 @@ where
 
         let query_config: QsQueryConfig = req
             .app_data::<QsQueryConfig>()
-            .unwrap_or(&DEFAULT_CONFIG)
+            .unwrap_or(&DEFAULT_FORM_CONFIG)
             .clone();
         async move {
             let mut bytes = web::BytesMut::new();

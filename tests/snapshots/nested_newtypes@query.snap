@@ -1,0 +1,5 @@
+---
+source: tests/test_roundtrip.rs
+description: "Outer(Inner(\"nested newtype\"))"
+---
+=nested+newtype

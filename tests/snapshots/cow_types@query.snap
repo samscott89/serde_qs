@@ -1,0 +1,8 @@
+---
+source: tests/test_roundtrip.rs
+description: "WithCow { cow_str: \"owned cow\", owned_string: \"always owned\", cow_vec: [\"first\", \"second\"] }"
+---
+cow_str=owned+cow&
+owned_string=always+owned&
+cow_vec[0]=first&
+cow_vec[1]=second

@@ -1,0 +1,9 @@
+---
+source: tests/test_roundtrip.rs
+description: "Complex { x: 10, y: 20, data: [\"a\", \"b\"] }"
+---
+type=Complex&
+x=10&
+y=20&
+data[0]=a&
+data[1]=b

@@ -1,0 +1,8 @@
+---
+source: tests/test_roundtrip.rs
+description: "SingleElements { single_vec: [\"single\"], single_map: {\"only\": 42}, single_option: Some([255]), single_char_string: \"x\" }"
+---
+single_vec[0]=single&
+single_map[only]=42&
+single_option[0]=255&
+single_char_string=x

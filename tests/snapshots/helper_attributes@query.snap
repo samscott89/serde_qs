@@ -1,0 +1,10 @@
+---
+source: tests/test_roundtrip.rs
+description: "WithHelpers { comma_values: [\"apple\", \"banana\", \"cherry\"], pipe_values: [1, 2, 3, 4, 5], space_values: [\"hello\", \"world\"], dot_values: [10, 20, 30], normal_vec: [\"normal\", \"array\"] }"
+---
+comma_values=apple,banana,cherry&
+pipe_values=1|2|3|4|5&
+space_values=hello+world&
+dot_values=10.20.30&
+normal_vec[0]=normal&
+normal_vec[1]=array

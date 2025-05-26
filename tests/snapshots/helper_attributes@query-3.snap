@@ -1,0 +1,9 @@
+---
+source: tests/test_roundtrip.rs
+description: "WithHelpers { comma_values: [\"single\"], pipe_values: [42], space_values: [\"one\"], dot_values: [255], normal_vec: [\"alone\"] }"
+---
+comma_values=single&
+pipe_values=42&
+space_values=one&
+dot_values=255&
+normal_vec[0]=alone

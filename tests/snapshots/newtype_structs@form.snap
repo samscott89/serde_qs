@@ -1,0 +1,8 @@
+---
+source: tests/test_roundtrip.rs
+description: "UserProfile { id: UserId(12345), name: Username(\"alice\"), email: Email(\"alice@example.com\"), age: PositiveNumber(25) }"
+---
+id=12345&
+name=alice&
+email=alice%40example.com&
+age=25

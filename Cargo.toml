@@ -9,8 +9,8 @@ license = "MIT/Apache-2.0"
 name = "serde_qs"
 repository = "https://github.com/samscott89/serde_qs"
 readme = "README.md"
-version = "0.15.0"
-rust-version = "1.66"
+version = "1.0.0-rc.0"
+rust-version = "1.68"
 
 [dependencies]
 actix-web3 = { version = "3.3", optional = true, package = "actix-web", default-features = false }
@@ -18,22 +18,33 @@ actix-web4 = { version = "4.0", optional = true, package = "actix-web", default-
 axum-framework = { package = "axum", version = "0.8", default-features = false, optional = true }
 futures = { version = "0.3", optional = true }
 indexmap = { version = "2.2", optional = true, features = ["serde"] }
+itoa = "1.0.15"
 percent-encoding = "2.1"
-serde = { version = "1.0", features = ["derive"] }
+ryu = "1.0.20"
+serde = { version = "1.0" }
 thiserror = "2.0"
 tracing = { version = "0.1", optional = true }
 warp-framework = { package = "warp", version = "0.3", default-features = false, optional = true }
 
+# used in benchmarks
+criterion = { version = "0.5", features = ["html_reports"], optional = true }
+
 [dev-dependencies]
 chrono = { version = "0.4", features = ["serde"] }
 csv = "=1.2.2"
+insta = { version = "1.4", features = ["serde"] }
+pretty_assertions = "1.0"
 rand = "0.9"
+serde_bytes = "0.11"
 serde_derive = "1.0"
+serde_json = { version = "1.0" }
 serde_urlencoded = "0.7"
 serde_with = "2.0"
 
 [features]
 default = []
+default_to_form_encoding = []
+debug_parsed = []
 actix4 = ["actix-web4", "futures"]
 actix3 = ["actix-web3", "futures"]
 # deprecated feature -- used to return a warning
@@ -42,6 +53,7 @@ actix = []
 warp = ["futures", "tracing", "warp-framework"]
 axum = ["axum-framework", "futures"]
 indexmap = ["dep:indexmap"]
+benchmarks = ["dep:criterion"]
 
 [package.metadata.docs.rs]
 features = ["actix4", "warp", "axum"]
@@ -49,3 +61,12 @@ features = ["actix4", "warp", "axum"]
 [[example]]
 name = "csv_vectors"
 test = true
+
+[[bench]]
+name = "serde_qs_benchmarks"
+harness = false
+required-features = ["benchmarks"]
+
+[profile.profiling]
+inherits = "release"
+debug = true

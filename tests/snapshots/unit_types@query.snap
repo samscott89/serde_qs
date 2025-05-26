@@ -1,0 +1,13 @@
+---
+source: tests/test_roundtrip.rs
+description: "ContainsUnits { unit_value: (), unit_struct: UnitStruct, optional_unit: Some(()), vec_of_units: [UnitStruct, UnitStruct, UnitStruct], tuple_with_unit: (\"test\", (), 42) }"
+---
+unit_value=&
+unit_struct=&
+optional_unit=&
+vec_of_units[0]=&
+vec_of_units[1]=&
+vec_of_units[2]=&
+tuple_with_unit[0]=test&
+tuple_with_unit[1]=&
+tuple_with_unit[2]=42

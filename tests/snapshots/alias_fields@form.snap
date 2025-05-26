@@ -1,0 +1,7 @@
+---
+source: tests/test_roundtrip.rs
+description: "WithAliases { user_name: \"alice\", message: \"hello world\", normal: 42 }"
+---
+user_name=alice&
+message=hello%20world&
+normal=42

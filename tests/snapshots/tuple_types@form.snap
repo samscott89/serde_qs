@@ -1,0 +1,15 @@
+---
+source: tests/test_roundtrip.rs
+description: "TupleTypes { unit: (), pair: (42, \"answer\"), triple: (true, 3.14, 255), nested_tuple: ((\"nested\", -100), [1, 2, 3]) }"
+---
+unit=&
+pair%5B0%5D=42&
+pair%5B1%5D=answer&
+triple%5B0%5D=true&
+triple%5B1%5D=3.14&
+triple%5B2%5D=255&
+nested_tuple%5B0%5D%5B0%5D=nested&
+nested_tuple%5B0%5D%5B1%5D=-100&
+nested_tuple%5B1%5D%5B0%5D=1&
+nested_tuple%5B1%5D%5B1%5D=2&
+nested_tuple%5B1%5D%5B2%5D=3

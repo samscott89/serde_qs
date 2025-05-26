@@ -1,0 +1,6 @@
+---
+source: tests/test_roundtrip.rs
+description: "Struct { a: \"test\", b: true }"
+---
+Struct%5Ba%5D=test&
+Struct%5Bb%5D=true

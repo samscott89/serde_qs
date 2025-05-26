@@ -1,0 +1,8 @@
+---
+source: tests/test_roundtrip.rs
+description: "NestedWithHelpers { data: [InnerWithHelpers { name: \"item1\", tags: [\"tag1\", \"tag2\"] }, InnerWithHelpers { name: \"item2\", tags: [\"tag3\", \"tag4\", \"tag5\"] }] }"
+---
+data[0][name]=item1&
+data[0][tags]=tag1,tag2&
+data[1][name]=item2&
+data[1][tags]=tag3,tag4,tag5

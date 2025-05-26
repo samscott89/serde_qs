@@ -1,36 +1,19 @@
 //! Serde support for querystring-style strings
 //!
-//! Querystrings are not formally defined and loosely take the form of
-//! _nested_ urlencoded queries.
+//! This library provides serialization and deserialization of querystrings
+//! with support for arbitrarily nested structures. Unlike `serde_urlencoded`,
+//! which only handles flat key-value pairs, `serde_qs` supports complex nested
+//! data using bracket notation (e.g., `user[name]=John&user[age]=30`).
 //!
-//! This library aims for compatability with the syntax of
-//! [qs](https://github.com/ljharb/qs) and also of the
-//! [`Rack::Utils::parse_nested_query`](http://www.rubydoc.info/github/rack/rack/Rack/Utils#parse_nested_query-class_method)
-//! implementation.
+//! ## Why use `serde_qs`?
 //!
-//! For users who do *not* require nested URL parameters, it is highly
-//! recommended that the `serde_urlencoded` crate is used instead, which
-//! will almost certainly perform better for deserializing simple inputs.
+//! - **Nested structure support**: Serialize/deserialize complex structs and maps
+//! - **Array support**: Handle vectors and sequences with indexed notation
+//! - **Framework integration**: Built-in support for Actix-web, Axum, and Warp
+//! - **Compatible syntax**: Works with `qs` (JavaScript) and Rack (Ruby)
 //!
-//! ## Supported Types
 //!
-//! At the **top level**, `serde_qs` only supports `struct`, `map`, and `enum`.
-//! These are the only top-level structs which can be de/serialized since
-//! Querystrings rely on having a (key, value) pair for each field, which
-//! necessitates this kind of structure.
-//!
-//! However, after the top level you should find all supported types can be
-//! de/serialized.
-//!
-//! Note that integer keys are reserved for array indices. That is, a string of
-//! the form `a[0]=1&a[1]=3` will deserialize to the ordered sequence `a =
-//! [1,3]`.
-//!
-//! ## Usage
-//!
-//! See the examples folder for a more detailed introduction.
-//!
-//! Serializing/Deserializing is designed to work with maps and structs.
+//! ## Basic Usage
 //!
 //! ```
 //! #[macro_use]
@@ -72,50 +55,156 @@
 //! # }
 //! ```
 //!
-//! ## Strict vs Non-Strict modes
+//! ## Supported Types
 //!
-//! `serde_qs` supports two operating modes, which can be specified using
-//! [`Config`](struct.Config.html).
-//! Strict mode has two parts:
-//! - how `serde_qs` handles square brackets
-//! - how `serde_qs` handles invalid UTF-8 percent decoded characters
+//! `serde_qs` supports all serde-compatible types:
 //!
-//! ### Square Brackets
+//! - **Primitives**: strings, integers (u8-u64, i8-i64), floats (f32, f64), booleans
+//! - **Strings**: UTF-8 strings (invalid UTF-8 handling configurable)
+//! - **Bytes**: `Vec<u8>` and `&[u8]` for raw binary data
+//! - **Collections**: `Vec<T>`, `HashMap<K, V>`, `BTreeMap<K, V>`, arrays
+//! - **Options**: `Option<T>` (missing values deserialize to `None`)
+//! - **Structs**: Named and tuple structs with nested fields
+//! - **Enums**: Externally tagged, internally tagged, and untagged representations
 //!
-//! Technically, square brackets should be encoded in URLs as `%5B` and `%5D`.
-//! However, they are often used in their raw format to specify querystrings
-//! such as `a[b]=123`.
+//! Note: Top-level types must be structs or maps. Primitives and sequences
+//! cannot be deserialized at the top level. And untagged representations
+//! have some limitations (see [Flatten Workaround](#flatten-workaround) section).
 //!
-//! In strict mode, `serde_qs` will only tolerate unencoded square brackets
-//! to denote nested keys. So `a[b]=123` will decode as `{"a": {"b": 123}}`.
-//! This means that encoded square brackets can actually be part of the key.
-//! `a[b%5Bc%5D]=123` becomes `{"a": {"b[c]": 123}}`.
+//! ## Query-String vs Form Encoding
 //!
-//! However, since some implementations will automatically encode everything
-//! in the URL, we also have a non-strict mode. This means that `serde_qs`
-//! will assume that any encoded square brackets in the string were meant to
-//! be taken as nested keys. From the example before, `a[b%5Bc%5D]=123` will
-//! now become `{"a": {"b": {"c": 123 }}}`.
+//! By default, `serde_qs` uses **query-string encoding** which is more permissive:
+//! - Spaces encoded as `+`
+//! - Minimal percent-encoding (brackets remain unencoded)
+//! - Example: `name=John+Doe&items[0]=apple`
 //!
-//! Non-strict mode can be useful when, as said before, some middleware
-//! automatically encodes the brackets. But care must be taken to avoid
-//! using keys with square brackets in them, or unexpected things can
-//! happen.
+//! The main benefit of query-string encoding is that it allows for more compact
+//! representations of nested structures, and supports square brackets in
+//! key names.
 //!
-//! ### Invalid UTF-8 Percent Encodings
+//! **Form encoding** (`application/x-www-form-urlencoded`) is stricter:
+//! - Spaces encoded as `%20`
+//! - Most special characters percent-encoded
+//! - Example: `name=John%20Doe&items%5B0%5D=apple`
 //!
-//! Sometimes querystrings may have percent-encoded data which does not decode
-//! to UTF-8. In some cases it is useful for this to cause errors, which is how
-//! `serde_qs` works in strict mode (the default). Whereas in other cases it
-//! can be useful to just replace such data with the unicode replacement
-//! character (� `U+FFFD`), which is how `serde_qs` works in non-strict mode.
+//! Form encoding is useful for compability with HTML forms and other
+//! applications that eagerly encode brackets.
 //!
-//! ## Flatten workaround
+//! Configure encoding mode:
+//! ```rust
+//! use serde_qs::Config;
+//!
+//! // Use form encoding
+//! # fn main() -> Result<(), serde_qs::Error> {
+//! # let my_struct = ();
+//! let config = Config::new().use_form_encoding(true);
+//! let qs = config.serialize_string(&my_struct)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## UTF-8 Handling
+//!
+//! By default, `serde_qs` requires valid UTF-8 in string values. If your data
+//! may contain non-UTF-8 bytes, consider serializing to `Vec<u8>` instead of
+//! `String`. Non-UTF-8 bytes in ignored fields will not cause errors.
+//!
+//! ```rust
+//! # use serde::Deserialize;
+//! #[derive(Deserialize)]
+//! struct Data {
+//!     // This field can handle raw bytes
+//!     raw_data: Vec<u8>,
+//!     
+//!     // This field requires valid UTF-8
+//!     text: String,
+//! }
+//! ```
+//!
+//! ## Helpers for Common Scenarios
+//!
+//! The `helpers` module provides utilities for common patterns when working with
+//! querystrings, particularly for handling delimited values within a single parameter.
+//!
+//! ### Comma-Separated Values
+//!
+//! Compatible with OpenAPI 3.0 `style=form` parameters:
+//!
+//! ```rust
+//! use serde::{Deserialize, Serialize};
+//!
+//! #[derive(Debug, PartialEq, Deserialize, Serialize)]
+//! struct Query {
+//!     #[serde(with = "serde_qs::helpers::comma_separated")]
+//!     ids: Vec<u64>,
+//! }
+//!
+//! # fn main() {
+//! // Deserialize from comma-separated string
+//! let query: Query = serde_qs::from_str("ids=1,2,3,4").unwrap();
+//! assert_eq!(query.ids, vec![1, 2, 3, 4]);
+//!
+//! // Serialize back to comma-separated
+//! let qs = serde_qs::to_string(&query).unwrap();
+//! assert_eq!(qs, "ids=1,2,3,4");
+//! # }
+//! ```
+//!
+//! ### Other Delimiters
+//!
+//! Also supports pipe (`|`) and space delimited values:
+//!
+//! ```rust
+//! use serde::{Deserialize, Serialize};
+//!
+//! #[derive(Debug, PartialEq, Deserialize, Serialize)]
+//! struct Query {
+//!     #[serde(with = "serde_qs::helpers::pipe_delimited")]
+//!     tags: Vec<String>,
+//!     #[serde(with = "serde_qs::helpers::space_delimited")]
+//!     words: Vec<String>,
+//! }
+//!
+//! # fn main() {
+//! let query: Query = serde_qs::from_str("tags=foo|bar|baz&words=hello+world").unwrap();
+//! assert_eq!(query.tags, vec!["foo", "bar", "baz"]);
+//! assert_eq!(query.words, vec!["hello", "world"]);
+//! # }
+//! ```
+//!
+//! ### Custom Delimiters
+//!
+//! For other delimiters, use the generic helper:
+//!
+//! ```rust
+//! use serde::{Deserialize, Serialize};
+//! use serde_qs::helpers::generic_delimiter::{deserialize, serialize};
+//!
+//! #[derive(Debug, PartialEq, Deserialize, Serialize)]
+//! struct Query {
+//!     #[serde(deserialize_with = "deserialize::<_, _, '.'>")]
+//!     #[serde(serialize_with = "serialize::<_, _, '.'>")]
+//!     versions: Vec<u8>,
+//! }
+//!
+//! # fn main() {
+//! let query: Query = serde_qs::from_str("versions=1.2.3").unwrap();
+//! assert_eq!(query.versions, vec![1, 2, 3]);
+//! # }
+//! ```
+//!
+//! ## Flatten/untagged workaround
 //!
 //! A current [known limitation](https://github.com/serde-rs/serde/issues/1183)
 //! in `serde` is deserializing `#[serde(flatten)]` structs for formats which
 //! are not self-describing. This includes query strings: `12` can be an integer
 //! or a string, for example.
+//!
+//! A similar issue exists for `#[serde(untagged)]` enums, and internally-tagged enums.
+//! The default behavior using derive macros uses content buffers which defers to
+//! `deserialize_any` for deserializing the inner type. This means that any string
+//! parsing that should have happened in the deserializer will not happen,
+//! and must be done explicitly by the user.
 //!
 //! We suggest the following workaround:
 //!
@@ -206,18 +295,22 @@ compile_error!(
     r#"The `actix2` feature was removed in v0.13 due to CI issues and minimal interest in continuing support"#
 );
 
+mod config;
+#[doc(inline)]
+pub use config::Config;
 mod de;
 mod error;
+pub mod helpers;
 mod ser;
-pub(crate) mod utils;
 
 #[doc(inline)]
-pub use de::{from_bytes, from_str};
+pub use de::QsDeserializer as Deserializer;
 #[doc(inline)]
-pub use de::{Config, QsDeserializer as Deserializer};
+pub use de::{from_bytes, from_str};
+
 pub use error::Error;
 #[doc(inline)]
-pub use ser::{to_string, to_writer, Serializer};
+pub use ser::{to_string, to_writer, QsSerializer as Serializer};
 
 #[cfg(feature = "axum")]
 pub mod axum;
@@ -232,12 +325,12 @@ mod indexmap {
     pub use indexmap::map::Entry;
     pub use indexmap::IndexMap as Map;
 
-    pub fn remove_entry<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<(K, V)>
+    pub fn remove<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<V>
     where
         K: Borrow<Q> + std::hash::Hash + Eq,
         Q: ?Sized + std::hash::Hash + Eq,
     {
-        map.shift_remove_entry(key)
+        map.shift_remove(key)
     }
 
     pub fn pop_first<K, V>(map: &mut Map<K, V>) -> Option<(K, V)> {
@@ -254,12 +347,12 @@ mod btree_map {
     pub use std::collections::btree_map::Entry;
     pub use std::collections::BTreeMap as Map;
 
-    pub fn remove_entry<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<(K, V)>
+    pub fn remove<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<V>
     where
         K: Borrow<Q> + Ord,
         Q: ?Sized + Ord,
     {
-        map.remove_entry(key)
+        map.remove(key)
     }
 
     pub fn pop_first<K: Ord, V>(map: &mut Map<K, V>) -> Option<(K, V)> {

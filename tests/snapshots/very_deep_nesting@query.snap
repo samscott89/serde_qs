@@ -1,0 +1,10 @@
+---
+source: tests/test_roundtrip.rs
+description: "VeryDeep { level1: Some(VeryDeep { level1: Some(VeryDeep { level1: Some(VeryDeep { level1: Some(VeryDeep { level1: None, value: \"deepest\" }), value: \"level4\" }), value: \"level3\" }), value: \"level2\" }), value: \"level1\" }"
+---
+level1[level1][level1][level1][level1]&
+level1[level1][level1][level1][value]=deepest&
+level1[level1][level1][value]=level4&
+level1[level1][value]=level3&
+level1[value]=level2&
+value=level1

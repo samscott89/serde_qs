@@ -24,11 +24,10 @@ struct QueryParams {
 // qs::from_str. All types are inferred by the compiler.
 macro_rules! map_test {
     ($string:expr, $($mapvars:tt)*) => {
-        for config in vec![qs::Config::new(5, true), qs::Config::new(5, false)] {
-            let testmap: HashMap<_, _> = config.deserialize_str($string).unwrap();
-            let expected_map = hash_to_map!(New $($mapvars)*);
-            assert_eq!(testmap, expected_map);
-        }
+        let config = qs::Config { max_depth: 5, .. Default::default() };
+        let testmap: HashMap<_, _> = config.deserialize_str($string).unwrap();
+        let expected_map = hash_to_map!(New $($mapvars)*);
+        assert_eq!(testmap, expected_map);
     }
 }
 
@@ -65,7 +64,40 @@ macro_rules! hash_to_map {
       hash_to_map!(map, $($rest)*);
       map
     }}
+}
 
+#[track_caller]
+fn deserialize_test<'a, T>(params: &'a str, expected: &T)
+where
+    T: serde::Deserialize<'a> + PartialEq + std::fmt::Debug,
+{
+    deserialize_test_with_config(params, expected, qs::Config::default());
+}
+
+#[track_caller]
+fn deserialize_test_err<'a, T>(params: &'a str, expected_err: &str)
+where
+    T: serde::Deserialize<'a> + PartialEq + std::fmt::Debug,
+{
+    deserialize_test_err_with_config::<T>(params, expected_err, qs::Config::default());
+}
+
+#[track_caller]
+fn deserialize_test_with_config<'a, T>(params: &'a str, expected: &T, config: qs::Config)
+where
+    T: serde::Deserialize<'a> + PartialEq + std::fmt::Debug,
+{
+    let rec_params: T = config.deserialize_str(params).unwrap();
+    pretty_assertions::assert_eq!(&rec_params, expected);
+}
+
+#[track_caller]
+fn deserialize_test_err_with_config<'a, T>(params: &'a str, expected_err: &str, config: qs::Config)
+where
+    T: serde::Deserialize<'a> + PartialEq + std::fmt::Debug,
+{
+    let err = config.deserialize_str::<T>(params).unwrap_err();
+    assert!(err.to_string().contains(expected_err), "\ngot: {}", err);
 }
 
 #[test]
@@ -81,40 +113,29 @@ fn deserialize_struct() {
         user_ids: vec![1, 2, 3, 4],
     };
 
-    for config in [qs::Config::new(5, true), qs::Config::new(5, false)] {
-        // standard parameters
-        let rec_params: QueryParams = config
-            .deserialize_str(
-                "\
-                 name=Acme&id=42&phone=12345&address[postcode]=12345&\
-                 address[city]=Carrot+City&user_ids[0]=1&user_ids[1]=2&\
-                 user_ids[2]=3&user_ids[3]=4",
-            )
-            .unwrap();
-        assert_eq!(rec_params, params);
+    // standard parameters
+    deserialize_test(
+        "name=Acme&id=42&phone=12345&address[postcode]=12345&\
+         address[city]=Carrot+City&user_ids[0]=1&user_ids[1]=2&\
+         user_ids[2]=3&user_ids[3]=4",
+        &params,
+    );
 
-        // unindexed arrays
-        let rec_params: QueryParams = config
-            .deserialize_str(
-                "\
-                 name=Acme&id=42&phone=12345&address[postcode]=12345&\
-                 address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
-                 user_ids[]=3&user_ids[]=4",
-            )
-            .unwrap();
-        assert_eq!(rec_params, params);
+    // unindexed arrays
+    deserialize_test(
+        "name=Acme&id=42&phone=12345&address[postcode]=12345&\
+         address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
+         user_ids[]=3&user_ids[]=4",
+        &params,
+    );
 
-        // ordering doesn't matter
-        let rec_params: QueryParams = config
-            .deserialize_str(
-                "\
-                 address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
-                 name=Acme&id=42&phone=12345&address[postcode]=12345&\
-                 user_ids[]=3&user_ids[]=4",
-            )
-            .unwrap();
-        assert_eq!(rec_params, params);
-    }
+    // ordering doesn't matter
+    deserialize_test(
+        "address[city]=Carrot+City&user_ids[]=1&user_ids[]=2&\
+         name=Acme&id=42&phone=12345&address[postcode]=12345&\
+         user_ids[]=3&user_ids[]=4",
+        &params,
+    );
 }
 
 #[test]
@@ -202,8 +223,7 @@ fn no_panic_on_parse_error() {
         vec: Vec<u32>,
     }
 
-    let params: Result<Query, _> = qs::from_str("vec[]=a&vec[]=2");
-    assert!(params.is_err())
+    deserialize_test_err::<Query>("vec[]=a&vec[]=2", "invalid digit found in string");
 }
 
 #[test]
@@ -220,10 +240,9 @@ fn qs_nesting() {
     //     { a: { b: { c: { d: { e: { f: { '[g][h]': 'i' } } } } } } },
     //     'defaults to a depth of 5'
     // );
-    // This looks like depth 6 to me? Tweaked test to make it 5.
     map_test!(
         "a[b][c][d][e][f][g][h]=i",
-        "a"["b"["c"["d"["e"["[f][g][h]"["i"]]]]]]
+        "a"["b"["c"["d"["e"["f"["[g][h]"["i"]]]]]]]
     );
 }
 
@@ -234,22 +253,38 @@ fn optional_seq() {
         vec: Option<Vec<u8>>,
     }
 
-    let params = "";
-    let query = Query { vec: None };
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(rec_params, query);
+    deserialize_test("", &Query { vec: None });
+    deserialize_test("vec", &Query { vec: None });
+    deserialize_test("vec=", &Query { vec: Some(vec![]) });
+    deserialize_test(
+        "vec[0]=1&vec[1]=2",
+        &Query {
+            vec: Some(vec![1, 2]),
+        },
+    );
+}
 
-    let params = "vec=";
-    let query = Query { vec: None };
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(rec_params, query);
+#[test]
+fn seq_of_optionals() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query {
+        vec: Vec<Option<u8>>,
+    }
 
-    let params = "vec[0]=1&vec[1]=2";
-    let query = Query {
-        vec: Some(vec![1, 2]),
-    };
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(rec_params, query);
+    deserialize_test("vec", &Query { vec: vec![] });
+    deserialize_test("vec[]", &Query { vec: vec![None] });
+    deserialize_test(
+        "vec[0]=1&vec[1]=2",
+        &Query {
+            vec: vec![Some(1), Some(2)],
+        },
+    );
+    deserialize_test(
+        "vec[]&vec[]=2",
+        &Query {
+            vec: vec![None, Some(2)],
+        },
+    );
 }
 
 #[test]
@@ -259,25 +294,43 @@ fn optional_struct() {
         address: Option<Address>,
     }
 
-    let params = "";
-    let query = Query { address: None };
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(rec_params, query);
+    deserialize_test("", &Query { address: None });
+    deserialize_test("address", &Query { address: None });
+    // `address=` implies we have a "null" value which cannot be deserialized
+    // into an address
+    deserialize_test_err::<Query>("address=", "missing field `city`");
+    deserialize_test(
+        "address[city]=Carrot+City&address[postcode]=12345",
+        &Query {
+            address: Some(Address {
+                city: "Carrot City".to_string(),
+                postcode: "12345".to_string(),
+            }),
+        },
+    );
+}
 
-    let params = "address=";
-    let query = Query { address: None };
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(rec_params, query);
+#[test]
+fn nested_optionals() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query {
+        maybe_maybe: Option<Option<u8>>,
+    }
 
-    let params = "address[city]=Carrot+City&address[postcode]=12345";
-    let query = Query {
-        address: Some(Address {
-            city: "Carrot City".to_string(),
-            postcode: "12345".to_string(),
-        }),
-    };
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(rec_params, query);
+    deserialize_test("", &Query { maybe_maybe: None });
+    deserialize_test("maybe_maybe", &Query { maybe_maybe: None });
+    deserialize_test(
+        "maybe_maybe=",
+        &Query {
+            maybe_maybe: Some(None),
+        },
+    );
+    deserialize_test(
+        "maybe_maybe=1",
+        &Query {
+            maybe_maybe: Some(Some(1)),
+        },
+    );
 }
 
 #[test]
@@ -294,13 +347,11 @@ fn deserialize_enum_untagged() {
         e: E,
     }
 
-    let params = "e=true";
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(
-        rec_params,
-        Query {
-            e: E::S("true".to_string())
-        }
+    deserialize_test(
+        "e=true",
+        &Query {
+            e: E::S("true".to_string()),
+        },
     );
 }
 
@@ -326,24 +377,20 @@ fn deserialize_enum_adjacently() {
         v: Option<V>,
     }
 
-    let params = "e[type]=B&e[val]=true&v[type]=V1&v[val][x]=12&v[val][y]=300";
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(
-        rec_params,
-        Query {
+    deserialize_test(
+        "e[type]=B&e[val]=true&v[type]=V1&v[val][x]=12&v[val][y]=300",
+        &Query {
             e: E::B(true),
             v: Some(V::V1 { x: 12, y: 300 }),
-        }
+        },
     );
 
-    let params = "e[type]=S&e[val]=other";
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(
-        rec_params,
-        Query {
+    deserialize_test(
+        "e[type]=S&e[val]=other",
+        &Query {
             e: E::S("other".to_string()),
             v: None,
-        }
+        },
     );
 }
 
@@ -369,24 +416,20 @@ fn deserialize_enum_adjacently_out_of_order() {
         v: Option<V>,
     }
 
-    let params = "e[Z]=B&e[A]=true&v[Z]=V1&v[A][x]=12&v[A][y]=300";
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(
-        rec_params,
-        Query {
+    deserialize_test(
+        "e[Z]=B&e[A]=true&v[Z]=V1&v[A][x]=12&v[A][y]=300",
+        &Query {
             e: E::B(true),
             v: Some(V::V1 { x: 12, y: 300 }),
-        }
+        },
     );
 
-    let params = "e[Z]=S&e[A]=other";
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(
-        rec_params,
-        Query {
+    deserialize_test(
+        "e[Z]=S&e[A]=other",
+        &Query {
             e: E::S("other".to_string()),
             v: None,
-        }
+        },
     );
 }
 
@@ -414,35 +457,63 @@ fn deserialize_enum() {
         u: NewU8,
     }
 
-    let params = "e=B&v[V1][x]=12&v[V1][y]=300&u=12";
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(
-        rec_params,
-        Query {
+    deserialize_test(
+        "e[B]&v[V1][x]=12&v[V1][y]=300&u=12",
+        &Query {
             e: E::B,
             v: Some(V::V1 { x: 12, y: 300 }),
             u: NewU8(12),
-        }
+        },
     );
 
-    let params = "e[S]=other&u=1";
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(
-        rec_params,
-        Query {
+    deserialize_test(
+        "e[S]=other&u=1",
+        &Query {
             e: E::S("other".to_string()),
             v: None,
             u: NewU8(1),
-        }
+        },
     );
 
-    let params = "B=";
-    let rec_params: E = qs::from_str(params).unwrap();
-    assert_eq!(rec_params, E::B);
+    deserialize_test("B=", &E::B);
+    deserialize_test("S=Hello+World", &E::S("Hello World".to_string()));
+}
 
-    let params = "S=Hello+World";
-    let rec_params: E = qs::from_str(params).unwrap();
-    assert_eq!(rec_params, E::S("Hello World".to_string()));
+#[test]
+fn deserialize_enum_untagged_top_level() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(untagged)]
+    enum E {
+        B { b: String },
+        S { s: String },
+    }
+
+    deserialize_test(
+        "s=true",
+        &E::S {
+            s: "true".to_string(),
+        },
+    );
+    deserialize_test(
+        "b=test",
+        &E::B {
+            b: "test".to_string(),
+        },
+    );
+}
+
+#[test]
+fn deserialize_enum_top_level() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    enum E {
+        A,
+        B(u8),
+        C { x: u8 },
+    }
+
+    deserialize_test("A", &E::A);
+    deserialize_test("B=123", &E::B(123));
+    deserialize_test("C[x]=234", &E::C { x: 234 });
 }
 
 #[test]
@@ -457,17 +528,14 @@ fn seq_of_struct() {
         elements: Vec<Test>,
     }
 
-    let params = "elements[0][a]=1&elements[0][b]=3&elements[1][a]=2&elements[1][b]=4";
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(
-        rec_params,
-        Query {
-            elements: vec![Test { a: 1, b: 3 }, Test { a: 2, b: 4 }]
-        }
+    deserialize_test(
+        "elements[0][a]=1&elements[0][b]=3&elements[1][a]=2&elements[1][b]=4",
+        &Query {
+            elements: vec![Test { a: 1, b: 3 }, Test { a: 2, b: 4 }],
+        },
     );
 }
 
-#[should_panic]
 #[test]
 fn unsupported_seq_of_struct() {
     #[derive(Deserialize, Debug, PartialEq)]
@@ -480,13 +548,9 @@ fn unsupported_seq_of_struct() {
         elements: Vec<Test>,
     }
 
-    let params = "elements[][a]=1&elements[][b]=3&elements[][a]=2&elements[][b]=4";
-    let rec_params: Query = qs::from_str(params).unwrap();
-    assert_eq!(
-        rec_params,
-        Query {
-            elements: vec![Test { a: 1, b: 3 }, Test { a: 2, b: 4 }]
-        }
+    deserialize_test_err::<Query>(
+        "elements[][a]=1&elements[][b]=3&elements[][a]=2&elements[][b]=4",
+        "unsupported: unable to parse nested maps of unindexed sequences",
     );
 }
 
@@ -504,21 +568,12 @@ fn returns_errors() {
         vec: Vec<u32>,
     }
 
-    let params: Result<Query, _> = qs::from_str("vec[[]=1&vec[]=2");
-    assert!(params.is_err());
-    println!("{}", params.unwrap_err());
-
-    let params: Result<Query, _> = qs::from_str("vec[\x00[]=1&vec[]=2");
-    assert!(params.is_err());
-    println!("{}", params.unwrap_err());
-
-    let params: Result<Query, _> = qs::from_str("vec[0]=1&vec[0]=2");
-    assert!(params.is_err());
-    println!("{}", params.unwrap_err());
+    deserialize_test_err::<Query>("vec[[]=1&vec[]=2", "invalid input: the key `vec` appears in the input as both a sequence and a map (with keys \"[\")");
+    deserialize_test_err::<Query>("vec[\x00[]=1&vec[]=2", "invalid input: the key `vec` appears in the input as both a sequence and a map (with keys \"\x00[\")");
 }
 
 #[test]
-fn strict_mode() {
+fn querystring_decoding() {
     #[derive(Deserialize, Serialize, Debug, PartialEq)]
     struct Test {
         a: u8,
@@ -529,45 +584,17 @@ fn strict_mode() {
         vec: Vec<Test>,
     }
 
-    let strict_config = qs::Config::default();
+    let config = qs::Config {
+        use_form_encoding: false,
+        ..Default::default()
+    };
 
-    let params: Result<Query, _> = strict_config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
-    assert!(params.is_err());
-    println!("{}", params.unwrap_err());
-
-    let loose_config = qs::Config::new(5, false);
-
-    let params: Result<Query, _> = loose_config.deserialize_str("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2");
-    assert_eq!(
-        params.unwrap(),
-        Query {
-            vec: vec![Test { a: 1 }, Test { a: 2 }]
-        }
-    );
-
-    let params: Result<Query, _> =
-        loose_config.deserialize_str("vec[%5B0%5D%5Ba%5D]=1&vec[1][a]=2");
-    assert_eq!(
-        params.unwrap(),
-        Query {
-            vec: vec![Test { a: 1 }, Test { a: 2 }]
-        }
-    );
-
-    let params: Result<Query, _> = loose_config.deserialize_str("vec[%5B0%5D%5Ba%5D=1&vec[1][a]=2");
-    assert_eq!(
-        params.unwrap(),
-        Query {
-            vec: vec![Test { a: 1 }, Test { a: 2 }]
-        }
-    );
-
-    let params: Result<Query, _> = loose_config.deserialize_str("vec%5B0%5D%5Ba%5D]=1&vec[1][a]=2");
-    assert_eq!(
-        params.unwrap(),
-        Query {
-            vec: vec![Test { a: 1 }, Test { a: 2 }]
-        }
+    // with querystring encoding, the brackets are considered part of the key
+    // so this errors with unknown field
+    deserialize_test_err_with_config::<Query>(
+        "vec%5B0%5D%5Ba%5D=1",
+        "unknown field `vec[0][a]`, expected `vec`",
+        config,
     );
 
     #[derive(Deserialize, Serialize, Debug, PartialEq)]
@@ -578,44 +605,93 @@ fn strict_mode() {
 
     let params = OddTest { a: 12 };
     let enc_params = qs::to_string(&params).unwrap();
-    println!("Encoded as: {}", enc_params);
-    let rec_params: Result<OddTest, _> = strict_config.deserialize_str(&enc_params);
-    assert_eq!(rec_params.unwrap(), params);
-
-    // Non-strict decoding cannot necessarily handle these weird scenerios.
-    let rec_params: Result<OddTest, _> = loose_config.deserialize_str(&enc_params);
-    assert!(rec_params.is_err());
-    println!("{}", rec_params.unwrap_err());
-
-    // Test that we don't panic
-    let malformed_params: Result<Query, _> = loose_config.deserialize_str("%");
-    assert!(malformed_params.is_err());
+    deserialize_test_with_config(&enc_params, &params, config);
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct Query2 {
         vec: Vec<u32>,
     }
-    let repeated_key: Result<Query2, _> = strict_config.deserialize_str("vec%5B%5D=1&vec%5B%5D=2");
-    assert!(repeated_key.is_err());
-    println!("{}", repeated_key.unwrap_err());
-
-    let params: Query2 = loose_config
-        .deserialize_str("vec%5B%5D=1&vec%5B%5D=2")
-        .unwrap();
-    assert_eq!(params.vec, vec![1, 2]);
+    // with querystring encoding, the brackets are considered part of the key
+    // so this errors with missing field (since `vec` is not present)
+    deserialize_test_err_with_config::<Query2>(
+        "vec%5B%5D=1&vec%5B%5D=2",
+        "missing field `vec`",
+        config,
+    );
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct StringQueryParam {
         field: String,
     }
 
-    // Ensure strict mode produces an error for invalid UTF-8 percent encoded characters.
-    let invalid_utf8: Result<StringQueryParam, _> = strict_config.deserialize_str("field=%E9");
-    assert!(invalid_utf8.is_err());
+    // Ensure invalid UTF-8 percent encoded characters produce an error.
+    deserialize_test_err_with_config::<StringQueryParam>("field=%E9", "incomplete utf-8", config);
+}
 
-    // Ensure loose mode invalid UTF-8 percent encoded characters become � U+FFFD.
-    let valid_utf8: StringQueryParam = loose_config.deserialize_str("field=%E9").unwrap();
-    assert_eq!(valid_utf8.field, "�");
+#[test]
+fn formencoded_decoding() {
+    #[derive(Deserialize, Serialize, Debug, PartialEq)]
+    struct Test {
+        a: u8,
+    }
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    #[serde(deny_unknown_fields)]
+    struct Query {
+        vec: Vec<Test>,
+    }
+
+    let config = qs::Config {
+        use_form_encoding: true,
+        ..Default::default()
+    };
+
+    let expected = Query {
+        vec: vec![Test { a: 1 }, Test { a: 2 }],
+    };
+
+    deserialize_test_with_config("vec%5B0%5D%5Ba%5D=1&vec[1][a]=2", &expected, config);
+
+    deserialize_test_with_config("vec[0%5D%5Ba]=1&vec[1][a]=2", &expected, config);
+
+    deserialize_test_with_config("vec[0%5D%5Ba%5D=1&vec[1][a]=2", &expected, config);
+
+    deserialize_test_with_config("vec%5B0%5D%5Ba]=1&vec[1][a]=2", &expected, config);
+
+    #[derive(Deserialize, Serialize, Debug, PartialEq)]
+    struct OddTest {
+        #[serde(rename = "[but&why=?]")]
+        a: u8,
+    }
+
+    let params = OddTest { a: 12 };
+    let enc_params = qs::to_string(&params).unwrap();
+    println!("Encoded as: {}", enc_params);
+
+    // Form encoding cannot necessarily handle these weird scenarios.
+    let rec_params: Result<OddTest, _> = config.deserialize_str(&enc_params);
+    assert!(rec_params.is_err());
+    println!("{}", rec_params.unwrap_err());
+
+    // Test that we don't panic
+    // this simply fails to deserialize since the lone `%` doesn't get decoded and
+    // just becomes a key
+    deserialize_test_err_with_config::<Query>("%", "unknown field `%`, expected `vec`", config);
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query2 {
+        vec: Vec<u32>,
+    }
+
+    deserialize_test_with_config(
+        "vec%5B%5D=1&vec%5B%5D=2",
+        &Query2 { vec: vec![1, 2] },
+        config,
+    );
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct StringQueryParam {
+        field: String,
+    }
 }
 
 #[test]
@@ -624,8 +700,7 @@ fn square_brackets_in_values() {
 }
 
 #[test]
-#[ignore]
-fn deserialize_flatten() {
+fn deserialize_flatten_bug() {
     #[derive(Deserialize, Serialize, Debug, PartialEq)]
     struct Query {
         a: u8,
@@ -640,17 +715,14 @@ fn deserialize_flatten() {
         remaining: bool,
     }
 
-    let params = "a=1&limit=100&offset=50&remaining=true";
-    let query = Query {
-        a: 1,
-        common: CommonParams {
-            limit: 100,
-            offset: 50,
-            remaining: true,
-        },
-    };
-    let rec_query: Result<Query, _> = qs::from_str(params);
-    assert_eq!(rec_query.unwrap(), query);
+    // see: https://github.com/serde-rs/serde/issues/1183
+    // this is a limitation in serde which prevents us from knowing
+    // what type the parameters are and we default to string
+    // when we don't know
+    deserialize_test_err::<Query>(
+        "a=1&limit=100&offset=50&remaining=true",
+        "invalid type: string \"100\", expected u64",
+    );
 }
 
 #[test]
@@ -672,17 +744,17 @@ fn deserialize_flatten_workaround() {
         remaining: bool,
     }
 
-    let params = "a=1&limit=100&offset=50&remaining=true";
-    let query = Query {
-        a: 1,
-        common: CommonParams {
-            limit: 100,
-            offset: 50,
-            remaining: true,
+    deserialize_test(
+        "a=1&limit=100&offset=50&remaining=true",
+        &Query {
+            a: 1,
+            common: CommonParams {
+                limit: 100,
+                offset: 50,
+                remaining: true,
+            },
         },
-    };
-    let rec_query: Result<Query, _> = qs::from_str(params);
-    assert_eq!(rec_query.unwrap(), query);
+    );
 }
 
 use serde::de::Error;
@@ -698,32 +770,36 @@ where
 
 #[test]
 fn deserialize_plus() {
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug, PartialEq)]
     struct Test {
         email: String,
     }
 
-    let test: Test = serde_qs::from_str("email=a%2Bb%40c.com").unwrap();
-    assert_eq!(test.email, "a+b@c.com");
+    deserialize_test(
+        "email=a%2Bb%40c.com",
+        &Test {
+            email: "a+b@c.com".to_string(),
+        },
+    );
 }
 
 #[test]
 fn deserialize_map_with_unit_enum_keys() {
-    #[derive(Deserialize, Eq, PartialEq, Hash)]
+    #[derive(Deserialize, Eq, PartialEq, Hash, Debug)]
     enum Operator {
         Lt,
         Gt,
     }
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug, PartialEq)]
     struct Filter {
         point: HashMap<Operator, u64>,
     }
 
-    let test: Filter = serde_qs::from_str("point[Gt]=123&point[Lt]=321").unwrap();
-
-    assert_eq!(test.point[&Operator::Gt], 123);
-    assert_eq!(test.point[&Operator::Lt], 321);
+    let expected = Filter {
+        point: HashMap::from([(Operator::Gt, 123), (Operator::Lt, 321)]),
+    };
+    deserialize_test("point[Gt]=123&point[Lt]=321", &expected);
 }
 
 #[cfg(feature = "indexmap")]
@@ -778,8 +854,8 @@ fn deserialize_map_with_int_keys() {
     assert_eq!(test.mapping.get(&3).cloned(), Some(4));
     assert_eq!(test.mapping.get(&2).cloned(), None);
 
-    serde_qs::from_str::<Mapping>("mapping[1]=2&mapping[1]=4")
-        .expect_err("should error with repeated key");
+    let test = serde_qs::from_str::<Mapping>("mapping[1]=2&mapping[1]=4").unwrap();
+    assert_eq!(test.mapping.get(&1).cloned(), Some(4));
 }
 
 #[test]
@@ -796,17 +872,10 @@ fn deserialize_unit_types() {
         a: &'a str,
     }
 
-    let test: () = serde_qs::from_str("").unwrap();
-    assert_eq!(test, ());
-
-    let test: A = serde_qs::from_str("").unwrap();
-    assert_eq!(test, A);
-
-    let test: B = serde_qs::from_str("a=test&t=").unwrap();
-    assert_eq!(test, B { t: (), a: "test" });
-
-    let test: B = serde_qs::from_str("t=&a=test").unwrap();
-    assert_eq!(test, B { t: (), a: "test" });
+    deserialize_test("", &());
+    deserialize_test("", &A);
+    deserialize_test("a=test&t", &B { t: (), a: "test" });
+    deserialize_test("t&a=test", &B { t: (), a: "test" });
 }
 
 #[test]
@@ -823,4 +892,497 @@ fn serialization_roundtrip() {
     dbg!(&serialized);
     let deserialized = serde_qs::from_str::<Data>(&serialized).unwrap();
     assert_eq!(deserialized, data);
+}
+
+#[test]
+fn deserialize_repeat_keys() {
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct Data {
+        vec: Vec<usize>,
+        repeated: usize,
+        implicit: Vec<usize>,
+    }
+
+    let expected = Data {
+        vec: vec![1, 2],
+        repeated: 4,
+        implicit: vec![5],
+    };
+
+    let deserialized =
+        serde_qs::from_str::<Data>("vec[0]=0&vec[0]=1&vec[1]=2&repeated=3&repeated=4&implicit=5")
+            .unwrap();
+    assert_eq!(deserialized, expected);
+
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct NestedData {
+        data: Vec<Data>,
+    }
+
+    let deserialized = serde_qs::from_str::<NestedData>(
+        "data[0][vec][0]=0&data[0][vec][0]=1&data[0][vec][1]=2&data[0][repeated]=3&\
+         data[0][repeated]=4&data[0][implicit]=5",
+    )
+    .unwrap();
+    assert_eq!(
+        deserialized,
+        NestedData {
+            data: vec![expected]
+        }
+    );
+}
+
+#[test]
+fn depth_one() {
+    #[derive(Debug, Default, serde::Serialize, serde::Deserialize, PartialEq)]
+    #[serde(default, deny_unknown_fields)]
+    struct Form {
+        id: i64,
+        name: String,
+        vec: Vec<String>,
+    }
+
+    let default_config = serde_qs::Config {
+        max_depth: 1,
+        use_form_encoding: false,
+    };
+    let form_config = serde_qs::Config {
+        max_depth: 1,
+        use_form_encoding: true,
+    };
+
+    //  works correct
+    deserialize_test_with_config(
+        "id=2",
+        &Form {
+            id: 2,
+            ..Default::default()
+        },
+        default_config,
+    );
+
+    deserialize_test_with_config(
+        "name=test",
+        &Form {
+            name: "test".to_string(),
+            ..Default::default()
+        },
+        default_config,
+    );
+
+    deserialize_test_with_config(
+        "id=3&name=&vec%5B0%5D=Vector",
+        &Form {
+            id: 3,
+            name: "".to_string(),
+            vec: vec!["Vector".to_string()],
+        },
+        form_config,
+    );
+
+    deserialize_test_with_config(
+        "vec[0]=Vector",
+        &Form {
+            id: 0,
+            name: "".to_string(),
+            vec: vec!["Vector".to_string()],
+        },
+        default_config,
+    );
+
+    deserialize_test_with_config(
+        "vec%5B0%5D=Vector",
+        &Form {
+            id: 0,
+            name: "".to_string(),
+            vec: vec!["Vector".to_string()],
+        },
+        form_config,
+    );
+
+    deserialize_test_with_config(
+        "name=&vec%5B0%5D=Vector",
+        &Form {
+            id: 0,
+            name: "".to_string(),
+            vec: vec!["Vector".to_string()],
+        },
+        form_config,
+    );
+
+    deserialize_test_with_config(
+        "name=&vec[0]=Vector",
+        &Form {
+            id: 0,
+            name: "".to_string(),
+            vec: vec!["Vector".to_string()],
+        },
+        default_config,
+    );
+
+    deserialize_test_with_config(
+        "name=test&vec[0]=Vector",
+        &Form {
+            id: 0,
+            name: "test".to_string(),
+            vec: vec!["Vector".to_string()],
+        },
+        default_config,
+    );
+}
+
+#[test]
+fn deserialize_serde_json_value() {
+    let value = serde_json::json!({ "hello": "10" });
+    assert_eq!(serde_qs::to_string(&value).unwrap(), "hello=10");
+
+    assert_eq!(
+        serde_qs::from_str::<serde_json::Value>("hello=10").unwrap(),
+        value
+    );
+    assert_eq!(
+        serde_qs::from_str::<serde_json::Value>("").unwrap(),
+        serde_json::Value::Null,
+    );
+}
+
+#[test]
+fn deserialize_primitive_errors() {
+    deserialize_test_err::<String>("hello", "invalid type: map, expected a string");
+}
+
+#[test]
+fn deserialize_into_tuple() {
+    deserialize_test("=1&=2", &(1u8, 2u8));
+    deserialize_test_err::<(u8,)>("=1&=2", "expected a tuple of length 1, got length 2");
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Tuple(u8, u8);
+
+    deserialize_test("=1&=2", &Tuple(1, 2));
+    deserialize_test_err::<Tuple>(
+        "=1",
+        "expected tuple struct `Tuple` of length 2, got length 1",
+    );
+}
+
+#[test]
+fn deserialize_option() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        id: u32,
+    }
+
+    deserialize_test("id=1", &Some(Query { id: 1 }));
+    deserialize_test("", &None::<Query>);
+}
+
+#[test]
+fn deserialize_unit_struct() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(deny_unknown_fields)]
+    struct Query;
+
+    deserialize_test("", &Query);
+}
+
+#[test]
+fn empty_vec() {
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct Data {
+        values: Vec<String>,
+    }
+
+    let data = Data { values: Vec::new() };
+    let serialized = serde_qs::to_string(&data).unwrap();
+
+    let deserialized = serde_qs::from_str::<Data>(&serialized).unwrap();
+    assert_eq!(deserialized, data);
+
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct SmallerData {
+        #[serde(skip_serializing_if = "Vec::is_empty", default)]
+        values: Vec<String>,
+    }
+
+    let data = SmallerData { values: Vec::new() };
+    let serialized = serde_qs::to_string(&data).unwrap();
+
+    let deserialized = serde_qs::from_str::<SmallerData>(&serialized).unwrap();
+    assert_eq!(deserialized, data);
+}
+
+#[test]
+fn empty_map() {
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct Data {
+        values: HashMap<String, String>,
+    }
+
+    let data = Data {
+        values: HashMap::new(),
+    };
+    let serialized = serde_qs::to_string(&data).unwrap();
+
+    let deserialized = serde_qs::from_str::<Data>(&serialized).unwrap();
+    assert_eq!(deserialized, data);
+
+    #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    struct SmallerData {
+        #[serde(skip_serializing_if = "HashMap::is_empty", default)]
+        values: HashMap<String, String>,
+    }
+
+    let data = SmallerData {
+        values: HashMap::new(),
+    };
+    let serialized = serde_qs::to_string(&data).unwrap();
+    let deserialized = serde_qs::from_str::<SmallerData>(&serialized).unwrap();
+    assert_eq!(deserialized, data);
+}
+
+#[test]
+fn nested_tuple() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        vec: Vec<(u32, String)>,
+    }
+
+    deserialize_test(
+        "vec[0][0]=1&vec[0][1]=test",
+        &Query {
+            vec: vec![(1, "test".to_string())],
+        },
+    );
+
+    deserialize_test_err::<Query>("vec[0][0]=1", "expected a tuple of length 2, got length 1");
+}
+
+#[test]
+fn untagged_enum() {
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct A {
+        x: String,
+        a: String,
+    }
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct B {
+        x: String,
+        b: String,
+    }
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    #[serde(untagged)]
+    enum Q {
+        A(A),
+        B(B),
+    }
+
+    deserialize_test(
+        "x=1&a=2",
+        &Q::A(A {
+            x: "1".to_string(),
+            a: "2".to_string(),
+        }),
+    );
+
+    deserialize_test(
+        "x=1&b=2",
+        &Q::B(B {
+            x: "1".to_string(),
+            b: "2".to_string(),
+        }),
+    );
+}
+
+#[test]
+fn newtype_structs() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct NewU8(u8);
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct NewU16(u16);
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        a: NewU8,
+        b: NewU16,
+    }
+
+    deserialize_test(
+        "a=1&b=2",
+        &Query {
+            a: NewU8(1),
+            b: NewU16(2),
+        },
+    );
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct NewQuery(Query);
+
+    deserialize_test(
+        "a=1&b=2",
+        &NewQuery(Query {
+            a: NewU8(1),
+            b: NewU16(2),
+        }),
+    );
+}
+
+#[test]
+fn deserialize_map_with_uuid_keys() {
+    #[derive(Debug, Deserialize)]
+    struct Mapping {
+        mapping: HashMap<String, u64>,
+    }
+
+    let test: Mapping = serde_qs::from_str(
+        "mapping[5b53d2c1-3745-47e3-b421-76c05c5c7523]=1&mapping[00000000-0000-0000-0000-000000000000]=2&mapping[a4b2e25c-e80c-4e2a-958c-35f2f5151f46]=3&mapping[ffffffff-ffff-ffff-ffff-ffffffffffff]=4"
+    ).unwrap();
+
+    assert_eq!(
+        test.mapping
+            .get("5b53d2c1-3745-47e3-b421-76c05c5c7523")
+            .cloned(),
+        Some(1)
+    );
+    assert_eq!(
+        test.mapping
+            .get("00000000-0000-0000-0000-000000000000")
+            .cloned(),
+        Some(2)
+    );
+    assert_eq!(
+        test.mapping
+            .get("a4b2e25c-e80c-4e2a-958c-35f2f5151f46")
+            .cloned(),
+        Some(3)
+    );
+    assert_eq!(
+        test.mapping
+            .get("ffffffff-ffff-ffff-ffff-ffffffffffff")
+            .cloned(),
+        Some(4)
+    );
+}
+
+#[test]
+fn invalid_utf8() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct StringQueryParam {
+        field: String,
+    }
+
+    // Invalid UTF8 characters cause errors _if_ they are used
+    deserialize_test_err::<StringQueryParam>(
+        "field=%E9",
+        "incomplete utf-8 byte sequence from inde",
+    );
+
+    // But if they are not used, we can still deserialize
+    deserialize_test(
+        "field=valid&unused=%E9",
+        &StringQueryParam {
+            field: "valid".to_string(),
+        },
+    );
+}
+
+/// NOTE: we cannot represent `Some(Some(""))` in any meaningful way
+/// but I'm okay with that -- `serde_json` cannot differentiate betwee
+/// nested `Option`s at all: https://play.rust-lang.org/?version=stable&mode=debug&edition=2024&gist=e3c3db811eeb12388302055d50232ecb`
+#[test]
+fn levels_of_option() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query<T> {
+        a: Option<T>,
+        b: Option<Option<T>>,
+        c: Option<Option<Option<T>>>,
+    }
+
+    deserialize_test(
+        "a=1&b=2&c=3",
+        &Query::<String> {
+            a: Some("1".to_string()),
+            b: Some(Some("2".to_string())),
+            c: Some(Some(Some("3".to_string()))),
+        },
+    );
+
+    deserialize_test(
+        "a=1&b=2&c=3",
+        &Query::<u8> {
+            a: Some(1),
+            b: Some(Some(2)),
+            c: Some(Some(Some(3))),
+        },
+    );
+
+    deserialize_test(
+        "a&b&c",
+        &Query::<String> {
+            a: None,
+            b: None,
+            c: None,
+        },
+    );
+
+    deserialize_test(
+        "a=&b=&c=",
+        &Query::<String> {
+            a: Some("".to_string()),
+            b: Some(None),
+            c: Some(None),
+        },
+    );
+
+    deserialize_test(
+        "a&b=&c=",
+        &Query::<u8> {
+            a: None,
+            b: Some(None),
+            c: Some(None),
+        },
+    );
+}
+
+#[test]
+fn empty_keys() {
+    deserialize_test("=123", &123u8);
+    deserialize_test("=1&=2", &vec![1u8, 2]);
+    deserialize_test("=foo", &"foo");
+    deserialize_test("=foo", &vec!["foo"]);
+    // empty key -> keep the last value if its a string
+    deserialize_test("=foo&=bar", &"bar");
+    deserialize_test("=foo&=bar", &vec!["foo", "bar"]);
+
+    let opt_string_none: Option<String> = None;
+    let opt_string_some: Option<String> = Some("foo".to_string());
+    let opt_string_some_empty: Option<String> = Some("".to_string());
+    deserialize_test("=foo", &opt_string_some);
+    deserialize_test("=", &opt_string_some_empty);
+    deserialize_test("", &opt_string_none);
+
+    // empty key -> empty key if its a map
+    deserialize_test(
+        "=foo",
+        &HashMap::<String, String>::from([("".to_string(), "foo".to_string())]),
+    );
+
+    // #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    // struct Query {
+    //     a: String,
+    //     b: String,
+    // }
+
+    // // empty keys are not allowed
+    // deserialize_test_err::<Query>("=1&b=2", "invalid input: empty key");
+    // deserialize_test_err::<Query>("a=1&=2", "invalid input: empty key");
+
+    // // but we can have empty values
+    // deserialize_test("a=&b=2", &Query {
+    //     a: "".to_string(),
+    //     b: "2".to_string(),
+    // });
 }

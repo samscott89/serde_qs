@@ -117,7 +117,7 @@ fn test_custom_qs_config() {
     futures::executor::block_on(async {
         let req = axum::http::Request::builder()
             .uri("/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true")
-            .extension(QsQueryConfig::new(5, false))
+            .extension(QsQueryConfig::new().config(serde_qs::Config::new().use_form_encoding(true)))
             .body(())
             .unwrap();
 
@@ -155,7 +155,7 @@ fn test_optional_query_some() {
     futures::executor::block_on(async {
         let req = axum::http::Request::builder()
             .uri("/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true")
-            .extension(QsQueryConfig::new(5, false))
+            .extension(QsQueryConfig::new().config(serde_qs::Config::new().use_form_encoding(true)))
             .body(())
             .unwrap();
 

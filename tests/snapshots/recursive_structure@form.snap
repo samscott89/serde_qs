@@ -1,0 +1,12 @@
+---
+source: tests/test_roundtrip.rs
+description: "TreeNode { value: \"root\", children: [TreeNode { value: \"child1\", children: [TreeNode { value: \"grandchild1\", children: [] }, TreeNode { value: \"grandchild2\", children: [] }] }, TreeNode { value: \"child2\", children: [] }] }"
+---
+value=root&
+children%5B0%5D%5Bvalue%5D=child1&
+children%5B0%5D%5Bchildren%5D%5B0%5D%5Bvalue%5D=grandchild1&
+children%5B0%5D%5Bchildren%5D%5B0%5D%5Bchildren%5D=&
+children%5B0%5D%5Bchildren%5D%5B1%5D%5Bvalue%5D=grandchild2&
+children%5B0%5D%5Bchildren%5D%5B1%5D%5Bchildren%5D=&
+children%5B1%5D%5Bvalue%5D=child2&
+children%5B1%5D%5Bchildren%5D=

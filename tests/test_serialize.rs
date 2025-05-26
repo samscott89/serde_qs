@@ -2,6 +2,20 @@
 extern crate serde_derive;
 extern crate serde_qs as qs;
 
+/// Helper function for testing serialization with default config
+#[track_caller]
+fn serialize_test<T: serde::Serialize>(data: &T, expected: &str) {
+    let serialized = qs::to_string(data).expect("serialize");
+    assert_eq!(serialized, expected);
+}
+
+/// Helper function for testing serialization with custom config
+#[track_caller]
+fn serialize_test_with_config<T: serde::Serialize>(data: &T, expected: &str, config: qs::Config) {
+    let serialized = config.serialize_string(data).expect("serialize");
+    assert_eq!(serialized, expected);
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct Address {
     city: String,
@@ -32,13 +46,12 @@ fn serialize_struct() {
         user_ids: vec![1, 2, 3, 4],
     };
 
-    assert_eq!(
-        qs::to_string(&params).unwrap(),
-        "\
-         id=42&name=Acme&phone=12345&address[city]=Carrot+City&\
+    serialize_test(
+        &params,
+        "id=42&name=Acme&phone=12345&address[city]=Carrot+City&\
          address[street]=Special-Street*+No.+11&\
          address[postcode]=12345&user_ids[0]=1&user_ids[1]=2&\
-         user_ids[2]=3&user_ids[3]=4"
+         user_ids[2]=3&user_ids[3]=4",
     );
 }
 
@@ -49,17 +62,13 @@ fn serialize_option() {
         vec: Option<Vec<u8>>,
     }
 
-    let params = "";
-    let query = Query { vec: None };
-    let rec_params = qs::to_string(&query).unwrap();
-    assert_eq!(rec_params, params);
-
-    let params = "vec[0]=1&vec[1]=2";
-    let query = Query {
-        vec: Some(vec![1, 2]),
-    };
-    let rec_params = qs::to_string(&query).unwrap();
-    assert_eq!(rec_params, params);
+    serialize_test(&Query { vec: None }, "vec");
+    serialize_test(
+        &Query {
+            vec: Some(vec![1, 2]),
+        },
+        "vec[0]=1&vec[1]=2",
+    );
 }
 
 #[test]
@@ -78,31 +87,25 @@ fn serialize_enum() {
         e: TestEnum,
     }
 
-    let params = "e=a";
-    let query = Query { e: TestEnum::A };
-    let rec_params = qs::to_string(&query).unwrap();
-    assert_eq!(rec_params, params);
-
-    let params = "e[b]=true";
-    let query = Query {
-        e: TestEnum::B(true),
-    };
-    let rec_params = qs::to_string(&query).unwrap();
-    assert_eq!(rec_params, params);
-
-    let params = "e[c][x]=2&e[c][y]=3";
-    let query = Query {
-        e: TestEnum::C { x: 2, y: 3 },
-    };
-    let rec_params = qs::to_string(&query).unwrap();
-    assert_eq!(rec_params, params);
-
-    let params = "e[d][0]=128&e[d][1]=1";
-    let query = Query {
-        e: TestEnum::D(128, 1),
-    };
-    let rec_params = qs::to_string(&query).unwrap();
-    assert_eq!(rec_params, params);
+    serialize_test(&Query { e: TestEnum::A }, "e[a]");
+    serialize_test(
+        &Query {
+            e: TestEnum::B(true),
+        },
+        "e[b]=true",
+    );
+    serialize_test(
+        &Query {
+            e: TestEnum::C { x: 2, y: 3 },
+        },
+        "e[c][x]=2&e[c][y]=3",
+    );
+    serialize_test(
+        &Query {
+            e: TestEnum::D(128, 1),
+        },
+        "e[d][0]=128&e[d][1]=1",
+    );
 }
 
 #[test]
@@ -120,16 +123,16 @@ fn serialize_flatten() {
         offset: u64,
     }
 
-    let params = "a=1&limit=100&offset=50";
-    let query = Query {
-        a: 1,
-        common: CommonParams {
-            limit: 100,
-            offset: 50,
+    serialize_test(
+        &Query {
+            a: 1,
+            common: CommonParams {
+                limit: 100,
+                offset: 50,
+            },
         },
-    };
-    let rec_params = qs::to_string(&query).unwrap();
-    assert_eq!(rec_params, params);
+        "a=1&limit=100&offset=50",
+    );
 }
 
 #[test]
@@ -174,21 +177,25 @@ fn serialize_bytes() {
             serializer.serialize_bytes(self.0)
         }
     }
-    let bytes = Bytes(b"hello, world!");
-    let s = qs::to_string(&Query { bytes }).unwrap();
-    assert_eq!(s, "bytes=hello%2C+world%21");
+    let query = Query {
+        bytes: Bytes(b"hello, world!"),
+    };
+    serialize_test(&query, "bytes=hello,+world!");
+
+    let form_config = qs::Config::new().use_form_encoding(true);
+    serialize_test_with_config(&query, "bytes=hello%2C%20world%21", form_config);
 }
 
 #[test]
-fn serialize_hashmap_keys() {
+fn serialize_map_keys() {
     // Issue: https://github.com/samscott89/serde_qs/issues/45
 
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-    struct HashParams {
-        attrs: std::collections::HashMap<String, String>,
+    struct MapParams {
+        attrs: std::collections::BTreeMap<String, String>,
     }
 
-    let data = HashParams {
+    let data = MapParams {
         attrs: vec![
             ("key 1!".to_owned(), "val 1".to_owned()),
             ("key 2!".to_owned(), "val 2".to_owned()),
@@ -196,11 +203,7 @@ fn serialize_hashmap_keys() {
         .into_iter()
         .collect(),
     };
-    let s = qs::to_string(&data).unwrap();
-    assert!(
-        s == "attrs[key+1%21]=val+1&attrs[key+2%21]=val+2"
-            || s == "attrs[key+2%21]=val+2&attrs[key+1%21]=val+1"
-    );
+    serialize_test(&data, "attrs[key+1!]=val+1&attrs[key+2!]=val+2");
 }
 
 #[test]
@@ -212,29 +215,21 @@ fn test_serializer() {
         b: &'static str,
     }
 
-    let mut writer = Vec::new();
-    {
-        let serializer = &mut qs::Serializer::new(&mut writer);
-        let q = Query {
+    serialize_test(
+        &Query {
             a: vec![0, 1],
             b: "b",
-        };
-        q.serialize(serializer).unwrap();
-    }
+        },
+        "a[0]=0&a[1]=1&b=b",
+    );
 
-    assert_eq!(writer, b"a[0]=0&a[1]=1&b=b");
-    writer.clear();
-
-    {
-        let serializer = &mut qs::Serializer::new(&mut writer);
-        let q = Query {
+    serialize_test(
+        &Query {
             a: vec![3, 2],
             b: "a",
-        };
-        q.serialize(serializer).unwrap();
-    }
-
-    assert_eq!(writer, b"a[0]=3&a[1]=2&b=a");
+        },
+        "a[0]=3&a[1]=2&b=a",
+    );
 }
 
 #[test]
@@ -247,32 +242,47 @@ fn test_serializer_unit() {
         t: (),
     }
 
-    let mut writer = Vec::new();
-    {
-        let serializer = &mut qs::Serializer::new(&mut writer);
-        // allow this clippy lints cause I like how explicit the test is
-        #[allow(clippy::let_unit_value)]
-        let q = ();
-        q.serialize(serializer).unwrap();
+    // allow this clippy lints cause I like how explicit the test is
+    #[allow(clippy::let_unit_value)]
+    let unit = ();
+    serialize_test(&unit, "=");
+
+    serialize_test(&A, "=");
+    serialize_test(&B { t: () }, "t=");
+}
+
+#[test]
+fn formencoding() {
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    struct NestedData {
+        a: u8,
+        b: String,
     }
 
-    assert_eq!(writer, b"", "we are testing ()");
-    writer.clear();
-
-    {
-        let serializer = &mut qs::Serializer::new(&mut writer);
-        let q = A;
-        q.serialize(serializer).unwrap();
+    #[derive(Serialize)]
+    struct Query {
+        data: Vec<NestedData>,
     }
 
-    assert_eq!(writer, b"", "we are testing A");
-    writer.clear();
+    let query = Query {
+        data: vec![
+            NestedData {
+                a: 1,
+                b: "test!".to_string(),
+            },
+            NestedData {
+                a: 2,
+                b: "example:.".to_string(),
+            },
+        ],
+    };
 
-    {
-        let serializer = &mut qs::Serializer::new(&mut writer);
-        let q = B { t: () };
-        q.serialize(serializer).unwrap();
-    }
-
-    assert_eq!(writer, b"t=", "we are testing B{{t: ()}}");
+    let form_config = qs::Config::new().use_form_encoding(true);
+    serialize_test_with_config(
+        &query,
+        "data%5B0%5D%5Ba%5D=1&data%5B0%5D%5Bb%5D=test%21&data%5B1%5D%5Ba%5D=2&data%5B1%5D%5Bb%5D=example%3A.",
+        form_config,
+    );
 }
