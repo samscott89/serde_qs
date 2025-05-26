@@ -214,6 +214,88 @@ fn vector_types() {
     });
 }
 
+fn vector_test(input: &VectorTypes, format: serde_qs::ArrayFormat) -> Result<(), serde_qs::Error> {
+    let config = serde_qs::Config::new().array_format(format);
+
+    insta::with_settings!({
+        prepend_module_to_snapshot => false,
+        omit_expression => true,
+        snapshot_suffix => format!("{format:?}").to_lowercase(),
+        description => format!("{input:?}"),
+    }, {
+        let serialized = config.serialize_string(input)?;
+
+        #[allow(unused_mut)]
+        let mut serialized_lines = serialized
+            .split('&').collect::<Vec<_>>();
+
+        let serialized_pretty = serialized_lines.join("&\n");
+
+        // snapshot the serialized string for easy introspection
+        // and to track changes
+        insta::assert_snapshot!(serialized_pretty);
+
+        let deserialized = config
+            .deserialize_str(serialized.as_str())?;
+
+        // check we get the same data back
+        // pretty_assertions::assert_eq!(input, &deserialized);
+        if input != &deserialized {
+            return Err(serde_qs::Error::custom(
+                format!(
+                    "Deserialized data does not match input:\n{}",
+                    pretty_assertions::StrComparison::new(&format!("{input:#?}"), &format!("{deserialized:#?}"))
+                ),
+                &deserialized
+            ));
+        }
+        Ok(())
+    })
+}
+
+#[test]
+fn vector_formats() {
+    // Test different vector formats
+
+    // without nested structs, works fine
+    let data = VectorTypes {
+        empty_vec: vec![],
+        single_vec: vec!["only one".to_string()],
+        multi_vec: vec![1, 2, 3, 4, 5],
+        vec_of_structs: vec![],
+    };
+
+    vector_test(&data, serde_qs::ArrayFormat::Indexed).expect("Indexed format");
+    vector_test(&data, serde_qs::ArrayFormat::EmptyIndexed).expect("EmptyIndexed format");
+    vector_test(&data, serde_qs::ArrayFormat::Unindexed).expect("Unindexed format");
+
+    // with vectors of structs, the lack of indexing makes it impossible to
+    // deserialize it back
+
+    let data = VectorTypes {
+        empty_vec: vec![],
+        single_vec: vec!["only one".to_string()],
+        multi_vec: vec![1, 2, 3, 4, 5],
+        vec_of_structs: vec![FlatStruct { a: 1, b: 2 }, FlatStruct { a: 3, b: 4 }],
+    };
+
+    vector_test(&data, serde_qs::ArrayFormat::Indexed).expect("Indexed format");
+    let err = vector_test(&data, serde_qs::ArrayFormat::EmptyIndexed).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("unsupported: unable to parse nested maps of unindexed sequences"),
+        "got: {}",
+        err
+    );
+    let err = vector_test(&data, serde_qs::ArrayFormat::Unindexed).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("expected an integer index, found a string key `a`"),
+        "got: {}",
+        err
+    );
+}
+
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 struct NestedVectors {
     vec_of_vecs: Vec<Vec<u8>>,

@@ -36,9 +36,42 @@ use crate::{Deserializer, Serializer};
 ///
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
+    max_depth: usize,
+    use_form_encoding: bool,
+    array_format: ArrayFormat,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArrayFormat {
+    /// Use the `a[0]=1&a[1]=2` format.
+    Indexed,
+    /// Use the `a[]=1&a[]=2` format.
+    EmptyIndexed,
+    /// Use the `a=1&a=2` format.
+    Unindexed,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Config {
+    pub const fn new() -> Self {
+        Self {
+            max_depth: 5,
+            use_form_encoding: cfg!(feature = "default_to_form_encoding"),
+            array_format: ArrayFormat::Indexed,
+        }
+    }
+
     /// Specifies the maximum depth key that `serde_qs` will attempt to
     /// deserialize. Default is 5.
-    pub max_depth: usize,
+    pub const fn max_depth(mut self, max_depth: usize) -> Self {
+        self.max_depth = max_depth;
+        self
+    }
 
     /// By default, `serde_qs` uses query-string encoding, as defined
     /// in [WHATWG](https://url.spec.whatwg.org/#query-percent-encode-set).
@@ -60,30 +93,17 @@ pub struct Config {
     /// To use form encoding, set this to `true`.
     /// Alternatively, you can use the `default_to_form_encoding` Cargo feature
     /// to set this to `true` by default.
-    pub use_form_encoding: bool,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Config {
-    pub const fn new() -> Self {
-        Self {
-            max_depth: 5,
-            use_form_encoding: cfg!(feature = "default_to_form_encoding"),
-        }
-    }
-
-    pub const fn max_depth(mut self, max_depth: usize) -> Self {
-        self.max_depth = max_depth;
+    pub const fn use_form_encoding(mut self, use_form_encoding: bool) -> Self {
+        self.use_form_encoding = use_form_encoding;
         self
     }
 
-    pub const fn use_form_encoding(mut self, use_form_encoding: bool) -> Self {
-        self.use_form_encoding = use_form_encoding;
+    /// Specifies how arrays should be formatted in the querystring
+    /// during serialization.
+    ///
+    /// The default is `Indexed`, which results in keys like `a[0]=1&a[1]=2`.
+    pub const fn array_format(mut self, array_format: ArrayFormat) -> Self {
+        self.array_format = array_format;
         self
     }
 

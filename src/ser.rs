@@ -450,12 +450,36 @@ impl<'a, W: Write> QsSeq<'a, W> {
 
     /// Pushes the key to the serializer.
     fn push_key(&mut self) -> Result<()> {
-        let mut buffer = itoa::Buffer::new();
-        // encode the next integer key
-        let key = buffer.format(self.counter);
-        self.qs.push_key(key.as_bytes())?;
+        match self.qs.config.array_format {
+            crate::ArrayFormat::Indexed => {
+                // indexed arrays have keys like `[0]`, `[1]`, etc.
+                let mut buffer = itoa::Buffer::new();
+                // encode the next integer key
+                let key = buffer.format(self.counter);
+                self.qs.push_key(key.as_bytes())?;
+            }
+            crate::ArrayFormat::EmptyIndexed => {
+                // empty indexed arrays have keys like `[]`
+                self.qs.push_key(b"")?;
+            }
+            crate::ArrayFormat::Unindexed => {
+                // unindexed arrays have no keys, so nothing to push
+            }
+        }
+
         // increment the key
         self.counter += 1;
+        Ok(())
+    }
+
+    fn pop_key(&mut self) -> Result<()> {
+        // pop the key from the serializer (if we pushed one)
+        if matches!(
+            self.qs.config.array_format,
+            crate::ArrayFormat::Indexed | crate::ArrayFormat::EmptyIndexed
+        ) {
+            self.qs.pop_key()?;
+        }
         Ok(())
     }
 }
@@ -469,7 +493,7 @@ impl<W: Write> ser::SerializeTuple for QsSeq<'_, W> {
     {
         self.push_key()?;
         value.serialize(&mut *self.qs)?;
-        self.qs.pop_key()
+        self.pop_key()
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -491,7 +515,7 @@ impl<W: Write> ser::SerializeSeq for QsSeq<'_, W> {
     {
         self.push_key()?;
         value.serialize(&mut *self.qs)?;
-        self.qs.pop_key()
+        self.pop_key()
     }
     fn end(self) -> Result<Self::Ok> {
         // if we didn't serialize any elements, we'll write a null
@@ -513,7 +537,7 @@ impl<W: Write> ser::SerializeTupleVariant for QsSeq<'_, W> {
     {
         self.push_key()?;
         value.serialize(&mut *self.qs)?;
-        self.qs.pop_key()
+        self.pop_key()
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -534,10 +558,15 @@ impl<W: Write> ser::SerializeTupleStruct for QsSeq<'_, W> {
     {
         self.push_key()?;
         value.serialize(&mut *self.qs)?;
-        self.qs.pop_key()
+        self.pop_key()
     }
 
     fn end(self) -> Result<Self::Ok> {
+        // if we didn't serialize any elements, we'll write a null
+        // value
+        if self.counter == 0 {
+            self.qs.write_unit()?;
+        }
         Ok(())
     }
 }
