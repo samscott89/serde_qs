@@ -23,12 +23,12 @@ use crate::{Deserializer, Serializer};
 /// use serde_qs::Config;
 /// use std::collections::HashMap;
 ///
-/// let config = Config { max_depth: 0, ..Default::default() };
+/// let config = Config::new().max_depth(0);;
 /// let map: HashMap<String, String> = config.deserialize_str("a[b][c]=1")
 ///                                          .unwrap();
 /// assert_eq!(map.get("a[b][c]").unwrap(), "1");
 ///
-/// let config = Config { max_depth: 10, ..Default::default() };
+/// let config = Config::new().max_depth(10);;
 /// let map: HashMap<String, HashMap<String, HashMap<String, String>>> =
 ///             config.deserialize_str("a[b][c]=1").unwrap();
 /// assert_eq!(map.get("a").unwrap().get("b").unwrap().get("c").unwrap(), "1");
@@ -36,9 +36,9 @@ use crate::{Deserializer, Serializer};
 ///
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
-    max_depth: usize,
-    use_form_encoding: bool,
-    array_format: ArrayFormat,
+    pub(crate) max_depth: usize,
+    pub(crate) use_form_encoding: bool,
+    pub(crate) array_format: ArrayFormat,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
