@@ -10,7 +10,7 @@ name = "serde_qs"
 repository = "https://github.com/samscott89/serde_qs"
 readme = "README.md"
 version = "0.15.0"
-rust-version = "1.66"
+rust-version = "1.68"
 
 [dependencies]
 actix-web3 = { version = "3.3", optional = true, package = "actix-web", default-features = false }
@@ -35,7 +35,7 @@ csv = "=1.2.2"
 insta = { version = "1.4", features = ["serde"] }
 pretty_assertions = "1.0"
 rand = "0.9"
-serde_bytes = "=0.11.6"
+serde_bytes = "0.11"
 serde_derive = "1.0"
 serde_json = { version = "1.0" }
 serde_urlencoded = "0.7"
