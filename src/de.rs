@@ -168,12 +168,10 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
     {
         // we'll prefer to use the field order if it exists
         if let Some(field_order) = &mut self.field_order {
-            println!("Field order: {field_order:?}");
             for (idx, field) in field_order.iter().enumerate() {
                 let field_key = (*field).into();
                 if let Some(value) = crate::map::remove(self.parsed, &field_key) {
                     *field_order = &field_order[idx + 1..];
-                    println!("Popping field `{field}` with value {value:?}");
                     self.popped_value = Some(value);
                     return seed
                         .deserialize(StringParsingDeserializer::new_str(field))
@@ -331,20 +329,15 @@ impl<'de, I: Iterator<Item = (Key<'de>, ParsedValue<'de>)>> de::SeqAccess<'de>
         if let Some((k, v)) = self.iter.next() {
             match k {
                 Key::Int(i) if i == self.counter => {
-                    println!("Deserializing index {i} with value {v:?}");
                     self.counter = self.counter.checked_add(1).ok_or_else(|| {
                         Error::custom("cannot deserialize more than u32::MAX elements", &(k, &v))
                     })?;
                     seed.deserialize(QsDeserializer(v)).map(Some)
                 }
-                Key::Int(i) => {
-                    println!("Deserializing index {i} with value {v:?}");
-
-                    Err(Error::custom(
-                        format!("missing index, expected: {} got {i}", self.counter),
-                        &(k, v),
-                    ))
-                }
+                Key::Int(i) => Err(Error::custom(
+                    format!("missing index, expected: {} got {i}", self.counter),
+                    &(k, v),
+                )),
                 Key::String(ref bytes) => {
                     let key = std::str::from_utf8(bytes).unwrap_or("<non-utf8>");
                     Err(Error::custom(
@@ -457,16 +450,12 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
             #[cfg(feature = "indexmap")]
             ParsedValue::Map(mut parsed) => {
                 // when using indexmap, we need to first sort the keys
-                // or they will be in
+                // or they will be in insertion order
                 parsed.sort_unstable_keys();
                 visitor.visit_seq(OrderedSeq::new(parsed.into_iter()))
             }
             #[cfg(not(feature = "indexmap"))]
-            ParsedValue::Map(parsed) => {
-                #[cfg(feature = "debug_parsed")]
-                println!("Deserializing map: {parsed:#?} as sequence");
-                visitor.visit_seq(OrderedSeq::new(parsed.into_iter()))
-            }
+            ParsedValue::Map(parsed) => visitor.visit_seq(OrderedSeq::new(parsed.into_iter())),
             ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
             // if we have a single string key, but expect a sequence
             // we'll treat it as a sequence of one
