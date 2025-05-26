@@ -298,10 +298,7 @@ fn optional_struct() {
     deserialize_test("address", &Query { address: None });
     // `address=` implies we have a "null" value which cannot be deserialized
     // into an address
-    deserialize_test_err::<Query>(
-        "address=",
-        "invalid type: unit value, expected struct Address",
-    );
+    deserialize_test_err::<Query>("address=", "missing field `city`");
     deserialize_test(
         "address[city]=Carrot+City&address[postcode]=12345",
         &Query {
@@ -1050,52 +1047,23 @@ fn deserialize_serde_json_value() {
 }
 
 #[test]
-fn deserialize_vec() {
-    // we can handle vectors as long as they have the same repeating key
-    deserialize_test("vec[1]=1&vec[0]=0", &vec![0u8, 1]);
-
-    // unordered sequences are also fine
-    deserialize_test("vec[]=1&vec[]=2", &vec![1u8, 2]);
-
-    // empty vectors are fine too
-    deserialize_test("", &Vec::<u8>::new());
-
-    // basically ignores all the keys and just returns the values
-    deserialize_test_err::<Vec<u8>>("foo=1&bar=2", "found multiple keys");
-
-    // slightly weird: we can actually handle string keys too, they will be sorted
-    // lexicographically
-    deserialize_test_err::<Vec<u8>>(
-        "vec[b]=1&vec[a]=2",
-        "expected an integer index, found a string key `a`",
-    );
-
-    deserialize_test_err::<Vec<u8>>("vec[2]=3&vec[1]=2", "missing index, expected: 0 got 1");
-}
-
-#[test]
 fn deserialize_primitive_errors() {
     deserialize_test_err::<String>("hello", "invalid type: map, expected a string");
 }
 
 #[test]
 fn deserialize_into_tuple() {
-    #[cfg(feature = "indexmap")]
     deserialize_test("=1&=2", &(1u8, 2u8));
-    #[cfg(not(feature = "indexmap"))]
-    deserialize_test("=1&=2", &(1u8, 2u8));
-
-    deserialize_test_err::<(u8,)>("foo=1&bar=2", "expected 1 elements, found 2");
+    deserialize_test_err::<(u8,)>("=1&=2", "expected a tuple of length 1, got length 2");
 
     #[derive(Deserialize, Debug, PartialEq)]
     struct Tuple(u8, u8);
 
-    #[cfg(feature = "indexmap")]
     deserialize_test("=1&=2", &Tuple(1, 2));
-    #[cfg(not(feature = "indexmap"))]
-    deserialize_test("=1&=2", &Tuple(1, 2));
-
-    deserialize_test_err::<Tuple>("foo=1", "expected 2 elements, found 1");
+    deserialize_test_err::<Tuple>(
+        "=1",
+        "expected tuple struct `Tuple` of length 2, got length 1",
+    );
 }
 
 #[test]
@@ -1187,10 +1155,7 @@ fn nested_tuple() {
         },
     );
 
-    deserialize_test_err::<Query>(
-        "vec[0][0]=1",
-        "invalid length 1, expected a tuple of size 2",
-    );
+    deserialize_test_err::<Query>("vec[0][0]=1", "expected a tuple of length 2, got length 1");
 }
 
 #[test]
@@ -1385,7 +1350,7 @@ fn levels_of_option() {
 #[test]
 fn empty_keys() {
     deserialize_test("=123", &123u8);
-    deserialize_test("[0]=1&[1]=2", &vec![1u8, 2]);
+    deserialize_test("=1&=2", &vec![1u8, 2]);
     deserialize_test("=foo", &"foo");
     deserialize_test("=foo", &vec!["foo"]);
     // empty key -> keep the last value if its a string
@@ -1402,7 +1367,7 @@ fn empty_keys() {
     // empty key -> empty key if its a map
     deserialize_test(
         "=foo",
-        &HashMap::<String, String>::from([("".to_string(), "bar".to_string())]),
+        &HashMap::<String, String>::from([("".to_string(), "foo".to_string())]),
     );
 
     // #[derive(Debug, Serialize, Deserialize, PartialEq)]

@@ -5,8 +5,9 @@ info:
   use_form_encoding: true
 snapshot_kind: text
 ---
-level1[level1][level1][level1][value]=deepest&
-level1[level1][level1][value]=level4&
-level1[level1][value]=level3&
-level1[value]=level2&
+level1%5Blevel1%5D%5Blevel1%5D%5Blevel1%5D%5Blevel1%5D&
+level1%5Blevel1%5D%5Blevel1%5D%5Blevel1%5D%5Bvalue%5D=deepest&
+level1%5Blevel1%5D%5Blevel1%5D%5Bvalue%5D=level4&
+level1%5Blevel1%5D%5Bvalue%5D=level3&
+level1%5Bvalue%5D=level2&
 value=level1

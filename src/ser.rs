@@ -97,7 +97,6 @@ pub struct QsSerializer<W: Write> {
     first_kv: bool,
     key: Vec<Vec<u8>>,
     config: crate::Config,
-    is_some: bool,
 }
 
 impl<W: Write> QsSerializer<W> {
@@ -108,7 +107,6 @@ impl<W: Write> QsSerializer<W> {
             first_kv: true,
             key: Vec::with_capacity(4),
             config,
-            is_some: false,
         }
     }
 }
@@ -352,18 +350,12 @@ impl<'a, W: Write> ser::Serializer for &'a mut QsSerializer<W> {
     }
 
     fn serialize_none(self) -> Result<Self::Ok> {
-        if self.is_some {
-            self.write_unit()?;
-        } else {
-            self.write_no_value()?;
-        }
+        self.write_no_value()?;
         Ok(())
     }
 
     fn serialize_some<T: ?Sized + ser::Serialize>(self, value: &T) -> Result<Self::Ok> {
-        self.is_some = true;
         value.serialize(&mut *self)?;
-        self.is_some = false;
         Ok(())
     }
 

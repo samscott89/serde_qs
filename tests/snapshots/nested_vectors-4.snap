@@ -5,6 +5,7 @@ info:
   use_form_encoding: true
 snapshot_kind: text
 ---
-opt_struct%5Ba%5D=10&
-opt_struct%5Bb%5D=20&
-opt_empty_string=
+vec_of_vecs%5B0%5D=&
+vec_of_vecs%5B1%5D=&
+vec_of_options%5B0%5D=&
+option_vec=

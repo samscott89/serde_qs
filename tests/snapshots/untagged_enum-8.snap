@@ -2,9 +2,7 @@
 source: tests/test_roundtrip.rs
 expression: serialized_pretty
 info:
-  use_form_encoding: false
+  use_form_encoding: true
 snapshot_kind: text
 ---
-opt_struct[a]=10&
-opt_struct[b]=20&
-opt_empty_string=
+field=value

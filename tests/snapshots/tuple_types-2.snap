@@ -5,14 +5,14 @@ info:
   use_form_encoding: true
 snapshot_kind: text
 ---
-unit&
-pair[0]=42&
-pair[1]=answer&
-triple[0]=true&
-triple[1]=3.14&
-triple[2]=255&
-nested_tuple[0][0]=nested&
-nested_tuple[0][1]=-100&
-nested_tuple[1][0]=1&
-nested_tuple[1][1]=2&
-nested_tuple[1][2]=3
+unit=&
+pair%5B0%5D=42&
+pair%5B1%5D=answer&
+triple%5B0%5D=true&
+triple%5B1%5D=3.14&
+triple%5B2%5D=255&
+nested_tuple%5B0%5D%5B0%5D=nested&
+nested_tuple%5B0%5D%5B1%5D=-100&
+nested_tuple%5B1%5D%5B0%5D=1&
+nested_tuple%5B1%5D%5B1%5D=2&
+nested_tuple%5B1%5D%5B2%5D=3

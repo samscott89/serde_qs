@@ -1,0 +1,14 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+info:
+  use_form_encoding: false
+snapshot_kind: text
+---
+unit_value=&
+unit_struct=&
+optional_unit&
+vec_of_units=&
+tuple_with_unit[0]=empty&
+tuple_with_unit[1]=&
+tuple_with_unit[2]=0

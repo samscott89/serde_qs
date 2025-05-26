@@ -5,6 +5,4 @@ info:
   use_form_encoding: false
 snapshot_kind: text
 ---
-opt_struct[a]=10&
-opt_struct[b]=20&
-opt_empty_string=
+=42

@@ -172,7 +172,6 @@ fn option_types() {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 struct NestedOptions {
-    opt_opt_string: Option<Option<String>>,
     opt_struct: Option<FlatStruct>,
     opt_empty_string: Option<String>,
 }
@@ -180,13 +179,11 @@ struct NestedOptions {
 #[test]
 fn nested_options() {
     roundtrip_test!(NestedOptions {
-        opt_opt_string: Some(None),
         opt_struct: Some(FlatStruct { a: 10, b: 20 }),
         opt_empty_string: Some(String::new()),
     });
 
     roundtrip_test!(NestedOptions {
-        opt_opt_string: Some(Some("nested".to_string())),
         opt_struct: None,
         opt_empty_string: None,
     });
@@ -225,6 +222,13 @@ fn nested_vectors() {
         vec_of_vecs: vec![vec![1, 2], vec![], vec![3, 4, 5]],
         vec_of_options: vec![Some("first".to_string()), None, Some("third".to_string())],
         option_vec: Some(vec![10, 20, 30]),
+    });
+
+    // empty cases
+    roundtrip_test!(NestedVectors {
+        vec_of_vecs: vec![vec![], vec![]],
+        vec_of_options: vec![Some("".to_string())],
+        option_vec: Some(vec![]),
     });
 }
 
@@ -447,7 +451,7 @@ struct SkipFields {
     visible: String,
     #[serde(skip)]
     skip_always: String,
-    #[serde(skip_serializing)]
+    #[serde(skip_serializing, default)]
     skip_ser: String,
     #[serde(skip_deserializing, default)]
     skip_de: String,
@@ -487,20 +491,20 @@ fn skip_fields() {
     // Deserialize and check that skip fields have their defaults
     let deserialized: SkipFields = config.deserialize_str(&serialized).expect("deserialize");
     assert_eq!(deserialized.visible, data.visible);
-    assert_eq!(deserialized.skip_always, "skipped"); // default value
+    assert_eq!(deserialized.skip_always, ""); // default value
     assert_eq!(deserialized.skip_ser, ""); // empty default from Default trait
-    assert_eq!(deserialized.skip_de, "skip deserialization"); // default value
+    assert_eq!(deserialized.skip_de, ""); // default value
 }
 
 // ========== SERDE ATTRIBUTES: SKIP_SERIALIZING_IF ==========
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 struct SkipSerializingIf {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     maybe_string: Option<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     maybe_vec: Vec<i32>,
-    #[serde(skip_serializing_if = "is_zero")]
+    #[serde(skip_serializing_if = "is_zero", default)]
     maybe_zero: i32,
     always_present: String,
 }
@@ -826,13 +830,10 @@ struct ComplexNested {
     // Vec of HashMaps
     vec_of_maps: Vec<HashMap<String, i32>>,
 
-    // Nested Option
-    nested_option: Option<Option<String>>,
-
-    // Deeply nested Option
+    // // Nested Option
     // NOTE: we cannot support this since there's no way
     // to differentiate the layers of options
-    // deep_option: Option<Option<Option<String>>>,
+    // nested_option: Option<Option<String>>,
 
     // Mixed nesting with tuple
     complex_tuple: Vec<(String, Option<Vec<i32>>)>,
@@ -872,7 +873,6 @@ fn complex_nested_structures() {
             matrix: vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
             map_of_vecs,
             vec_of_maps: vec![map1, map2],
-            nested_option: Some(Some("deeply nested".to_string())),
             complex_tuple: vec![
                 ("first".to_string(), Some(vec![1, 2, 3])),
                 ("second".to_string(), None),
@@ -891,7 +891,6 @@ fn complex_nested_empty() {
         matrix: vec![],
         map_of_vecs: HashMap::new(),
         vec_of_maps: vec![],
-        nested_option: None,
         complex_tuple: vec![],
     });
 
@@ -901,7 +900,6 @@ fn complex_nested_empty() {
         matrix: vec![vec![]],
         map_of_vecs: HashMap::new(),
         vec_of_maps: vec![HashMap::new()],
-        nested_option: Some(None),
         complex_tuple: vec![("empty".to_string(), Some(vec![]))],
     });
 }
