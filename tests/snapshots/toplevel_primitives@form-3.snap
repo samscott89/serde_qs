@@ -1,0 +1,6 @@
+---
+source: tests/test_roundtrip.rs
+description: Wrapper(true)
+snapshot_kind: text
+---
+=true
