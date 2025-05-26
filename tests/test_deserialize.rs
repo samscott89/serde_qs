@@ -1360,19 +1360,74 @@ fn empty_keys() {
         &HashMap::<String, String>::from([("".to_string(), "foo".to_string())]),
     );
 
-    // #[derive(Debug, Serialize, Deserialize, PartialEq)]
-    // struct Query {
-    //     a: String,
-    //     b: String,
-    // }
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query {
+        a: String,
+        b: String,
+    }
 
-    // // empty keys are not allowed
-    // deserialize_test_err::<Query>("=1&b=2", "invalid input: empty key");
-    // deserialize_test_err::<Query>("a=1&=2", "invalid input: empty key");
+    // empty keys are not allowed
+    deserialize_test_err::<Query>(
+        "=1&b=2",
+        "invalid input: the same key is used for both a value and a nested ma",
+    );
 
-    // // but we can have empty values
-    // deserialize_test("a=&b=2", &Query {
-    //     a: "".to_string(),
-    //     b: "2".to_string(),
-    // });
+    // but we can have empty values
+    deserialize_test(
+        "a=&b=2",
+        &Query {
+            a: "".to_string(),
+            b: "2".to_string(),
+        },
+    );
+}
+
+#[test]
+fn int_key_parsing() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Query<K: std::hash::Hash + Eq> {
+        a: HashMap<K, u32>,
+    }
+
+    // Test that we can parse integer keys correctly
+    deserialize_test(
+        "a[1]=2&a[3]=4",
+        &Query {
+            a: HashMap::from([(1, 2), (3, 4)]),
+        },
+    );
+
+    // errors if numbers are too larger
+    deserialize_test_err::<Query<u8>>("a[1000]=2", "number too large to fit in target type");
+
+    // Test that we can parse integer keys with leading zeros
+    deserialize_test(
+        "a[01]=2&a[03]=4",
+        &Query {
+            a: HashMap::from([(1, 2), (3, 4)]),
+        },
+    );
+
+    // if we use a string key, it should still work
+    // although we lose the leading zeros unfortunately
+    deserialize_test(
+        "a[01]=2&a[03]=4",
+        &Query {
+            a: HashMap::from([("1".to_string(), 2), ("3".to_string(), 4)]),
+        },
+    );
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct VecQuery<K: std::hash::Hash + Eq> {
+        a: Vec<K>,
+    }
+
+    // Test that we can parse integer keys in a vector
+    deserialize_test("a[0]=1&a[1]=2", &VecQuery { a: vec![1, 2] });
+
+    // but if we use a string key, it will error
+    deserialize_test_err::<VecQuery<String>>(
+        "a[x]=1&a[0]=2",
+        "expected an integer index, found a string key `x`",
+    );
 }

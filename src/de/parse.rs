@@ -3,8 +3,6 @@ use std::iter::Iterator;
 use std::slice::Iter;
 use std::{fmt, str};
 
-use serde::de::IntoDeserializer;
-
 use crate::error::{Error, Result};
 use crate::map::{Entry, Map};
 
@@ -25,11 +23,30 @@ pub enum Key<'a> {
     String(Cow<'a, [u8]>),
 }
 
-impl Key<'_> {
+impl<'a> Key<'a> {
     /// In some cases, we would rather push an empty key
     /// (e.g. if we have `foo=1&=2`, then we'll have a map `{ "foo": 1, "": 2 }`).
     fn empty_key() -> Self {
         Key::String(Cow::Borrowed(b""))
+    }
+
+    pub fn deserialize_seed<T>(self, seed: T) -> Result<T::Value>
+    where
+        T: serde::de::DeserializeSeed<'a>,
+    {
+        let s = match self {
+            // if the key is an integer, we'll convert it to a string
+            // before deserializing
+            // this is a _little_ wasteful in the case of maps
+            // with integer keys,
+            // but the tradeoff is that we can use the same deserializer
+            Key::Int(i) => {
+                let mut buffer = itoa::Buffer::new();
+                Cow::Owned(buffer.format(i).as_bytes().to_owned())
+            }
+            Key::String(s) => s,
+        };
+        seed.deserialize(StringParsingDeserializer::new(s)?)
     }
 }
 
@@ -63,18 +80,6 @@ impl<'a> From<&'a [u8]> for Key<'a> {
 impl From<u32> for Key<'_> {
     fn from(i: u32) -> Self {
         Key::Int(i)
-    }
-}
-
-impl<'a> Key<'a> {
-    pub fn deserialize_seed<T>(self, seed: T) -> Result<T::Value>
-    where
-        T: serde::de::DeserializeSeed<'a>,
-    {
-        match self {
-            Key::Int(i) => seed.deserialize(i.into_deserializer()),
-            Key::String(s) => seed.deserialize(StringParsingDeserializer::new(s)?),
-        }
     }
 }
 
