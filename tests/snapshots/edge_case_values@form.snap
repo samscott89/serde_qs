@@ -1,0 +1,18 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+snapshot_kind: text
+---
+empty_string=&
+optional_empty=&
+zero_i32=0&
+zero_f64=0.0&
+zero_u8=0&
+nan_value=NaN&
+infinity=inf&
+neg_infinity=-inf&
+max_u64=18446744073709551615&
+min_i64=-9223372036854775808&
+unicode=Hello%20%E4%B8%96%E7%95%8C%20%F0%9F%8C%8D&
+emoji=%F0%9F%9A%80%F0%9F%8E%89%F0%9F%94%A5%F0%9F%92%AF&
+special_chars=a%26b%3Dc%3Fd%23e

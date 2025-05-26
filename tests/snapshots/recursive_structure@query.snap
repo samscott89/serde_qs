@@ -1,0 +1,13 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+snapshot_kind: text
+---
+value=root&
+children[0][value]=child1&
+children[0][children][0][value]=grandchild1&
+children[0][children][0][children]=&
+children[0][children][1][value]=grandchild2&
+children[0][children][1][children]=&
+children[1][value]=child2&
+children[1][children]=

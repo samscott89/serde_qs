@@ -1,0 +1,35 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+snapshot_kind: text
+---
+complex_tuple%5B0%5D%5B0%5D=first&
+complex_tuple%5B0%5D%5B1%5D%5B0%5D=1&
+complex_tuple%5B0%5D%5B1%5D%5B1%5D=2&
+complex_tuple%5B0%5D%5B1%5D%5B2%5D=3&
+complex_tuple%5B1%5D%5B0%5D=second&
+complex_tuple%5B1%5D%5B1%5D&
+complex_tuple%5B2%5D%5B0%5D=third&
+complex_tuple%5B2%5D%5B1%5D%5B0%5D=4&
+complex_tuple%5B2%5D%5B1%5D%5B1%5D=5&
+map_of_vecs%5Bcolors%5D%5B0%5D=red&
+map_of_vecs%5Bcolors%5D%5B1%5D=blue&
+map_of_vecs%5Bsizes%5D%5B0%5D=small&
+map_of_vecs%5Bsizes%5D%5B1%5D=medium&
+map_of_vecs%5Bsizes%5D%5B2%5D=large&
+matrix%5B0%5D%5B0%5D=1&
+matrix%5B0%5D%5B1%5D=2&
+matrix%5B0%5D%5B2%5D=3&
+matrix%5B1%5D%5B0%5D=4&
+matrix%5B1%5D%5B1%5D=5&
+matrix%5B1%5D%5B2%5D=6&
+matrix%5B2%5D%5B0%5D=7&
+matrix%5B2%5D%5B1%5D=8&
+matrix%5B2%5D%5B2%5D=9&
+maybe_vec_maybe%5B0%5D=hello&
+maybe_vec_maybe%5B1%5D&
+maybe_vec_maybe%5B2%5D=world&
+vec_of_maps%5B0%5D%5Ba%5D=1&
+vec_of_maps%5B0%5D%5Bb%5D=2&
+vec_of_maps%5B1%5D%5Bx%5D=10&
+vec_of_maps%5B1%5D%5By%5D=20

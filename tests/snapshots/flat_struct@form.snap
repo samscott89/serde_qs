@@ -1,0 +1,7 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+snapshot_kind: text
+---
+a=1&
+b=2

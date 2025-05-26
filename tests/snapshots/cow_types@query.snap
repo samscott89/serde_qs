@@ -1,0 +1,9 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+snapshot_kind: text
+---
+cow_str=owned+cow&
+owned_string=always+owned&
+cow_vec[0]=first&
+cow_vec[1]=second

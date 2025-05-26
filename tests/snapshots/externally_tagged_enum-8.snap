@@ -1,9 +1,0 @@
----
-source: tests/test_roundtrip.rs
-expression: serialized_pretty
-info:
-  use_form_encoding: true
-snapshot_kind: text
----
-Struct%5Ba%5D=test&
-Struct%5Bb%5D=true

@@ -1,0 +1,13 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+snapshot_kind: text
+---
+unit%5BUnit%5D&
+newtype%5BNewtype%5D=hello&
+tuple%5BTuple%5D%5B0%5D=42&
+tuple%5BTuple%5D%5B1%5D=true&
+struct_variant%5BStruct%5D%5Bx%5D=3.14&
+struct_variant%5BStruct%5D%5By%5D=test&
+vec_of_enums%5B0%5D%5BUnit%5D&
+vec_of_enums%5B1%5D%5BNewtype%5D=in%20vec

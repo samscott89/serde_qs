@@ -1,0 +1,11 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+snapshot_kind: text
+---
+scores%5Bquality%5D=87&
+scores%5Brelevance%5D=95&
+tags%5B0%5D=rust&
+tags%5B1%5D=serde&
+tags%5B2%5D=testing&
+title=Test%20Document

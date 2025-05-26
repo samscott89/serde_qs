@@ -1,0 +1,9 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+snapshot_kind: text
+---
+vec_of_vecs%5B0%5D=&
+vec_of_vecs%5B1%5D=&
+vec_of_options%5B0%5D=&
+option_vec=

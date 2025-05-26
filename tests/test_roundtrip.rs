@@ -42,10 +42,11 @@ macro_rules! roundtrip_test {
 
             insta::with_settings!({
                 prepend_module_to_snapshot => false,
-                raw_info => &insta::internals::Content::Map(vec![(
-                    "use_form_encoding".into(),
-                    form_encoding.into()
-                )])
+                snapshot_suffix => if form_encoding {
+                    "form"
+                } else {
+                    "query"
+                },
             }, {
                 let serialized = config.serialize_string(&data).expect("serialize");
 

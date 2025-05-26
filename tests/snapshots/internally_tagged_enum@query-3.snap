@@ -1,0 +1,10 @@
+---
+source: tests/test_roundtrip.rs
+expression: serialized_pretty
+snapshot_kind: text
+---
+type=Complex&
+x=10&
+y=20&
+data[0]=a&
+data[1]=b

@@ -1,8 +1,0 @@
----
-source: tests/test_roundtrip.rs
-expression: serialized
-info:
-  use_form_encoding: true
-snapshot_kind: text
----
-value=1000
