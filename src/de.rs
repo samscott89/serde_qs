@@ -531,7 +531,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
                         ));
                     }
 
-                    parse::ParsedMap::from_iter(fields.iter().zip(parsed_values.into_iter()).map(
+                    parse::ParsedMap::from_iter(fields.iter().zip(parsed_values).map(
                         |(field, value)| (Key::String(Cow::Borrowed(field.as_bytes())), value),
                     ))
                 }

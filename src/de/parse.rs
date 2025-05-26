@@ -531,7 +531,7 @@ impl<'qs> Parser<'qs> {
             }
             ParsedValue::NoValue | ParsedValue::Null => {
                 return Err(Error::parse_err(
-                    format!("Multiple values for the same key"),
+                    "Multiple values for the same key".to_string(),
                     self.index,
                 ));
             }

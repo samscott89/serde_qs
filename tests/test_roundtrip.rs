@@ -1,3 +1,5 @@
+#![allow(clippy::approx_constant)]
+
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
@@ -355,10 +357,10 @@ fn tuple_struct_types() {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 enum BasicEnum {
-    UnitVariant,
-    NewtypeVariant(String),
-    TupleVariant(i32, bool),
-    StructVariant { x: f64, y: String },
+    Unit,
+    Newtype(String),
+    Tuple(i32, bool),
+    Struct { x: f64, y: String },
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
@@ -373,17 +375,14 @@ struct EnumContainer {
 #[test]
 fn basic_enum_types() {
     roundtrip_test!(EnumContainer {
-        unit: BasicEnum::UnitVariant,
-        newtype: BasicEnum::NewtypeVariant("hello".to_string()),
-        tuple: BasicEnum::TupleVariant(42, true),
-        struct_variant: BasicEnum::StructVariant {
+        unit: BasicEnum::Unit,
+        newtype: BasicEnum::Newtype("hello".to_string()),
+        tuple: BasicEnum::Tuple(42, true),
+        struct_variant: BasicEnum::Struct {
             x: 3.14,
             y: "test".to_string(),
         },
-        vec_of_enums: vec![
-            BasicEnum::UnitVariant,
-            BasicEnum::NewtypeVariant("in vec".to_string()),
-        ],
+        vec_of_enums: vec![BasicEnum::Unit, BasicEnum::Newtype("in vec".to_string()),],
     });
 }
 
@@ -904,11 +903,11 @@ fn complex_nested_empty() {
     });
 }
 
-// Recursive structures (using Box to avoid infinite size)
+// Recursive structures
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 struct TreeNode {
     value: String,
-    children: Vec<Box<TreeNode>>,
+    children: Vec<TreeNode>,
 }
 
 #[test]
@@ -916,23 +915,23 @@ fn recursive_structure() {
     roundtrip_test!(TreeNode {
         value: "root".to_string(),
         children: vec![
-            Box::new(TreeNode {
+            TreeNode {
                 value: "child1".to_string(),
                 children: vec![
-                    Box::new(TreeNode {
+                    TreeNode {
                         value: "grandchild1".to_string(),
                         children: vec![],
-                    }),
-                    Box::new(TreeNode {
+                    },
+                    TreeNode {
                         value: "grandchild2".to_string(),
                         children: vec![],
-                    }),
+                    },
                 ],
-            }),
-            Box::new(TreeNode {
+            },
+            TreeNode {
                 value: "child2".to_string(),
                 children: vec![],
-            }),
+            },
         ],
     });
 }
