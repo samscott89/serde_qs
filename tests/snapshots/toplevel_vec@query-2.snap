@@ -1,0 +1,8 @@
+---
+source: tests/test_roundtrip.rs
+description: "VecWrapper([\"one\", \"two\", \"three\"])"
+snapshot_kind: text
+---
+0=one&
+1=two&
+2=three

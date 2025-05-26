@@ -1429,11 +1429,34 @@ fn bytes_types() {
         regular_u8_vec: vec![10, 20, 30, 40],
     });
 }
+
+// This seems necessary to help with type inference
+// Probably related to things like `&String` vs `&str`
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 #[serde(transparent)]
-struct StringWrapper(String);
+struct Wrapper<T>(T);
 
 #[test]
 fn toplevel_string() {
-    roundtrip_test!(StringWrapper("just a string".to_string()));
+    roundtrip_test!(Wrapper("just a string".to_string()));
+}
+
+#[test]
+fn toplevel_vec() {
+    roundtrip_test!(Wrapper(Vec::<String>::new()));
+    roundtrip_test!(Wrapper(vec![
+        "one".to_string(),
+        "two".to_string(),
+        "three".to_string()
+    ]));
+}
+
+#[test]
+fn toplevel_primitives() {
+    roundtrip_test!(Wrapper(42i32));
+    roundtrip_test!(Wrapper(3.14f64));
+    roundtrip_test!(Wrapper(true));
+    roundtrip_test!(Wrapper(false));
+    roundtrip_test!(Wrapper('c'));
+    roundtrip_test!(Wrapper(String::from("hello world")));
 }

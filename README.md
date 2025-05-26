@@ -32,12 +32,20 @@ For detailed benchmark documentation, see [`benches/README.md`](benches/README.m
 Installation
 ============
 
+> [!IMPORTANT]
+> We are currently in the process of stabilizing a major v1 release of this crate.
+> If you are evaluating this crate, consider using the release candidate
+> over the stable 0.x release.
+> 
+> See [this issue](https://github.com/samscott89/serde_qs/issues/134) and the
+> [release notes](./CHANGELOG.md) for more information.
+
 This crate works with Cargo and can be found on
 [crates.io] with a `Cargo.toml` like:
 
 ```toml
 [dependencies]
-serde_qs = "0.13"
+serde_qs = "0.15"
 ```
 
 Minimum supported Rust version is 1.68.

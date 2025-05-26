@@ -1,0 +1,6 @@
+---
+source: tests/test_roundtrip.rs
+description: Wrapper(3.14)
+snapshot_kind: text
+---
+=3.14

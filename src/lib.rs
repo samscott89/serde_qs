@@ -103,6 +103,13 @@
 //! # }
 //! ```
 //!
+//! ### Repeated keys
+//!
+//! When parsing a query string, repeated keys are collected into a `Vec` of values.
+//!
+//! - If the deserializer expects a primitive value, we'll take the **last** value
+//! - If the deserializer expects a sequence, we'll deserialize all values into the sequence
+//!
 //! ## UTF-8 Handling
 //!
 //! By default, `serde_qs` requires valid UTF-8 in string values. If your data
