@@ -110,6 +110,18 @@
 //! - If the deserializer expects a primitive value, we'll take the **last** value
 //! - If the deserializer expects a sequence, we'll deserialize all values into the sequence
 //!
+//! ### Array Formats
+//!
+//! The `array_format` option in the `Config` struct allows you to control how arrays are serialized:
+//!
+//! - `Indexed`: `a[0]=1&a[1]=2` (default)
+//! - `EmptyIndexed`: `a[]=1&a[]=2`
+//! - `Unindexed`: `a=1&a=2`
+//!
+//! Note that the `Indexed` format is the only one that can round-trip correctly
+//! for arrays of structs or maps. Without the explicit index, we cannot
+//! disambiguate which value corresponds to which key in the array.
+//!
 //! ## UTF-8 Handling
 //!
 //! By default, `serde_qs` requires valid UTF-8 in string values. If your data
@@ -304,7 +316,7 @@ compile_error!(
 
 mod config;
 #[doc(inline)]
-pub use config::Config;
+pub use config::{ArrayFormat, Config};
 mod de;
 mod error;
 pub mod helpers;

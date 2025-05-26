@@ -620,14 +620,8 @@ mod test {
 
     type Map<'a> = super::ParsedMap<'a>;
 
-    static DEFAULT_CONFIG: Config = Config {
-        max_depth: 10,
-        use_form_encoding: false,
-    };
-    static FORM_ENCODING_CONFIG: Config = Config {
-        use_form_encoding: true,
-        ..DEFAULT_CONFIG
-    };
+    static DEFAULT_CONFIG: Config = Config::new().max_depth(10).use_form_encoding(false);
+    static FORM_ENCODING_CONFIG: Config = Config::new().max_depth(10).use_form_encoding(true);
 
     impl<'a> ParsedValue<'a> {
         fn map_from_iter<K, V, I>(iter: I) -> Self

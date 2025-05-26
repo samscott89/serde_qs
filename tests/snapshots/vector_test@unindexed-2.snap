@@ -1,0 +1,16 @@
+---
+source: tests/test_roundtrip.rs
+description: "VectorTypes { empty_vec: [], single_vec: [\"only one\"], multi_vec: [1, 2, 3, 4, 5], vec_of_structs: [FlatStruct { a: 1, b: 2 }, FlatStruct { a: 3, b: 4 }] }"
+snapshot_kind: text
+---
+empty_vec=&
+single_vec=only+one&
+multi_vec=1&
+multi_vec=2&
+multi_vec=3&
+multi_vec=4&
+multi_vec=5&
+vec_of_structs[a]=1&
+vec_of_structs[b]=2&
+vec_of_structs[a]=3&
+vec_of_structs[b]=4

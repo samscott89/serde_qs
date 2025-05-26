@@ -25,10 +25,7 @@ fn test_dates() {
     let data: Params = qs::from_str(&s).unwrap();
     assert_eq!(data, params);
 
-    let form_config = qs::Config {
-        use_form_encoding: true,
-        ..default_config
-    };
+    let form_config = qs::Config::new().use_form_encoding(true);
     let s = form_config.serialize_string(&params).unwrap();
     assert_eq!(s, "date_time=2014-11-28T21%3A45%3A59.324310806%2B09%3A00");
     let data: Params = qs::from_str(&s).unwrap();

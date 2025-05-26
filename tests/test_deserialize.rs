@@ -24,7 +24,7 @@ struct QueryParams {
 // qs::from_str. All types are inferred by the compiler.
 macro_rules! map_test {
     ($string:expr, $($mapvars:tt)*) => {
-        let config = qs::Config { max_depth: 5, .. Default::default() };
+        let config = qs::Config::new();
         let testmap: HashMap<_, _> = config.deserialize_str($string).unwrap();
         let expected_map = hash_to_map!(New $($mapvars)*);
         assert_eq!(testmap, expected_map);
@@ -584,10 +584,7 @@ fn querystring_decoding() {
         vec: Vec<Test>,
     }
 
-    let config = qs::Config {
-        use_form_encoding: false,
-        ..Default::default()
-    };
+    let config = qs::Config::new();
 
     // with querystring encoding, the brackets are considered part of the key
     // so this errors with unknown field
@@ -640,10 +637,7 @@ fn formencoded_decoding() {
         vec: Vec<Test>,
     }
 
-    let config = qs::Config {
-        use_form_encoding: true,
-        ..Default::default()
-    };
+    let config = qs::Config::new().use_form_encoding(true);
 
     let expected = Query {
         vec: vec![Test { a: 1 }, Test { a: 2 }],
@@ -942,14 +936,10 @@ fn depth_one() {
         vec: Vec<String>,
     }
 
-    let default_config = serde_qs::Config {
-        max_depth: 1,
-        use_form_encoding: false,
-    };
-    let form_config = serde_qs::Config {
-        max_depth: 1,
-        use_form_encoding: true,
-    };
+    let default_config = serde_qs::Config::new()
+        .max_depth(1)
+        .use_form_encoding(false);
+    let form_config = serde_qs::Config::new().max_depth(1).use_form_encoding(true);
 
     //  works correct
     deserialize_test_with_config(
