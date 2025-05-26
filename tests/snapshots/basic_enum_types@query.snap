@@ -1,0 +1,12 @@
+---
+source: tests/test_roundtrip.rs
+description: "EnumContainer { unit: Unit, newtype: Newtype(\"hello\"), tuple: Tuple(42, true), struct_variant: Struct { x: 3.14, y: \"test\" }, vec_of_enums: [Unit, Newtype(\"in vec\")] }"
+---
+unit=Unit&
+newtype[Newtype]=hello&
+tuple[Tuple][0]=42&
+tuple[Tuple][1]=true&
+struct_variant[Struct][x]=3.14&
+struct_variant[Struct][y]=test&
+vec_of_enums[0]=Unit&
+vec_of_enums[1][Newtype]=in+vec

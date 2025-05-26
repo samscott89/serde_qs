@@ -1,0 +1,9 @@
+---
+source: tests/test_roundtrip.rs
+description: "WithFlattenedMap { id: 42, name: \"Widget\", extra: {\"color\": \"blue\", \"size\": \"large\", \"custom_field\": \"custom_value\"} }"
+---
+color=blue&
+custom_field=custom_value&
+id=42&
+name=Widget&
+size=large

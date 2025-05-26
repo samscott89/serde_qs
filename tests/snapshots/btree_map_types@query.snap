@@ -1,0 +1,10 @@
+---
+source: tests/test_roundtrip.rs
+description: "BTreeMapTypes { ordered_map: {\"alpha\": 1, \"beta\": 2, \"gamma\": 3}, nested_map: {\"empty\": {}, \"first\": {\"x\": \"foo\", \"y\": \"bar\"}, \"second\": {\"a\": \"baz\"}} }"
+---
+ordered_map[alpha]=1&
+ordered_map[beta]=2&
+ordered_map[gamma]=3&
+nested_map[first][x]=foo&
+nested_map[first][y]=bar&
+nested_map[second][a]=baz

@@ -1,0 +1,7 @@
+---
+source: tests/test_roundtrip.rs
+description: "NestedOptions { opt_struct: Some(FlatStruct { a: 10, b: 20 }), opt_empty_string: Some(\"\") }"
+---
+opt_struct[a]=10&
+opt_struct[b]=20&
+opt_empty_string=

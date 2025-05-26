@@ -1,0 +1,5 @@
+---
+source: tests/test_roundtrip.rs
+description: "SkipSerializingIf { maybe_string: None, maybe_vec: [], maybe_zero: 0, always_present: \"still here\" }"
+---
+always_present=still+here

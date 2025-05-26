@@ -1,0 +1,10 @@
+---
+source: tests/test_roundtrip.rs
+description: "OptionTypes { opt_none: None, opt_some_string: Some(\"Hello\"), opt_some_int: Some(42), opt_some_bool: Some(true), opt_some_vec: Some([1, 2, 3]) }"
+---
+opt_some_string=Hello&
+opt_some_int=42&
+opt_some_bool=true&
+opt_some_vec[0]=1&
+opt_some_vec[1]=2&
+opt_some_vec[2]=3

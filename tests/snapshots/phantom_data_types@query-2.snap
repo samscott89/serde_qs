@@ -1,0 +1,5 @@
+---
+source: tests/test_roundtrip.rs
+description: "TypedId { value: 1000, _phantom: PhantomData<test_roundtrip::Post> }"
+---
+value=1000

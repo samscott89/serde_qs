@@ -1,0 +1,32 @@
+---
+source: tests/test_roundtrip.rs
+description: "ComplexNested { maybe_vec_maybe: Some([Some(\"hello\"), None, Some(\"world\")]), matrix: [[1, 2, 3], [4, 5, 6], [7, 8, 9]], map_of_vecs: {\"colors\": [\"red\", \"blue\"], \"sizes\": [\"small\", \"medium\", \"large\"]}, vec_of_maps: [{\"a\": 1, \"b\": 2}, {\"y\": 20, \"x\": 10}], complex_tuple: [(\"first\", Some([1, 2, 3])), (\"second\", None), (\"third\", Some([4, 5]))] }"
+---
+complex_tuple[0][0]=first&
+complex_tuple[0][1][0]=1&
+complex_tuple[0][1][1]=2&
+complex_tuple[0][1][2]=3&
+complex_tuple[1][0]=second&
+complex_tuple[2][0]=third&
+complex_tuple[2][1][0]=4&
+complex_tuple[2][1][1]=5&
+map_of_vecs[colors][0]=red&
+map_of_vecs[colors][1]=blue&
+map_of_vecs[sizes][0]=small&
+map_of_vecs[sizes][1]=medium&
+map_of_vecs[sizes][2]=large&
+matrix[0][0]=1&
+matrix[0][1]=2&
+matrix[0][2]=3&
+matrix[1][0]=4&
+matrix[1][1]=5&
+matrix[1][2]=6&
+matrix[2][0]=7&
+matrix[2][1]=8&
+matrix[2][2]=9&
+maybe_vec_maybe[0]=hello&
+maybe_vec_maybe[2]=world&
+vec_of_maps[0][a]=1&
+vec_of_maps[0][b]=2&
+vec_of_maps[1][x]=10&
+vec_of_maps[1][y]=20

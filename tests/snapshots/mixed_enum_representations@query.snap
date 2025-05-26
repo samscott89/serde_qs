@@ -1,0 +1,12 @@
+---
+source: tests/test_roundtrip.rs
+description: "MixedEnums { external: Struct { a: \"ext\", b: false }, internal: Struct { value: \"int\" }, adjacent: Newtype(\"adj\"), untagged: Number(100), optional_enum: Some(Unit) }"
+---
+external[Struct][a]=ext&
+external[Struct][b]=false&
+internal[type]=Struct&
+internal[value]=int&
+adjacent[t]=Newtype&
+adjacent[c]=adj&
+untagged=100&
+optional_enum=Unit

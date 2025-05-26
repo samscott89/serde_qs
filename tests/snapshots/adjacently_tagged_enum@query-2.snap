@@ -1,0 +1,6 @@
+---
+source: tests/test_roundtrip.rs
+description: "Newtype(\"adjacent\")"
+---
+t=Newtype&
+c=adjacent

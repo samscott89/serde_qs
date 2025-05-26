@@ -1,0 +1,10 @@
+---
+source: tests/test_roundtrip.rs
+description: "Document { title: \"Test Document\", tags: Tags([\"rust\", \"serde\", \"testing\"]), scores: Scores({\"quality\": 87, \"relevance\": 95}) }"
+---
+scores[quality]=87&
+scores[relevance]=95&
+tags[0]=rust&
+tags[1]=serde&
+tags[2]=testing&
+title=Test+Document
