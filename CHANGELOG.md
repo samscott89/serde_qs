@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.0-rc.1](https://github.com/samscott89/serde_qs/compare/v1.0.0-rc.0...v1.0.0-rc.1) - 2025-05-26
+
+### Other
+
+- Fix maps with integer keys. ([#138](https://github.com/samscott89/serde_qs/pull/138))
+- Support explicit serialization formatting for arrays. ([#137](https://github.com/samscott89/serde_qs/pull/137))
+- v1 changelog (and more tests) ([#135](https://github.com/samscott89/serde_qs/pull/135))
+
 ## [1.0.0-rc.0](https://github.com/samscott89/serde_qs/compare/v0.15.0...v1.0.0-rc.0) - 2025-05-26
 
 This release constitutes an full, incremental rewrite of v0.15 (the core of which was written about [8 years ago](https://github.com/samscott89/serde_qs/commit/6e71ba43eb6bd62f2b567224e387333016bd3a5c#diff-a9463680bdf3fa7278b52b437bfbe9072e20023a015621ed23bcb589f6ccd4b5)).
