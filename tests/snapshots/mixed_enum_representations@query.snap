@@ -6,7 +6,7 @@ external[Struct][a]=ext&
 external[Struct][b]=false&
 internal[type]=Struct&
 internal[value]=int&
-adjacent[t]=Newtype&
+adjacent[t][Newtype]&
 adjacent[c]=adj&
 untagged=100&
-optional_enum=Unit
+optional_enum[Unit]

@@ -4,10 +4,12 @@ description: "NestedVectors { vec_of_vecs: [[1, 2], [], [3, 4, 5]], vec_of_optio
 ---
 vec_of_vecs[0][0]=1&
 vec_of_vecs[0][1]=2&
+vec_of_vecs[1]=&
 vec_of_vecs[2][0]=3&
 vec_of_vecs[2][1]=4&
 vec_of_vecs[2][2]=5&
 vec_of_options[0]=first&
+vec_of_options[1]&
 vec_of_options[2]=third&
 option_vec[0]=10&
 option_vec[1]=20&

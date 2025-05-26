@@ -4,7 +4,7 @@ description: "EdgeCasePrimitives { empty_string: \"\", zero_int: 0, zero_float: 
 ---
 empty_string=&
 zero_int=0&
-zero_float=0&
+zero_float=0.0&
 false_bool=false&
 space_string=+++&
-special_chars=%21%40%23%24%25%5E%26*%28%29_%2B-%3D%5B%5D%7B%7D%7C%3B%27%3A%2C.%3C%3E%3F%2F%7E%60
+special_chars=!@%23$%^%26*()_%2B-%3D%5B%5D{}|;':,.%3C%3E?/~`

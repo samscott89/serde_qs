@@ -2,7 +2,7 @@
 source: tests/test_roundtrip.rs
 description: "BytesData { byte_vec: [0, 1, 2, 255, 128, 64], regular_u8_vec: [10, 20, 30, 40] }"
 ---
-byte_vec=%00%01%02%FF%80%40&
+byte_vec=%00%01%02%FF%80@&
 regular_u8_vec[0]=10&
 regular_u8_vec[1]=20&
 regular_u8_vec[2]=30&

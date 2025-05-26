@@ -2,6 +2,6 @@
 source: tests/test_roundtrip.rs
 description: "Tuple(3, 4)"
 ---
-t=Tuple&
+t[Tuple]&
 c[0]=3&
 c[1]=4

@@ -4,5 +4,5 @@ description: "UserProfile { id: UserId(12345), name: Username(\"alice\"), email:
 ---
 id=12345&
 name=alice&
-email=alice%40example.com&
+email=alice@example.com&
 age=25

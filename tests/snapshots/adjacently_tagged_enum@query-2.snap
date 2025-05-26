@@ -2,5 +2,5 @@
 source: tests/test_roundtrip.rs
 description: "Newtype(\"adjacent\")"
 ---
-t=Newtype&
+t[Newtype]&
 c=adjacent

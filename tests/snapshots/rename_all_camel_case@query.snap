@@ -5,4 +5,4 @@ description: "RenameAllCamelCase { first_name: \"Jane\", last_name: \"Smith\", p
 firstName=Jane&
 lastName=Smith&
 phoneNumber=555-1234&
-emailAddress=jane%40example.com
+emailAddress=jane@example.com

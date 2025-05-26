@@ -1,12 +1,13 @@
 ---
 source: tests/test_roundtrip.rs
-description: "ComplexNested { maybe_vec_maybe: Some([Some(\"hello\"), None, Some(\"world\")]), matrix: [[1, 2, 3], [4, 5, 6], [7, 8, 9]], map_of_vecs: {\"colors\": [\"red\", \"blue\"], \"sizes\": [\"small\", \"medium\", \"large\"]}, vec_of_maps: [{\"a\": 1, \"b\": 2}, {\"y\": 20, \"x\": 10}], complex_tuple: [(\"first\", Some([1, 2, 3])), (\"second\", None), (\"third\", Some([4, 5]))] }"
+description: "ComplexNested { maybe_vec_maybe: Some([Some(\"hello\"), None, Some(\"world\")]), matrix: [[1, 2, 3], [4, 5, 6], [7, 8, 9]], map_of_vecs: {\"colors\": [\"red\", \"blue\"], \"sizes\": [\"small\", \"medium\", \"large\"]}, vec_of_maps: [{\"b\": 2, \"a\": 1}, {\"x\": 10, \"y\": 20}], complex_tuple: [(\"first\", Some([1, 2, 3])), (\"second\", None), (\"third\", Some([4, 5]))] }"
 ---
 complex_tuple[0][0]=first&
 complex_tuple[0][1][0]=1&
 complex_tuple[0][1][1]=2&
 complex_tuple[0][1][2]=3&
 complex_tuple[1][0]=second&
+complex_tuple[1][1]&
 complex_tuple[2][0]=third&
 complex_tuple[2][1][0]=4&
 complex_tuple[2][1][1]=5&
@@ -25,6 +26,7 @@ matrix[2][0]=7&
 matrix[2][1]=8&
 matrix[2][2]=9&
 maybe_vec_maybe[0]=hello&
+maybe_vec_maybe[1]&
 maybe_vec_maybe[2]=world&
 vec_of_maps[0][a]=1&
 vec_of_maps[0][b]=2&
