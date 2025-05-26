@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "TupleTypes { unit: (), pair: (42, \"answer\"), triple: (true, 3.14, 255), nested_tuple: ((\"nested\", -100), [1, 2, 3]) }"
 ---
 unit=&
 pair[0]=42&

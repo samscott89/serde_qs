@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "VeryDeep { level1: Some(VeryDeep { level1: Some(VeryDeep { level1: Some(VeryDeep { level1: Some(VeryDeep { level1: None, value: \"deepest\" }), value: \"level4\" }), value: \"level3\" }), value: \"level2\" }), value: \"level1\" }"
 ---
 level1%5Blevel1%5D%5Blevel1%5D%5Blevel1%5D%5Blevel1%5D&
 level1%5Blevel1%5D%5Blevel1%5D%5Blevel1%5D%5Bvalue%5D=deepest&

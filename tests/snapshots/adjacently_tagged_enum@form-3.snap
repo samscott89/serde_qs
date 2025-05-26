@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "Tuple(3, 4)"
 ---
 t%5BTuple%5D&
 c%5B0%5D=3&

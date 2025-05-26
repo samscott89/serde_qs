@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "Person { name: \"Alice\", age: 30, address: Address { street: \"123 Main St\", city: \"Springfield\", zip: \"12345\" } }"
 ---
 name=Alice&
 age=30&

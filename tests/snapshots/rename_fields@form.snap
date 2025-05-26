@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "RenameFields { first_name: \"John\", last_name: \"Doe\", user_id: 12345 }"
 ---
 firstName=John&
 lastName=Doe&

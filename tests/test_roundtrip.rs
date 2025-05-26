@@ -42,11 +42,13 @@ macro_rules! roundtrip_test {
 
             insta::with_settings!({
                 prepend_module_to_snapshot => false,
+                omit_expression => true,
                 snapshot_suffix => if form_encoding {
                     "form"
                 } else {
                     "query"
                 },
+                description => format!("{data:?}"),
             }, {
                 let serialized = config.serialize_string(&data).expect("serialize");
 

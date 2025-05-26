@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "PrimitiveTypes { bool_val: true, i8_val: -128, i16_val: -32768, i32_val: -2147483648, i64_val: -9223372036854775808, u8_val: 255, u16_val: 65535, u32_val: 4294967295, u64_val: 18446744073709551615, f32_val: 3.14159, f64_val: 2.718281828, char_val: '🦀', string_val: \"Hello, world! 你好世界\" }"
 ---
 bool_val=true&
 i8_val=-128&

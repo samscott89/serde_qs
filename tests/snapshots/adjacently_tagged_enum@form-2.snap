@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "Newtype(\"adjacent\")"
 ---
 t%5BNewtype%5D&
 c=adjacent

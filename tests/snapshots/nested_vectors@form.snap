@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "NestedVectors { vec_of_vecs: [[1, 2], [], [3, 4, 5]], vec_of_options: [Some(\"first\"), None, Some(\"third\")], option_vec: Some([10, 20, 30]) }"
 ---
 vec_of_vecs%5B0%5D%5B0%5D=1&
 vec_of_vecs%5B0%5D%5B1%5D=2&

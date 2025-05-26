@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "ContainsTupleStruct { ts: TupleStruct(100, \"tuple struct\", false), vec_of_tuples: [(1, 2), (3, 4), (5, 6)] }"
 ---
 ts%5B0%5D=100&
 ts%5B1%5D=tuple%20struct&

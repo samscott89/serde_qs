@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "Company { company_name: \"Acme Corp\", headquarters: Address { street: \"456 Business Ave\", city: \"Metropolis\", zip: \"67890\" }, employee_count: 100 }"
 ---
 company_name=Acme%20Corp&
 street=456%20Business%20Ave&

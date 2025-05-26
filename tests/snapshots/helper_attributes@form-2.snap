@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "WithHelpers { comma_values: [], pipe_values: [], space_values: [], dot_values: [], normal_vec: [] }"
 ---
 comma_values=&
 pipe_values=&

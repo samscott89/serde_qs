@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "ContainsUnits { unit_value: (), unit_struct: UnitStruct, optional_unit: Some(()), vec_of_units: [UnitStruct, UnitStruct, UnitStruct], tuple_with_unit: (\"test\", (), 42) }"
 ---
 unit_value=&
 unit_struct=&

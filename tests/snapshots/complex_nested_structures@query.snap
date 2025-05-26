@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "ComplexNested { maybe_vec_maybe: Some([Some(\"hello\"), None, Some(\"world\")]), matrix: [[1, 2, 3], [4, 5, 6], [7, 8, 9]], map_of_vecs: {\"colors\": [\"red\", \"blue\"], \"sizes\": [\"small\", \"medium\", \"large\"]}, vec_of_maps: [{\"b\": 2, \"a\": 1}, {\"x\": 10, \"y\": 20}], complex_tuple: [(\"first\", Some([1, 2, 3])), (\"second\", None), (\"third\", Some([4, 5]))] }"
 ---
 complex_tuple[0][0]=first&
 complex_tuple[0][1][0]=1&

@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "AllEmpty { empty_vec: [], empty_vec_vec: [], empty_hashmap: {}, empty_btreemap: {}, empty_option_vec: Some([]), empty_string: \"\" }"
 ---
 empty_vec=&
 empty_vec_vec=&

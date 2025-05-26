@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "MapTypes { empty_map: {}, string_map: {\"key1\": \"value1\", \"key2\": \"value2\"}, int_key_map: {1: \"one\", 2: \"two\"}, struct_value_map: {\"first\": FlatStruct { a: 10, b: 20 }, \"second\": FlatStruct { a: 30, b: 40 }} }"
 ---
 empty_map=&
 int_key_map[1]=one&

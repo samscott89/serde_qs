@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "WithCow { cow_str: \"owned cow\", owned_string: \"always owned\", cow_vec: [\"first\", \"second\"] }"
 ---
 cow_str=owned%20cow&
 owned_string=always%20owned&

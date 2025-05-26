@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "EnumContainer { unit: Unit, newtype: Newtype(\"hello\"), tuple: Tuple(42, true), struct_variant: Struct { x: 3.14, y: \"test\" }, vec_of_enums: [Unit, Newtype(\"in vec\")] }"
 ---
 unit%5BUnit%5D&
 newtype%5BNewtype%5D=hello&

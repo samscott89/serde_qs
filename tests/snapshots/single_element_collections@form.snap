@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "SingleElements { single_vec: [\"single\"], single_map: {\"only\": 42}, single_option: Some([255]), single_char_string: \"x\" }"
 ---
 single_vec%5B0%5D=single&
 single_map%5Bonly%5D=42&

@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "RenameAllCamelCase { first_name: \"Jane\", last_name: \"Smith\", phone_number: \"555-1234\", email_address: \"jane@example.com\" }"
 ---
 firstName=Jane&
 lastName=Smith&

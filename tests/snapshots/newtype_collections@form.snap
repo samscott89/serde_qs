@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "Document { title: \"Test Document\", tags: Tags([\"rust\", \"serde\", \"testing\"]), scores: Scores({\"relevance\": 95, \"quality\": 87}) }"
 ---
 scores%5Bquality%5D=87&
 scores%5Brelevance%5D=95&

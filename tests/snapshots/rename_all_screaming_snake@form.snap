@@ -1,7 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
-expression: serialized_pretty
-snapshot_kind: text
+description: "RenameAllScreamingSnake { field_one: 42, field_two: \"LOUD\", nested_field: Some(\"NESTED\") }"
 ---
 FIELD_ONE=42&
 FIELD_TWO=LOUD&
