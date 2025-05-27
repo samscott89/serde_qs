@@ -13,6 +13,10 @@ pub enum Error {
     #[error("{0}")]
     Custom(String),
 
+    /// Custom string-based error
+    #[error("Maximum serialization depth `{0}` exceeded")]
+    MaxSerializationDepthExceeded(usize),
+
     /// Parse error at a specified position in the query string
     #[error("parsing failed with error: '{0}' at position: {1}")]
     Parse(String, usize),
