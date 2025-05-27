@@ -341,4 +341,29 @@ fn max_depth() {
     serialize_test_with_config_err(&nested_two, "Maximum serialization depth", config_zero);
     serialize_test_with_config_err(&nested_two, "Maximum serialization depth", config_one);
     serialize_test_with_config(&nested_two, "a=1&b[0]=2&b[1]=3&c[0][0]=4", config_two);
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct Cyclic {
+        a: u8,
+        b: std::cell::RefCell<Option<std::rc::Rc<Cyclic>>>,
+    }
+
+    // make a simple base case -- an Rc with some internal data
+    let base_case = std::rc::Rc::new(Cyclic {
+        a: 1,
+        b: Default::default(),
+    });
+    serialize_test(&base_case, "a=1&b");
+
+    // now lets make it have a cycle
+    let base_case_clone = base_case.clone();
+    *base_case.b.borrow_mut() = Some(base_case_clone);
+
+    // now attempt to serialize it -- the max serialization depth
+    // check will prevent us from infinitely recursing
+    serialize_test_with_config_err(
+        &base_case,
+        "Maximum serialization depth",
+        Default::default(),
+    );
 }
