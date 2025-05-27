@@ -29,9 +29,7 @@ use futures::future::{ready, FutureExt, LocalBoxFuture, Ready};
 use futures::StreamExt;
 use serde::de;
 use serde::de::DeserializeOwned;
-use std::fmt;
-use std::fmt::{Debug, Display};
-use std::ops::{Deref, DerefMut};
+use std::fmt::Debug;
 use std::sync::Arc;
 
 #[cfg(feature = "actix3")]
@@ -48,7 +46,6 @@ impl ResponseError for QsError {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
 /// Extract typed information from the request's query string.
 ///
 /// A drop-in replacement for `actix_web::web::Query` that supports nested structures.
@@ -84,39 +81,7 @@ impl ResponseError for QsError {
 ///            .route(web::get().to(filter_users)));
 /// }
 /// ```
-pub struct QsQuery<T>(T);
-
-impl<T> QsQuery<T> {
-    /// Unwrap into inner T value
-    pub fn into_inner(self) -> T {
-        self.0
-    }
-}
-impl<T> Deref for QsQuery<T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        &self.0
-    }
-}
-
-impl<T> DerefMut for QsQuery<T> {
-    fn deref_mut(&mut self) -> &mut T {
-        &mut self.0
-    }
-}
-
-impl<T: Debug> Debug for QsQuery<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl<T: Display> Display for QsQuery<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
+pub use crate::web::QsQuery;
 
 impl<T> FromRequest for QsQuery<T>
 where
@@ -147,6 +112,86 @@ where
                 Err(e)
             });
         ready(res)
+    }
+}
+
+/// Extract typed information from the request's form data.
+///
+/// A drop-in replacement for `actix_web::web::Form` that supports nested structures.
+/// Use this when you need to deserialize form data with arrays or nested objects.
+///
+/// ## Example
+///
+/// ```rust
+/// # #[macro_use] extern crate serde_derive;
+/// # #[cfg(feature = "actix4")]
+/// # use actix_web4 as actix_web;
+/// # #[cfg(feature = "actix3")]
+/// # use actix_web3 as actix_web;
+/// use actix_web::{web, App, HttpResponse};
+/// use serde_qs::actix::QsForm;
+///
+/// #[derive(Debug, Deserialize)]
+/// pub struct UsersFilter {
+///    id: Vec<u64>,
+/// }
+///
+/// // Use `QsForm` extractor for Form information.
+/// // Content-Type: application/x-www-form-urlencoded
+/// // The correct request payload for this handler would be `id[]=1124&id[]=88`
+/// async fn filter_users(info: QsForm<UsersFilter>) -> HttpResponse {
+///     HttpResponse::Ok().body(
+///         info.id.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", ")
+///     )
+/// }
+///
+/// fn main() {
+///     let app = App::new().service(
+///        web::resource("/users")
+///            .route(web::get().to(filter_users)));
+/// }
+/// ```
+pub use crate::web::QsForm;
+
+impl<T> FromRequest for QsForm<T>
+where
+    T: DeserializeOwned + Debug,
+{
+    type Error = ActixError;
+    type Future = LocalBoxFuture<'static, Result<Self, ActixError>>;
+    #[cfg(feature = "actix3")]
+    type Config = QsQueryConfig;
+
+    fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
+        let mut stream = payload.take();
+        let req_clone = req.clone();
+
+        let query_config: QsQueryConfig = req
+            .app_data::<QsQueryConfig>()
+            .unwrap_or(&DEFAULT_FORM_CONFIG)
+            .clone();
+        async move {
+            let mut bytes = web::BytesMut::new();
+
+            while let Some(item) = stream.next().await {
+                bytes.extend_from_slice(&item.unwrap());
+            }
+
+            query_config
+                .qs_config
+                .deserialize_bytes::<T>(&bytes)
+                .map(|val| Ok(QsForm(val)))
+                .unwrap_or_else(|e| {
+                    let e = if let Some(error_handler) = &query_config.ehandler {
+                        (error_handler)(e, &req_clone)
+                    } else {
+                        e.into()
+                    };
+
+                    Err(e)
+                })
+        }
+        .boxed_local()
     }
 }
 
@@ -224,108 +269,5 @@ impl QsQueryConfig {
     pub fn qs_config(mut self, config: QsConfig) -> Self {
         self.qs_config = config;
         self
-    }
-}
-
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
-/// Extract typed information from the request's form data.
-///
-/// A drop-in replacement for `actix_web::web::Form` that supports nested structures.
-/// Use this when you need to deserialize form data with arrays or nested objects.
-///
-/// ## Example
-///
-/// ```rust
-/// # #[macro_use] extern crate serde_derive;
-/// # #[cfg(feature = "actix4")]
-/// # use actix_web4 as actix_web;
-/// # #[cfg(feature = "actix3")]
-/// # use actix_web3 as actix_web;
-/// use actix_web::{web, App, HttpResponse};
-/// use serde_qs::actix::QsForm;
-///
-/// #[derive(Debug, Deserialize)]
-/// pub struct UsersFilter {
-///    id: Vec<u64>,
-/// }
-///
-/// // Use `QsForm` extractor for Form information.
-/// // Content-Type: application/x-www-form-urlencoded
-/// // The correct request payload for this handler would be `id[]=1124&id[]=88`
-/// async fn filter_users(info: QsForm<UsersFilter>) -> HttpResponse {
-///     HttpResponse::Ok().body(
-///         info.id.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", ")
-///     )
-/// }
-///
-/// fn main() {
-///     let app = App::new().service(
-///        web::resource("/users")
-///            .route(web::get().to(filter_users)));
-/// }
-/// ```
-#[derive(Debug)]
-pub struct QsForm<T>(T);
-
-impl<T> QsForm<T> {
-    /// Unwrap into inner T value
-    pub fn into_inner(self) -> T {
-        self.0
-    }
-}
-
-impl<T> Deref for QsForm<T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        &self.0
-    }
-}
-
-impl<T> DerefMut for QsForm<T> {
-    fn deref_mut(&mut self) -> &mut T {
-        &mut self.0
-    }
-}
-
-impl<T> FromRequest for QsForm<T>
-where
-    T: DeserializeOwned + Debug,
-{
-    type Error = ActixError;
-    type Future = LocalBoxFuture<'static, Result<Self, ActixError>>;
-    #[cfg(feature = "actix3")]
-    type Config = QsQueryConfig;
-
-    fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
-        let mut stream = payload.take();
-        let req_clone = req.clone();
-
-        let query_config: QsQueryConfig = req
-            .app_data::<QsQueryConfig>()
-            .unwrap_or(&DEFAULT_FORM_CONFIG)
-            .clone();
-        async move {
-            let mut bytes = web::BytesMut::new();
-
-            while let Some(item) = stream.next().await {
-                bytes.extend_from_slice(&item.unwrap());
-            }
-
-            query_config
-                .qs_config
-                .deserialize_bytes::<T>(&bytes)
-                .map(|val| Ok(QsForm(val)))
-                .unwrap_or_else(|e| {
-                    let e = if let Some(error_handler) = &query_config.ehandler {
-                        (error_handler)(e, &req_clone)
-                    } else {
-                        e.into()
-                    };
-
-                    Err(e)
-                })
-        }
-        .boxed_local()
     }
 }
