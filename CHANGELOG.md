@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.0-rc.2](https://github.com/samscott89/serde_qs/compare/v1.0.0-rc.1...v1.0.0-rc.2) - 2025-05-27
+
+### Other
+
+- Cleanup of web utils remove redundant `OptionalQsQuery` (since `Option<T>` now works)
+  and add `QsForm` ([#140](https://github.com/samscott89/serde_qs/pull/140))
+- More tests / minor change to field encoding ([#139](https://github.com/samscott89/serde_qs/pull/139))
+
 ## [1.0.0-rc.1](https://github.com/samscott89/serde_qs/compare/v1.0.0-rc.0...v1.0.0-rc.1) - 2025-05-26
 
 ### Other
