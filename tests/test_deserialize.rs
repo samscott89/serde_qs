@@ -1473,3 +1473,28 @@ fn suggests_form_encoding() {
         "unknown field `data[a]`, expected `data`\nInvalid field contains an encoded bracket -- consider using form encoding mode",
     );
 }
+
+#[test]
+fn boolean_values() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        #[serde(default)]
+        a: bool,
+    }
+
+    // Test various boolean representations
+    deserialize_test("a=true", &Query { a: true });
+    deserialize_test("a=false", &Query { a: false });
+    deserialize_test("a", &Query { a: true });
+    deserialize_test("", &Query { a: false });
+}
+
+#[test]
+fn empty_values() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        a: String,
+    }
+
+    deserialize_test("a", &Query { a: "".to_string() });
+}

@@ -365,13 +365,16 @@ fn get_last_string_value<'a>(seq: &mut Vec<ParsedValue<'a>>) -> Result<Cow<'a, [
         ));
     };
 
-    if let ParsedValue::String(s) = last {
-        Ok(s)
-    } else {
-        Err(Error::custom(
+    match last {
+        ParsedValue::String(s) => Ok(s),
+        ParsedValue::NoValue | ParsedValue::Null => {
+            // if we have no value, we can just return an empty string
+            Ok(Cow::Borrowed(b""))
+        }
+        _ => Err(Error::custom(
             format!("expected a string, found {:?}", last),
             &seq,
-        ))
+        )),
     }
 }
 
@@ -731,13 +734,31 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
         }
     }
 
+    fn deserialize_bool<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        match self.0 {
+            ParsedValue::String(s) => {
+                let deserializer = StringParsingDeserializer::new(s)?;
+                deserializer.deserialize_bool(visitor)
+            }
+            ParsedValue::Sequence(mut seq) => {
+                let last_value = get_last_string_value(&mut seq)?;
+                StringParsingDeserializer::new(last_value)?.deserialize_bool(visitor)
+            }
+            // if the field is _present_ we'll treat it as a boolean true
+            ParsedValue::Null | ParsedValue::NoValue => visitor.visit_bool(true),
+            _ => self.deserialize_any(visitor),
+        }
+    }
+
     forward_to_deserialize_any! {
         char
         identifier
     }
 
     forward_to_string_parser! {
-        bool => deserialize_bool,
         u8 => deserialize_u8,
         u16 => deserialize_u16,
         u32 => deserialize_u32,
