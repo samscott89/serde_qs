@@ -7,8 +7,12 @@ extern crate serde_derive;
 extern crate axum_framework as axum;
 extern crate serde_qs as qs;
 
-use axum::{extract::FromRequestParts, http::StatusCode, response::IntoResponse};
-use qs::axum::{OptionalQsQuery, QsQuery, QsQueryConfig, QsQueryRejection};
+use axum::{
+    extract::{FromRequest, FromRequestParts},
+    http::StatusCode,
+    response::IntoResponse,
+};
+use qs::axum::{QsForm, QsQuery, QsQueryConfig, QsQueryRejection};
 use serde::de::Error;
 
 fn from_str<'de, D, S>(deserializer: D) -> Result<S, D::Error>
@@ -142,7 +146,7 @@ fn test_optional_query_none() {
             .unwrap();
         let (mut req_parts, _) = req.into_parts();
 
-        let OptionalQsQuery(s) = OptionalQsQuery::<Query>::from_request_parts(&mut req_parts, &())
+        let QsQuery(s) = QsQuery::<Option<Query>>::from_request_parts(&mut req_parts, &())
             .await
             .unwrap();
 
@@ -160,7 +164,7 @@ fn test_optional_query_some() {
             .unwrap();
 
         let (mut req_parts, _) = req.into_parts();
-        let OptionalQsQuery(s) = OptionalQsQuery::<Query>::from_request_parts(&mut req_parts, &())
+        let QsQuery(s) = QsQuery::<Option<Query>>::from_request_parts(&mut req_parts, &())
             .await
             .unwrap();
 
@@ -170,5 +174,63 @@ fn test_optional_query_some() {
         assert_eq!(query.common.limit, 100);
         assert_eq!(query.common.offset, 50);
         assert!(query.common.remaining);
+    })
+}
+
+#[test]
+fn test_qs_form() {
+    futures::executor::block_on(async {
+        let req = axum::http::Request::builder()
+            .uri("/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true")
+            .body(Default::default())
+            .unwrap();
+
+        let s = QsForm::<Query>::from_request(req, &()).await.unwrap();
+        assert_eq!(s.foo, 1);
+        assert_eq!(s.bars, vec![3]);
+        assert_eq!(s.common.limit, 100);
+        assert_eq!(s.common.offset, 50);
+        assert!(s.common.remaining);
+    })
+}
+
+#[test]
+fn test_qs_form_post() {
+    futures::executor::block_on(async {
+        let req = axum::http::Request::builder()
+            .uri("/test")
+            .method("POST")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body("foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true".into())
+            .unwrap();
+
+        let s = QsForm::<Query>::from_request(req, &()).await.unwrap();
+        assert_eq!(s.foo, 1);
+        assert_eq!(s.bars, vec![3]);
+        assert_eq!(s.common.limit, 100);
+        assert_eq!(s.common.offset, 50);
+        assert!(s.common.remaining);
+    })
+}
+
+#[test]
+fn test_qs_form_post_querystring_encoded() {
+    futures::executor::block_on(async {
+        let req = axum::http::Request::builder()
+            .extension(
+                QsQueryConfig::new().config(serde_qs::Config::new().use_form_encoding(false)),
+            )
+            .uri("/test")
+            .method("POST")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body("foo=1&bars[0]=3&limit=100&offset=50&remaining=true".into())
+            .unwrap();
+
+        let s = QsForm::<Query>::from_request(req, &()).await.unwrap();
+        assert_eq!(s.foo, 1);
+        assert_eq!(s.bars, vec![3]);
+        assert_eq!(s.common.limit, 100);
+        assert_eq!(s.common.offset, 50);
+        assert!(s.common.remaining);
     })
 }

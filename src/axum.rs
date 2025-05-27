@@ -9,13 +9,13 @@ use std::sync::Arc;
 use crate::error::Error as QsError;
 
 use axum::{
-    extract::{Extension, FromRequestParts},
+    body::Body,
+    extract::{Extension, FromRequest, FromRequestParts, RawForm, Request},
     http::StatusCode,
     response::{IntoResponse, Response},
     BoxError, Error,
 };
 
-#[derive(Clone, Copy, Default)]
 /// Extract typed information from from the request's query.
 ///
 /// ## Example
@@ -45,27 +45,7 @@ use axum::{
 ///     let app = Router::<()>::new()
 ///         .route("/users", get(filter_users));
 /// }
-pub struct QsQuery<T>(pub T);
-
-impl<T> std::ops::Deref for QsQuery<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T: std::fmt::Display> std::fmt::Display for QsQuery<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl<T: std::fmt::Debug> std::fmt::Debug for QsQuery<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
+pub use crate::web::QsQuery;
 
 impl<T, S> FromRequestParts<S> for QsQuery<T>
 where
@@ -78,9 +58,9 @@ where
         parts: &mut axum::http::request::Parts,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
-        let Extension(qs_config) = Extension::<QsQueryConfig>::from_request_parts(parts, state)
+        let qs_config = Extension::<QsQueryConfig>::from_request_parts(parts, state)
             .await
-            .unwrap_or_else(|_| Extension(QsQueryConfig::default()));
+            .map_or_else(|_| DEFAULT_QUERY_CONFIG.clone(), |ext| ext.0);
         let error_handler = qs_config.error_handler.clone();
         let query = parts.uri.query().unwrap_or_default();
         match qs_config.config.deserialize_str::<T>(query) {
@@ -93,15 +73,20 @@ where
     }
 }
 
-/// Extractor that differentiates between the absence and presence of the query string
-/// using `Option<T>`. Absence of query string encoded as `None`. Otherwise, it behaves
-/// identical to the `QsQuery`.
+/// Extract typed information from from the request's formdata.
+///
+/// For a `GET` request, this will extract the query string as form data.
+/// Otherwise, it will extract the body of the request as form data.
+///
+/// By default this will use the `use_form_encoding` option from `crate::Config`.
+/// If you want to use a different configuration, you can set it using
+/// `QsQueryConfig` in your router.
 ///
 /// ## Example
 ///
 /// ```rust
 /// # extern crate axum_framework as axum;
-/// use serde_qs::axum::OptionalQsQuery;
+/// use serde_qs::axum::QsQuery;
 /// use serde_qs::Config;
 /// use axum::{response::IntoResponse, routing::get, Router, body::Body};
 ///
@@ -111,67 +96,45 @@ where
 /// }
 ///
 /// async fn filter_users(
-///     OptionalQsQuery(info): OptionalQsQuery<UsersFilter>
+///     QsQuery(info): QsQuery<UsersFilter>
 /// ) -> impl IntoResponse {
-///     match info {
-///         Some(info) => todo!("Select users based on query string"),
-///         None => { todo!("No query string provided")}
-///     }
+///     info.id
+///         .iter()
+///         .map(|i| i.to_string())
+///         .collect::<Vec<String>>()
+///         .join(", ")
 /// }
 ///
 /// fn main() {
 ///     let app = Router::<()>::new()
 ///         .route("/users", get(filter_users));
 /// }
-#[derive(Clone, Copy, Default)]
-pub struct OptionalQsQuery<T>(pub Option<T>);
+pub use crate::web::QsForm;
 
-impl<T> std::ops::Deref for OptionalQsQuery<T> {
-    type Target = Option<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T> std::ops::DerefMut for OptionalQsQuery<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl<T: std::fmt::Debug> std::fmt::Debug for OptionalQsQuery<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl<T, S> FromRequestParts<S> for OptionalQsQuery<T>
+impl<T, S> FromRequest<S> for QsForm<T>
 where
     T: serde::de::DeserializeOwned,
     S: Send + Sync,
 {
     type Rejection = QsQueryRejection;
 
-    async fn from_request_parts(
-        parts: &mut axum::http::request::Parts,
-        state: &S,
-    ) -> Result<Self, Self::Rejection> {
-        let Extension(qs_config) = Extension::<QsQueryConfig>::from_request_parts(parts, state)
+    async fn from_request(request: Request<Body>, state: &S) -> Result<Self, Self::Rejection> {
+        let (mut parts, body) = request.into_parts();
+        let qs_config = Extension::<QsQueryConfig>::from_request_parts(&mut parts, state)
             .await
-            .unwrap_or_else(|_| Extension(QsQueryConfig::default()));
-        if let Some(query) = parts.uri.query() {
-            let error_handler = qs_config.error_handler.clone();
-            qs_config
-                .config
-                .deserialize_str::<T>(query)
-                .map(|query| OptionalQsQuery(Some(query)))
-                .map_err(|err| match error_handler {
-                    Some(handler) => handler(err),
-                    None => QsQueryRejection::new(err, StatusCode::BAD_REQUEST),
-                })
-        } else {
-            Ok(OptionalQsQuery(None))
+            .map_or_else(|_| DEFAULT_FORM_CONFIG.clone(), |ext| ext.0);
+        let error_handler = qs_config.error_handler.clone();
+        // extract the form data from the request
+        let request = Request::from_parts(parts, body);
+        let RawForm(form_data) = RawForm::from_request(request, state)
+            .await
+            .map_err(|err| QsQueryRejection::new(err, StatusCode::BAD_REQUEST))?;
+        match qs_config.config.deserialize_bytes::<T>(&form_data) {
+            Ok(value) => Ok(QsForm(value)),
+            Err(err) => match error_handler {
+                Some(handler) => Err((handler)(err)),
+                None => Err(QsQueryRejection::new(err, StatusCode::BAD_REQUEST)),
+            },
         }
     }
 }
@@ -269,6 +232,16 @@ pub struct QsQueryConfig {
     config: crate::Config,
     error_handler: Option<Arc<dyn Fn(QsError) -> QsQueryRejection + Send + Sync>>,
 }
+
+static DEFAULT_QUERY_CONFIG: QsQueryConfig = QsQueryConfig {
+    error_handler: None,
+    config: crate::Config::new(),
+};
+
+static DEFAULT_FORM_CONFIG: QsQueryConfig = QsQueryConfig {
+    error_handler: None,
+    config: crate::Config::new().use_form_encoding(true),
+};
 
 impl QsQueryConfig {
     /// Create new config wrapper

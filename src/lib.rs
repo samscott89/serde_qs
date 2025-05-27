@@ -337,6 +337,9 @@ pub mod axum;
 #[cfg(feature = "warp")]
 pub mod warp;
 
+#[cfg(any(feature = "actix4", feature = "actix3", feature = "axum"))]
+pub mod web;
+
 #[cfg(feature = "indexmap")]
 mod indexmap {
     use std::borrow::Borrow;
