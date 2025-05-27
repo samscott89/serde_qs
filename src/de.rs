@@ -168,10 +168,10 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
     {
         // we'll prefer to use the field order if it exists
         if let Some(field_order) = &mut self.field_order {
-            for (idx, field) in field_order.iter().enumerate() {
+            while let Some((field, rem)) = field_order.split_first() {
+                *field_order = rem;
                 let field_key = (*field).into();
                 if let Some(value) = crate::map::remove(self.parsed, &field_key) {
-                    *field_order = &field_order[idx + 1..];
                     self.popped_value = Some(value);
                     return seed
                         .deserialize(StringParsingDeserializer::new_str(field))

@@ -1028,11 +1028,33 @@ fn deserialize_serde_json_value() {
 
     assert_eq!(
         serde_qs::from_str::<serde_json::Value>("hello=10").unwrap(),
-        value
+        serde_json::json!({ "hello": "10" })
     );
     assert_eq!(
         serde_qs::from_str::<serde_json::Value>("").unwrap(),
         serde_json::Value::Null,
+    );
+    assert_eq!(
+        serde_qs::from_str::<serde_json::Value>("foo").unwrap(),
+        serde_json::json!( { "foo": null })
+    );
+    assert_eq!(
+        serde_qs::from_str::<serde_json::Value>("foo=").unwrap(),
+        serde_json::json!( { "foo": serde_json::Value::String("".to_string()) })
+    );
+    assert_eq!(
+        serde_qs::from_str::<serde_json::Value>("[0]=foo&[1]=bar").unwrap(),
+        serde_json::Value::Array(vec![
+            serde_json::Value::String("foo".to_string()),
+            serde_json::Value::String("bar".to_string())
+        ]),
+    );
+    assert_eq!(
+        serde_qs::from_str::<serde_json::Value>("=foo&=bar").unwrap(),
+        serde_json::Value::Array(vec![
+            serde_json::Value::String("foo".to_string()),
+            serde_json::Value::String("bar".to_string())
+        ]),
     );
 }
 
@@ -1429,5 +1451,25 @@ fn int_key_parsing() {
     deserialize_test_err::<VecQuery<String>>(
         "a[x]=1&a[0]=2",
         "expected an integer index, found a string key `x`",
+    );
+}
+
+#[test]
+fn suggests_form_encoding() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    #[serde(deny_unknown_fields)]
+    struct Query {
+        data: Nested,
+    }
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Nested {
+        a: String,
+    }
+
+    // this is a common mistake when using querystring encoding
+    // so we suggest using form encoding instead
+    deserialize_test_err::<Query>(
+        "data%5Ba%5D=foo",
+        "unknown field `data[a]`, expected `data`\nInvalid field contains an encoded bracket -- consider using form encoding mode",
     );
 }
