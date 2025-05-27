@@ -1453,3 +1453,23 @@ fn int_key_parsing() {
         "expected an integer index, found a string key `x`",
     );
 }
+
+#[test]
+fn suggests_form_encoding() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    #[serde(deny_unknown_fields)]
+    struct Query {
+        data: Nested,
+    }
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Nested {
+        a: String,
+    }
+
+    // this is a common mistake when using querystring encoding
+    // so we suggest using form encoding instead
+    deserialize_test_err::<Query>(
+        "data%5Ba%5D=foo",
+        "unknown field `data[a]`, expected `data`\nInvalid field contains an encoded bracket -- consider using form encoding mode",
+    );
+}
