@@ -16,6 +16,16 @@ fn serialize_test_with_config<T: serde::Serialize>(data: &T, expected: &str, con
     assert_eq!(serialized, expected);
 }
 
+#[track_caller]
+fn serialize_test_with_config_err<T: serde::Serialize>(
+    data: &T,
+    expected_err: &str,
+    config: qs::Config,
+) {
+    let err = config.serialize_string(data).unwrap_err();
+    assert!(err.to_string().contains(expected_err), "got: {}", err);
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct Address {
     city: String,
@@ -285,4 +295,50 @@ fn formencoding() {
         "data%5B0%5D%5Ba%5D=1&data%5B0%5D%5Bb%5D=test%21&data%5B1%5D%5Ba%5D=2&data%5B1%5D%5Bb%5D=example%3A.",
         form_config,
     );
+}
+
+#[test]
+fn max_depth() {
+    use serde::Deserialize;
+    use serde::Serialize;
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct Nested {
+        a: u8,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        b: Vec<u8>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        c: Vec<Vec<u8>>,
+    }
+
+    let nested_none = Nested {
+        a: 1,
+        b: vec![],
+        c: vec![],
+    };
+    let nested_one = Nested {
+        a: 1,
+        b: vec![2, 3],
+        c: vec![],
+    };
+    let nested_two = Nested {
+        a: 1,
+        b: vec![2, 3],
+        c: vec![vec![4]],
+    };
+
+    let config_zero = qs::Config::new().max_depth(0);
+    let config_one = qs::Config::new().max_depth(1);
+    let config_two = qs::Config::new().max_depth(2);
+    serialize_test_with_config(&nested_none, "a=1", config_zero);
+    serialize_test_with_config(&nested_none, "a=1", config_one);
+    serialize_test_with_config(&nested_none, "a=1", config_two);
+
+    serialize_test_with_config_err(&nested_one, "Maximum serialization depth", config_zero);
+    serialize_test_with_config(&nested_one, "a=1&b[0]=2&b[1]=3", config_one);
+    serialize_test_with_config(&nested_one, "a=1&b[0]=2&b[1]=3", config_two);
+
+    serialize_test_with_config_err(&nested_two, "Maximum serialization depth", config_zero);
+    serialize_test_with_config_err(&nested_two, "Maximum serialization depth", config_one);
+    serialize_test_with_config(&nested_two, "a=1&b[0]=2&b[1]=3&c[0][0]=4", config_two);
 }

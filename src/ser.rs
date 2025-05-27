@@ -119,6 +119,9 @@ impl<W: Write> QsSerializer<W> {
     /// - Second key "name" becomes: `user[name]`
     /// - Third key "first" becomes: `user[name][first]`
     fn push_key(&mut self, newkey: &[u8]) -> Result<()> {
+        if self.key.len() > self.config.max_depth {
+            return Err(Error::MaxSerializationDepthExceeded(self.config.max_depth));
+        }
         let first_key_segment = self.key.is_empty();
 
         // estimate the required capacity based on
