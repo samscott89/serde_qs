@@ -1028,11 +1028,33 @@ fn deserialize_serde_json_value() {
 
     assert_eq!(
         serde_qs::from_str::<serde_json::Value>("hello=10").unwrap(),
-        value
+        serde_json::json!({ "hello": "10" })
     );
     assert_eq!(
         serde_qs::from_str::<serde_json::Value>("").unwrap(),
         serde_json::Value::Null,
+    );
+    assert_eq!(
+        serde_qs::from_str::<serde_json::Value>("foo").unwrap(),
+        serde_json::json!( { "foo": null })
+    );
+    assert_eq!(
+        serde_qs::from_str::<serde_json::Value>("foo=").unwrap(),
+        serde_json::json!( { "foo": serde_json::Value::String("".to_string()) })
+    );
+    assert_eq!(
+        serde_qs::from_str::<serde_json::Value>("[0]=foo&[1]=bar").unwrap(),
+        serde_json::Value::Array(vec![
+            serde_json::Value::String("foo".to_string()),
+            serde_json::Value::String("bar".to_string())
+        ]),
+    );
+    assert_eq!(
+        serde_qs::from_str::<serde_json::Value>("=foo&=bar").unwrap(),
+        serde_json::Value::Array(vec![
+            serde_json::Value::String("foo".to_string()),
+            serde_json::Value::String("bar".to_string())
+        ]),
     );
 }
 
