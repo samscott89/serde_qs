@@ -371,12 +371,10 @@ fn get_last_string_value<'a>(seq: &mut Vec<ParsedValue<'a>>) -> Result<Cow<'a, [
             // if we have no value, we can just return an empty string
             Ok(Cow::Borrowed(b""))
         }
-        _ => {
-            return Err(Error::custom(
-                format!("expected a string, found {:?}", last),
-                &seq,
-            ));
-        }
+        _ => Err(Error::custom(
+            format!("expected a string, found {:?}", last),
+            &seq,
+        )),
     }
 }
 
