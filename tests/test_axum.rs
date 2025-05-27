@@ -214,6 +214,23 @@ fn test_qs_form_post() {
 }
 
 #[test]
+fn test_qs_form_post_empty() {
+    futures::executor::block_on(async {
+        let req = axum::http::Request::builder()
+            .uri("/test")
+            .method("POST")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body("".into())
+            .unwrap();
+
+        let s = QsForm::<Option<Query>>::from_request(req, &())
+            .await
+            .unwrap();
+        assert!(s.is_none());
+    })
+}
+
+#[test]
 fn test_qs_form_post_querystring_encoded() {
     futures::executor::block_on(async {
         let req = axum::http::Request::builder()
