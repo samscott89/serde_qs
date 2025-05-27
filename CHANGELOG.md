@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-rc.3](https://github.com/samscott89/serde_qs/compare/v1.0.0-rc.2...v1.0.0-rc.3) - 2025-05-27
+
+### Other
+
+- Error when hitting serialization max depth ([#144](https://github.com/samscott89/serde_qs/pull/144))
+- Deserialize empty value as bool=true ([#142](https://github.com/samscott89/serde_qs/pull/142))
+
 ## [1.0.0-rc.2](https://github.com/samscott89/serde_qs/compare/v1.0.0-rc.1...v1.0.0-rc.2) - 2025-05-27
 
 ### Other
