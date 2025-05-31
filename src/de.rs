@@ -38,27 +38,28 @@
 //!
 //! ## Principles
 //!
+//! 1. First, always _try_ to deserialize into the type the caller expects.
 //!
+//!    For example, if they call `deserialize_u8` and we have a `String` value,
+//!    we'll try to parse the string into a `u8`.
 //!
-//! 1. If the format we are implementing has a direct representation for the
-//!    requested type, then we forward the call to `deserialize_any``.
-//!
-//!    For example, if we can represent all integer types i8 i16 i32 i64 and
-//!    they request an i8 and we have an i32 we should return the i32 do not try
-//!    and coerce the type.
-//!
-//! 2. If we cannot represent the type try coerce the value we have into the value
+//! 2. However, we'll draw the line at converting types that are fundamentally incompatible.
+//!    If we cannot represent the type try coerce the value we have into the value
 //!    they expect, and if we cant do that forward to `deserialize_any``
 //!
-//!    For example if we only have f64 as the only number type and they request an i32
-//!    we try convert our f64 into an i32 or if we don’t have a number type and numbers
-//!    are typically represented as strings then try parse the number from a string.
+//!    For example, if they call `deserialize_string` and we have a `Map`, we won't
+//!    try to convert the map into a string. Instead, we'll forward to
+//!    `visit_map` (via `deserialize_any`) which ensures that (a) if the Visitor
+//!    actually _can_ handle maps, it has an opportunity to do so, and (b)
+//!    otherwise, we'll get reasonable errors about the type mismatch.
 //!
-//! 3. The first two rules imply this, however for the case of being explicit:
-//!    Avoid returning errors from the deserializer at all costs.
-//!    Always forward to the visitor. Of course if the serialized content is invalid
-//!    then that is an acceptable error, but never return an error for mismatched type vs expectations.
-//!    (ie, they called deserialize_string and we have map just call `visit_map` instead of throwing an error.
+//! 3. Avoid returning errors from the deserializer at all costs.
+//!    Always forward to the visitor.
+//!
+//!    If the serialized content is invalid then that is an acceptable error,
+//!    but never return an error for mismatched type vs expectations.
+//!    We extend this to things like string parsing -- if we fail to parse it as
+//!    the expected type, we will just forward to `deserialize_any`.
 //!
 //!
 //! Thanks to [@TroyKomodo](https://github.com/TroyKomodo) for the suggestions!.
@@ -75,7 +76,7 @@ use parse::{Key, ParsedValue};
 use serde::de;
 use string_parser::StringParsingDeserializer;
 
-use std::{borrow::Cow, iter::FromIterator};
+use std::borrow::Cow;
 
 /// Deserializes a querystring from a `&[u8]`.
 ///
@@ -359,15 +360,24 @@ impl<'de, I: Iterator<Item = (Key<'de>, ParsedValue<'de>)>> de::SeqAccess<'de>
 }
 
 fn get_last_string_value<'a>(seq: &mut Vec<ParsedValue<'a>>) -> Option<Cow<'a, [u8]>> {
-    let last = seq.pop()?;
-
-    match last {
-        ParsedValue::String(s) => Some(s),
+    match seq.last()? {
         ParsedValue::NoValue | ParsedValue::Null => {
             // if we have no value, we can just return an empty string
             Some(Cow::Borrowed(b""))
         }
-        _ => None,
+        ParsedValue::String(_) => {
+            if let Some(ParsedValue::String(s)) = seq.pop() {
+                Some(s)
+            } else {
+                // unreachable, since we checked the last value above
+                None
+            }
+        }
+        _ => {
+            // if the last value is not a string, we cannot return it as a string
+            // so we just return None
+            None
+        }
     }
 }
 
@@ -376,12 +386,6 @@ macro_rules! forward_to_string_parser {
         $(
             fn $meth<V>(self, visitor: V) -> Result<V::Value> where V: de::Visitor<'de> {
                 let s = match self.0 {
-                    ParsedValue::String(ref s) if s.is_empty() => {
-                        return Err(Error::custom(
-                            format!("expected a `{}`, found an empty string", stringify!($ty)),
-                            &self.0
-                        ));
-                    }
                     ParsedValue::String(s) => {
                         s
                     }
@@ -415,6 +419,8 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
                 // scan the map to check if all keys are integers
                 // if so, we'll treat it as a sequence
                 if parsed.keys().all(|k| matches!(k, Key::Int(_))) {
+                    #[cfg(feature = "indexmap")]
+                    parsed.sort_unstable_keys();
                     visitor.visit_seq(OrderedSeq::new(parsed.into_iter()))
                 } else {
                     visitor.visit_map(MapDeserializer {
@@ -444,22 +450,13 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.0 {
-            #[cfg(feature = "indexmap")]
-            ParsedValue::Map(mut parsed) => {
-                // when using indexmap, we need to first sort the keys
-                // or they will be in insertion order
-                parsed.sort_unstable_keys();
-                visitor.visit_seq(OrderedSeq::new(parsed.into_iter()))
-            }
-            #[cfg(not(feature = "indexmap"))]
-            ParsedValue::Map(parsed) => visitor.visit_seq(OrderedSeq::new(parsed.into_iter())),
-            ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
+            ParsedValue::Null | ParsedValue::NoValue => visitor.visit_seq(Seq(std::iter::empty())),
             // if we have a single string key, but expect a sequence
             // we'll treat it as a sequence of one
+            // this helps with cases like `a=1` where we have unindexed keys and only a single value
             ParsedValue::String(s) => {
                 visitor.visit_seq(Seq(std::iter::once(ParsedValue::String(s))))
             }
-            ParsedValue::Null | ParsedValue::NoValue => visitor.visit_seq(Seq(std::iter::empty())),
             _ => self.deserialize_any(visitor),
         }
     }
@@ -498,12 +495,6 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     {
         let mut map = match self.0 {
             ParsedValue::Map(map) => map,
-            ParsedValue::Sequence(parsed_values) => parse::ParsedMap::from_iter(
-                fields
-                    .iter()
-                    .zip(parsed_values)
-                    .map(|(field, value)| (Key::String(Cow::Borrowed(field.as_bytes())), value)),
-            ),
             ParsedValue::Null | ParsedValue::NoValue => {
                 // if we have no value, we can just return an empty map
                 parse::ParsedMap::default()
@@ -535,6 +526,8 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     {
         match self.0 {
             ParsedValue::NoValue => visitor.visit_none(),
+            // `foo=` is explicitly used to represent a `Some` value
+            // where the inner value is empty
             ParsedValue::Null => visitor.visit_some(QsDeserializer(ParsedValue::NoValue)),
             _ => visitor.visit_some(self),
         }
@@ -544,7 +537,8 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        if matches!(self.0, ParsedValue::NoValue | ParsedValue::Null)
+        // we'll tolerate `x=` as a unit value
+        if matches!(self.0, ParsedValue::Null)
             || matches!(self.0, ParsedValue::String(ref s) if s.is_empty())
         {
             visitor.visit_unit()
@@ -561,13 +555,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        if matches!(self.0, ParsedValue::NoValue | ParsedValue::Null)
-            || matches!(self.0, ParsedValue::String(ref s) if s.is_empty())
-        {
-            visitor.visit_unit()
-        } else {
-            self.deserialize_any(visitor)
-        }
+        self.deserialize_unit(visitor)
     }
 
     fn deserialize_enum<V>(
@@ -614,6 +602,11 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
             ParsedValue::String(s) => {
                 // if we have a single string key, but expect a map
                 // we'll treat it as a map with one key
+                // this is for cases like `=foo` which we are currently using
+                // to represent flat data structures.
+                //
+                // This is not a great way to handle this. Would be preferable
+                // if simple String primitives has a different representation
                 let mut parsed = parse::ParsedMap::default();
                 parsed.insert(Key::String(Cow::Borrowed(b"")), ParsedValue::String(s));
                 visitor.visit_map(MapDeserializer {
