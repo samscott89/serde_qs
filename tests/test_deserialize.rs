@@ -1476,7 +1476,7 @@ fn int_key_parsing() {
     // but if we use a string key, it will error
     deserialize_test_err::<VecQuery<String>>(
         "a[x]=1&a[0]=2",
-        "expected an integer index, found a string key `x`",
+        "invalid type: map, expected a sequence",
     );
 }
 
