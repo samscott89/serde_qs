@@ -223,7 +223,10 @@ fn no_panic_on_parse_error() {
         vec: Vec<u32>,
     }
 
-    deserialize_test_err::<Query>("vec[]=a&vec[]=2", "invalid digit found in string");
+    deserialize_test_err::<Query>(
+        "vec[]=a&vec[]=2",
+        "invalid type: string \"a\", expected u32",
+    );
 }
 
 #[test]
@@ -1061,7 +1064,7 @@ fn deserialize_primitive_errors() {
 #[test]
 fn deserialize_into_tuple() {
     deserialize_test("=1&=2", &(1u8, 2u8));
-    deserialize_test_err::<(u8,)>("=1&=2", "expected a tuple of length 1, got length 2");
+    deserialize_test("=1&=2", &(1u8,));
 
     #[derive(Deserialize, Debug, PartialEq)]
     struct Tuple(u8, u8);
@@ -1069,7 +1072,7 @@ fn deserialize_into_tuple() {
     deserialize_test("=1&=2", &Tuple(1, 2));
     deserialize_test_err::<Tuple>(
         "=1",
-        "expected tuple struct `Tuple` of length 2, got length 1",
+        "invalid length 1, expected tuple struct Tuple with 2 elements",
     );
 }
 
@@ -1162,7 +1165,10 @@ fn nested_tuple() {
         },
     );
 
-    deserialize_test_err::<Query>("vec[0][0]=1", "expected a tuple of length 2, got length 1");
+    deserialize_test_err::<Query>(
+        "vec[0][0]=1",
+        "invalid length 1, expected a tuple of size 2",
+    );
 }
 
 #[test]
@@ -1397,6 +1403,31 @@ fn empty_keys() {
             b: "2".to_string(),
         },
     );
+
+    deserialize_test(
+        "something=aaa&foo&baz=1",
+        &HashMap::<String, String>::from([
+            ("something".to_string(), "aaa".to_string()),
+            ("foo".to_string(), "".to_string()),
+            ("baz".to_string(), "1".to_string()),
+        ]),
+    );
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Query2 {
+        something: String,
+        foo: Option<u8>,
+        baz: u32,
+    }
+
+    deserialize_test(
+        "something=aaa&foo&baz=1",
+        &Query2 {
+            something: "aaa".to_string(),
+            foo: None,
+            baz: 1,
+        },
+    );
 }
 
 #[test]
@@ -1415,7 +1446,7 @@ fn int_key_parsing() {
     );
 
     // errors if numbers are too larger
-    deserialize_test_err::<Query<u8>>("a[1000]=2", "number too large to fit in target type");
+    deserialize_test_err::<Query<u8>>("a[1000]=2", "invalid type: string \"1000\", expected u8");
 
     // Test that we can parse integer keys with leading zeros
     deserialize_test(

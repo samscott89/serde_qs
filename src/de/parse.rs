@@ -106,19 +106,6 @@ pub enum ParsedValue<'qs> {
     Uninitialized,
 }
 
-impl ParsedValue<'_> {
-    pub fn type_name(&self) -> &'static str {
-        match self {
-            ParsedValue::Map(_) => "Map",
-            ParsedValue::Sequence(_) => "Sequence",
-            ParsedValue::String(_) => "String",
-            ParsedValue::Null => "Null",
-            ParsedValue::NoValue => "NoValue",
-            ParsedValue::Uninitialized => "Uninitialized",
-        }
-    }
-}
-
 impl fmt::Debug for ParsedValue<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -319,13 +306,6 @@ impl<'qs> Parser<'qs> {
                     // first get the first segment of the key
                     // and parse the rest of the key
                     let key_start = self.acc.0;
-                    // let root_key = self.collect_key()?.unwrap_or_else(Key::empty_key);
-                    // let root_map = expect_map(root, self.index)?;
-                    // let node = root_map
-                    //     .entry(root_key)
-                    //     .or_insert(ParsedValue::Uninitialized);
-                    // // parse the key and insert it into the map
-                    // self.parse_nested_key(node, 0, key_start)?;
                     let node = if let Some(root_key) = self.collect_key()? {
                         let root_map = expect_map(root, self.index)?;
                         root_map
@@ -615,13 +595,10 @@ fn expect_map<'qs, 'a>(
 
 #[cfg(test)]
 mod test {
-    use std::{borrow::Cow, iter::FromIterator};
-
-    use crate::Config;
-
     use super::{parse, ParsedMap, ParsedValue};
-
+    use crate::Config;
     use pretty_assertions::assert_eq;
+    use std::{borrow::Cow, iter::FromIterator};
 
     type Map<'a> = super::ParsedMap<'a>;
 
