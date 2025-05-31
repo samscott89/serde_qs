@@ -709,8 +709,13 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
                 deserializer.deserialize_bool(visitor)
             }
             ParsedValue::Sequence(mut seq) => {
-                let last_value = get_last_string_value(&mut seq)?;
-                StringParsingDeserializer::new(last_value)?.deserialize_bool(visitor)
+                if let Some(last_value) = get_last_string_value(&mut seq) {
+                    StringParsingDeserializer::new(last_value)?.deserialize_bool(visitor)
+                } else {
+                    // if we have a sequence, but the last value is not a string,
+                    // we'll just forward to deserialize_any
+                    return Self(ParsedValue::Sequence(seq)).deserialize_any(visitor);
+                }
             }
             // if the field is _present_ we'll treat it as a boolean true
             ParsedValue::Null | ParsedValue::NoValue => visitor.visit_bool(true),
