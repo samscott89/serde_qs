@@ -714,7 +714,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
                 } else {
                     // if we have a sequence, but the last value is not a string,
                     // we'll just forward to deserialize_any
-                    return Self(ParsedValue::Sequence(seq)).deserialize_any(visitor);
+                    Self(ParsedValue::Sequence(seq)).deserialize_any(visitor)
                 }
             }
             // if the field is _present_ we'll treat it as a boolean true
