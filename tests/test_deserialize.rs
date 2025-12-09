@@ -681,11 +681,6 @@ fn formencoded_decoding() {
         &Query2 { vec: vec![1, 2] },
         config,
     );
-
-    #[derive(Debug, Serialize, Deserialize, PartialEq)]
-    struct StringQueryParam {
-        field: String,
-    }
 }
 
 #[test]
