@@ -1,0 +1,6 @@
+---
+source: tests/test_roundtrip.rs
+description: "Query { e: B }"
+snapshot_kind: text
+---
+e=B

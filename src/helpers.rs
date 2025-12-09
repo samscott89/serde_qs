@@ -1,5 +1,73 @@
 //! A few common utility functions for encoding and decoding query strings
 
+/// Serialize/deserialize that forces the type to be de/serialized
+/// as a flat value, rather than using nested keys.
+///
+/// Primary use case is for serializing an enum of unit variants
+/// as simple values.
+///
+/// ## Example
+///
+/// ```
+/// use serde::{Deserialize, Serialize};
+///
+/// #[derive(Debug, PartialEq, Deserialize, Serialize)]
+/// enum Direction {
+///     Left,
+///     Right,
+/// }
+///
+/// #[derive(Debug, PartialEq, Deserialize, Serialize)]
+/// struct Query {
+///     #[serde(with = "serde_qs::helpers::flat_value")]
+///     direction: Direction,
+/// }
+///
+/// # fn main(){
+/// let query = Query { direction: Direction::Left };
+/// let serialized = serde_qs::to_string(&query).unwrap();
+/// assert_eq!(
+///     serialized,
+///    "direction=Left"
+/// );
+/// assert_eq!(
+///     serde_qs::from_str::<Query>(&serialized).unwrap(),
+///     query
+/// );
+/// # }
+/// ```
+pub mod flat_value {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    const fn flat_config() -> crate::Config {
+        crate::Config::new().max_depth(0)
+    }
+
+    pub fn serialize<S, T>(unit_enum: T, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        T: Serialize,
+    {
+        // serialize unit enum to a string
+        let s = flat_config()
+            .serialize_string(&unit_enum)
+            .map_err(|e| serde::ser::Error::custom(e.to_string()))?;
+        serializer.serialize_str(&s)
+    }
+
+    pub fn deserialize<'de, D, T>(deserialize: D) -> Result<T, D::Error>
+    where
+        D: Deserializer<'de>,
+        T: Deserialize<'de>,
+    {
+        // deserialize to a string -- then deserialize to the enum
+        let s: &'de str = Deserialize::deserialize(deserialize)?;
+        flat_config()
+            .deserialize_str(s)
+            .map_err(|e| serde::de::Error::custom(e.to_string()))
+    }
+}
+
 /// Generic serialize/deserialize functions for different delimiters
 ///
 /// ## Example

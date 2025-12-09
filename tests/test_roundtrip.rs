@@ -1542,3 +1542,23 @@ fn toplevel_primitives() {
     roundtrip_test!(Wrapper('c'));
     roundtrip_test!(Wrapper(String::from("hello world")));
 }
+
+#[test]
+fn enum_choice() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    enum TestEnum {
+        A,
+        B,
+        C,
+        D,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query {
+        #[serde(with = "serde_qs::helpers::flat_value")]
+        e: TestEnum,
+    }
+
+    roundtrip_test!(Query { e: TestEnum::A });
+    roundtrip_test!(Query { e: TestEnum::B });
+}

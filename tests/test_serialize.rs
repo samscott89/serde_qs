@@ -119,6 +119,25 @@ fn serialize_enum() {
 }
 
 #[test]
+fn serialize_enum_choice() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    enum TestEnum {
+        A,
+        B,
+        C,
+        D,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Query {
+        #[serde(with = "serde_qs::helpers::flat_value")]
+        e: TestEnum,
+    }
+
+    serialize_test(&Query { e: TestEnum::A }, "e=A");
+}
+
+#[test]
 fn serialize_flatten() {
     #[derive(Deserialize, Serialize, Debug, PartialEq)]
     struct Query {
