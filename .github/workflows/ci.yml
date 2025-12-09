@@ -49,8 +49,8 @@ jobs:
 
         # test frameworks for specific MSRVs (where known)
         include:
-        # axum 0.8 has a MSRV of 1.75.0
-        - rust: 1.75.0
+        # axum 0.8 has a MSRV of 1.78.0
+        - rust: 1.78.0
           feature: axum
 
         # exclude frameworks that have a different/unknown MSRV
