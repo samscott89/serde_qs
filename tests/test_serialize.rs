@@ -97,7 +97,7 @@ fn serialize_enum() {
         e: TestEnum,
     }
 
-    serialize_test(&Query { e: TestEnum::A }, "e[a]");
+    serialize_test(&Query { e: TestEnum::A }, "e=a");
     serialize_test(
         &Query {
             e: TestEnum::B(true),

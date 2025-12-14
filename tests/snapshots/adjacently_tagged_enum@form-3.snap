@@ -1,7 +1,8 @@
 ---
 source: tests/test_roundtrip.rs
 description: "Tuple(3, 4)"
+snapshot_kind: text
 ---
-t%5BTuple%5D&
+t=Tuple&
 c%5B0%5D=3&
 c%5B1%5D=4
