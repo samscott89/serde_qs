@@ -10,7 +10,7 @@ name = "serde_qs"
 repository = "https://github.com/samscott89/serde_qs"
 readme = "README.md"
 version = "1.0.0-rc.3"
-rust-version = "1.68"
+rust-version = "1.82"
 
 [dependencies]
 actix-web3 = { version = "3.3", optional = true, package = "actix-web", default-features = false }
