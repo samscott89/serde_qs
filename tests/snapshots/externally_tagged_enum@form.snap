@@ -1,5 +1,6 @@
 ---
 source: tests/test_roundtrip.rs
 description: Unit
+snapshot_kind: text
 ---
-Unit
+=Unit

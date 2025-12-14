@@ -1,6 +1,7 @@
 ---
 source: tests/test_roundtrip.rs
 description: "Newtype(\"adjacent\")"
+snapshot_kind: text
 ---
-t%5BNewtype%5D&
+t=Newtype&
 c=adjacent

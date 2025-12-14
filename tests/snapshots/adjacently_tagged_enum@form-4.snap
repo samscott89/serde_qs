@@ -1,7 +1,8 @@
 ---
 source: tests/test_roundtrip.rs
 description: "Struct { name: \"item\", count: 42 }"
+snapshot_kind: text
 ---
-t%5BStruct%5D&
+t=Struct&
 c%5Bname%5D=item&
 c%5Bcount%5D=42

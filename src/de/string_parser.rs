@@ -51,7 +51,11 @@ macro_rules! deserialize_primitive {
         {
             match self.value.parse::<$ty>() {
                 Ok(val) => visitor.$visit_method(val),
-                Err(e) => Err(de::Error::custom(e)),
+                Err(_) => {
+                    // if we fail to parse the value as the requested type,
+                    // we'll just pass it through as a string
+                    self.deserialize_any(visitor)
+                }
             }
         }
     };

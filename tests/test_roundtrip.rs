@@ -290,7 +290,7 @@ fn vector_formats() {
     let err = vector_test(&data, serde_qs::ArrayFormat::Unindexed).unwrap_err();
     assert!(
         err.to_string()
-            .contains("expected an integer index, found a string key `a`"),
+            .contains("invalid type: map, expected a sequence"),
         "got: {}",
         err
     );

@@ -167,40 +167,6 @@ impl<W: Write> QsSerializer<W> {
         Ok(())
     }
 
-    /// Writes a key directly to output without adding to the stack.
-    ///
-    /// This is an optimization for leaf values where we know there won't be
-    /// any further nesting. It avoids the allocation of pushing to the key stack
-    /// and immediately writes the full key path to the output.
-    fn write_key(&mut self, newkey: &[u8]) -> Result<()> {
-        if self.key.is_empty() {
-            if self.first_kv {
-                self.first_kv = false;
-            } else {
-                self.writer.write_all(b"&")?;
-            }
-            for encoded in encode(newkey, self.config.use_form_encoding) {
-                self.writer.write_all(&encoded)?;
-            }
-        } else {
-            self.write_key_stack()?;
-            if self.config.use_form_encoding {
-                self.writer.write_all(b"%5B")?;
-            } else {
-                self.writer.write_all(b"[")?;
-            }
-            for encoded in encode(newkey, self.config.use_form_encoding) {
-                self.writer.write_all(&encoded)?;
-            }
-            if self.config.use_form_encoding {
-                self.writer.write_all(b"%5D")?;
-            } else {
-                self.writer.write_all(b"]")?;
-            }
-        }
-        Ok(())
-    }
-
     fn write_key_stack(&mut self) -> Result<()> {
         if self.key.is_empty() {
             // this is the case when we used `write_key_out`
@@ -328,7 +294,7 @@ impl<'a, W: Write> ser::Serializer for &'a mut QsSerializer<W> {
         _variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok> {
-        self.write_key(variant.as_bytes())?;
+        self.write_value(variant.as_bytes())?;
         Ok(())
     }
 
