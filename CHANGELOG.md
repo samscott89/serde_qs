@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.0-rc.4](https://github.com/samscott89/serde_qs/compare/v1.0.0-rc.3...v1.0.0-rc.4) - 2025-12-14
+
+### Other
+
+- Bump warp ([#156](https://github.com/samscott89/serde_qs/pull/156))
+- Update deserialization logic + add principles. ([#147](https://github.com/samscott89/serde_qs/pull/147))
+- Bump MSRV + add profiling examples ([#154](https://github.com/samscott89/serde_qs/pull/154))
+
 ## [1.0.0-rc.3](https://github.com/samscott89/serde_qs/compare/v1.0.0-rc.2...v1.0.0-rc.3) - 2025-05-27
 
 ### Other
