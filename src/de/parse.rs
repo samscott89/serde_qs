@@ -114,7 +114,7 @@ impl fmt::Debug for ParsedValue<'_> {
             ParsedValue::String(s) => write!(f, "String({})", String::from_utf8_lossy(s)),
             ParsedValue::Null => write!(f, "Null"),
             ParsedValue::NoValue => write!(f, "NoValue"),
-            ParsedValue::Uninitialized => write!(f, "Unintialized"),
+            ParsedValue::Uninitialized => write!(f, "Uninitialized"),
         }
     }
 }
@@ -504,7 +504,7 @@ impl<'qs> Parser<'qs> {
                 return Ok(());
             }
             ParsedValue::String(_) => {
-                // we'll support mutliple values for the same key
+                // we'll support multiple values for the same key
                 // by converting the existing value into a sequence
                 // and pushing the new value into it
                 // later we'll handle this case by taking the last value of
