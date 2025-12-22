@@ -25,7 +25,7 @@ pub enum Error {
     #[error("unsupported type for serialization")]
     Unsupported,
 
-    /// Error proessing UTF-8 for a `String`
+    /// Error processing UTF-8 for a `String`
     #[error(transparent)]
     FromUtf8(#[from] string::FromUtf8Error),
 

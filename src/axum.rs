@@ -16,7 +16,7 @@ use axum::{
     BoxError, Error,
 };
 
-/// Extract typed information from from the request's query.
+/// Extract typed information from the request's query.
 ///
 /// ## Example
 ///
@@ -73,7 +73,7 @@ where
     }
 }
 
-/// Extract typed information from from the request's formdata.
+/// Extract typed information from the request's formdata.
 ///
 /// For a `GET` request, this will extract the query string as form data.
 /// Otherwise, it will extract the body of the request as form data.

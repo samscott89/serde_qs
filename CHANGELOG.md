@@ -39,7 +39,7 @@ This release constitutes an full, incremental rewrite of v0.15 (the core of whic
 
 The rewrite:
 - addresses numerous existing bugs and feature requests
-- expands support for many more tyype
+- expands support for many more types
 - ensures most types roundtrip (ser -> de) correctly, with an extensive test suite to check
 - implements numerous performance optimizations, resulting in ~3x speedup and times generally in the sub-microsecond range.
 - simplifies a ton of the internal code, removing unnecessary de/serialization abstractions

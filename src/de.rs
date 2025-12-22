@@ -44,8 +44,8 @@
 //!    we'll try to parse the string into a `u8`.
 //!
 //! 2. However, we'll draw the line at converting types that are fundamentally incompatible.
-//!    If we cannot represent the type try coerce the value we have into the value
-//!    they expect, and if we cant do that forward to `deserialize_any``
+//!    If we cannot represent the type and coerce the value we have into the value
+//!    they expect, and if we can't do that, forward to `deserialize_any`
 //!
 //!    For example, if they call `deserialize_string` and we have a `Map`, we won't
 //!    try to convert the map into a string. Instead, we'll forward to
