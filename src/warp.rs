@@ -11,7 +11,7 @@ use warp::{http::StatusCode, reject::Reject, Filter, Rejection, Reply};
 
 impl Reject for error::Error {}
 
-/// Extract typed information from from the request's query.
+/// Extract typed information from the request's query.
 ///
 /// ## Example
 ///
