@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.0-rc.5](https://github.com/samscott89/serde_qs/compare/v1.0.0-rc.4...v1.0.0-rc.5) - 2026-01-09
+
+### Other
+
+- fix typos and improve clarity in documentation comments ([#157](https://github.com/samscott89/serde_qs/pull/157))
+
 ## [1.0.0-rc.4](https://github.com/samscott89/serde_qs/compare/v1.0.0-rc.3...v1.0.0-rc.4) - 2025-12-14
 
 ### Other
