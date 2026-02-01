@@ -1,6 +1,6 @@
 [package]
 authors = ["Sam Scott <sam@osohq.com>"]
-edition = "2018"
+edition = "2021"
 categories = ["encoding", "web-programming"]
 description = "Querystrings for Serde"
 documentation = "https://docs.rs/serde_qs"
