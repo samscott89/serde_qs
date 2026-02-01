@@ -1,54 +1,100 @@
 use serde::de;
 
-use std::fmt::Display;
+use std::fmt::{self, Display};
 use std::io;
 use std::num;
 use std::str;
 use std::string;
 
 /// Error type for `serde_qs`.
-#[derive(thiserror::Error, Debug)]
+#[derive(Debug)]
 pub enum Error {
     /// Custom string-based error
-    #[error("{0}")]
     Custom(String),
 
-    /// Custom string-based error
-    #[error("Maximum serialization depth `{0}` exceeded")]
+    /// Maximum serialization depth exceeded
     MaxSerializationDepthExceeded(usize),
 
     /// Parse error at a specified position in the query string
-    #[error("parsing failed with error: '{0}' at position: {1}")]
     Parse(String, usize),
 
     /// Unsupported type that `serde_qs` can't serialize into a query string
-    #[error("unsupported type for serialization")]
     Unsupported,
 
     /// Error processing UTF-8 for a `String`
-    #[error(transparent)]
-    FromUtf8(#[from] string::FromUtf8Error),
+    FromUtf8(string::FromUtf8Error),
 
     /// I/O error
-    #[error(transparent)]
-    Io(#[from] io::Error),
+    Io(io::Error),
 
     /// Error parsing a number
-    #[error(transparent)]
-    ParseInt(#[from] num::ParseIntError),
+    ParseInt(num::ParseIntError),
 
     /// Error processing UTF-8 for a `str`
-    #[error(transparent)]
-    Utf8(#[from] str::Utf8Error),
+    Utf8(str::Utf8Error),
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::Custom(msg) => write!(f, "{}", msg),
+            Error::MaxSerializationDepthExceeded(depth) => {
+                write!(f, "Maximum serialization depth `{depth}` exceeded")
+            }
+            Error::Parse(msg, pos) => {
+                write!(f, "parsing failed with error: '{msg}' at position: {pos}")
+            }
+            Error::Unsupported => write!(f, "unsupported type for serialization"),
+            Error::FromUtf8(e) => write!(f, "{e}"),
+            Error::Io(e) => write!(f, "{e}"),
+            Error::ParseInt(e) => write!(f, "{e}"),
+            Error::Utf8(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::FromUtf8(e) => Some(e),
+            Error::Io(e) => Some(e),
+            Error::ParseInt(e) => Some(e),
+            Error::Utf8(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl From<string::FromUtf8Error> for Error {
+    fn from(e: string::FromUtf8Error) -> Self {
+        Error::FromUtf8(e)
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Self {
+        Error::Io(e)
+    }
+}
+
+impl From<num::ParseIntError> for Error {
+    fn from(e: num::ParseIntError) -> Self {
+        Error::ParseInt(e)
+    }
+}
+
+impl From<str::Utf8Error> for Error {
+    fn from(e: str::Utf8Error) -> Self {
+        Error::Utf8(e)
+    }
 }
 
 impl Error {
     /// Generate error to show top-level type cannot be deserialized.
     pub fn top_level(object: &'static str) -> Self {
         Error::Custom(format!(
-            "cannot deserialize {} at the top level.\
+            "cannot deserialize {object at the top level.\
              Try deserializing into a struct.",
-            object
         ))
     }
 
