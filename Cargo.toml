@@ -1,6 +1,6 @@
 [package]
 authors = ["Sam Scott <sam@osohq.com>"]
-edition = "2021"
+edition = "2024"
 categories = ["encoding", "web-programming"]
 description = "Querystrings for Serde"
 documentation = "https://docs.rs/serde_qs"
@@ -10,7 +10,7 @@ name = "serde_qs"
 repository = "https://github.com/samscott89/serde_qs"
 readme = "README.md"
 version = "1.0.0"
-rust-version = "1.82"
+rust-version = "1.85"
 
 [dependencies]
 actix-web3 = { version = "3.3", optional = true, package = "actix-web", default-features = false }
@@ -40,7 +40,7 @@ serde_bytes = "0.11"
 serde_derive = "1.0"
 serde_json = { version = "1.0" }
 serde_urlencoded = "0.7"
-serde_with = "2.0"
+serde_with = "3.0"
 warp-framework = { package = "warp", version = "0.4", default-features = false, features = [
     "test",
 ] }

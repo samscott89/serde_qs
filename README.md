@@ -39,7 +39,7 @@ This crate works with Cargo and can be found on
 serde_qs = "1.0"
 ```
 
-Minimum supported Rust version is 1.82
+Minimum supported Rust version is 1.85
 
 For older versions of Rust, `serde_qs` versions `<= 0.11` support Rust 1.36.
 
