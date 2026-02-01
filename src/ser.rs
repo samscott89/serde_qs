@@ -15,9 +15,7 @@ use std::str;
 /// Serializes a value into a querystring.
 ///
 /// ```
-/// # #[macro_use]
-/// # extern crate serde_derive;
-/// # extern crate serde_qs;
+/// # use serde::{Deserialize, Serialize};
 /// #[derive(Deserialize, Serialize)]
 /// struct Query {
 ///     name: String,
@@ -25,7 +23,6 @@ use std::str;
 ///     occupation: String,
 /// }
 ///
-/// # fn main(){
 /// let q =  Query {
 ///     name: "Alice".to_owned(),
 ///     age: 24,
@@ -36,7 +33,6 @@ use std::str;
 /// assert_eq!(
 ///     serde_qs::to_string(&q).unwrap(),
 ///     "name=Alice&age=24&occupation=Student");
-/// # }
 /// ```
 pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
     let config = crate::Config::default();
@@ -46,9 +42,7 @@ pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
 /// Serializes a value into a generic writer object.
 ///
 /// ```
-/// # #[macro_use]
-/// # extern crate serde_derive;
-/// # extern crate serde_qs;
+/// # use serde::{Deserialize, Serialize};
 /// #[derive(Deserialize, Serialize)]
 /// struct Query {
 ///     name: String,
@@ -56,7 +50,6 @@ pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
 ///     occupation: String,
 /// }
 ///
-/// # fn main(){
 /// let q =  Query {
 ///     name: "Alice".to_owned(),
 ///     age: 24,
@@ -68,7 +61,6 @@ pub fn to_string<T: ser::Serialize>(input: &T) -> Result<String> {
 /// assert_eq!(
 ///     String::from_utf8(buffer).unwrap(),
 ///     "name=Alice&age=24&occupation=Student");
-/// # }
 /// ```
 pub fn to_writer<T: ser::Serialize, W: Write>(input: &T, writer: &mut W) -> Result<()> {
     let config = crate::Config::default();

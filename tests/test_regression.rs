@@ -1,7 +1,4 @@
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_qs as qs;
+use serde::{Deserialize, Serialize};
 
 #[test]
 fn double_encoding_keys() {

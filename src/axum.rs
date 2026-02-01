@@ -21,7 +21,7 @@ use axum::{
 /// ## Example
 ///
 /// ```rust
-/// # extern crate axum_framework as axum;
+/// # use axum_framework as axum;
 /// use serde_qs::axum::QsQuery;
 /// use serde_qs::Config;
 /// use axum::{response::IntoResponse, routing::get, Router, body::Body};
@@ -85,7 +85,7 @@ where
 /// ## Example
 ///
 /// ```rust
-/// # extern crate axum_framework as axum;
+/// # use axum_framework as axum;
 /// use serde_qs::axum::QsQuery;
 /// use serde_qs::Config;
 /// use axum::{response::IntoResponse, routing::get, Router, body::Body};
@@ -192,7 +192,7 @@ impl std::error::Error for QsQueryRejection {
 /// ## Example
 ///
 /// ```rust
-/// # extern crate axum_framework as axum;
+/// # use axum_framework as axum;
 /// use serde_qs::axum::{QsQuery, QsQueryConfig, QsQueryRejection};
 /// use serde_qs::Config;
 /// use axum::{

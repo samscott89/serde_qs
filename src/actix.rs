@@ -54,12 +54,12 @@ impl ResponseError for QsError {
 /// ## Example
 ///
 /// ```rust
-/// # #[macro_use] extern crate serde_derive;
 /// # #[cfg(feature = "actix4")]
 /// # use actix_web4 as actix_web;
 /// # #[cfg(feature = "actix3")]
 /// # use actix_web3 as actix_web;
 /// use actix_web::{web, App, HttpResponse};
+/// use serde::Deserialize;
 /// use serde_qs::actix::QsQuery;
 ///
 /// #[derive(Deserialize)]
@@ -123,12 +123,12 @@ where
 /// ## Example
 ///
 /// ```rust
-/// # #[macro_use] extern crate serde_derive;
 /// # #[cfg(feature = "actix4")]
 /// # use actix_web4 as actix_web;
 /// # #[cfg(feature = "actix3")]
 /// # use actix_web3 as actix_web;
 /// use actix_web::{web, App, HttpResponse};
+/// use serde::Deserialize;
 /// use serde_qs::actix::QsForm;
 ///
 /// #[derive(Debug, Deserialize)]
@@ -203,12 +203,12 @@ type ActixErrorHandler = Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError 
 /// for both `QsQuery` and `QsForm` extractors.
 ///
 /// ```rust
-/// # #[macro_use] extern crate serde_derive;
 /// # #[cfg(feature = "actix4")]
 /// # use actix_web4 as actix_web;
 /// # #[cfg(feature = "actix3")]
 /// # use actix_web3 as actix_web;
 /// use actix_web::{error, web, App, FromRequest, HttpResponse};
+/// use serde::Deserialize;
 /// use serde_qs::actix::QsQuery;
 /// use serde_qs::Config as QsConfig;
 /// use serde_qs::actix::QsQueryConfig;

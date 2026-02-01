@@ -16,9 +16,7 @@
 //! ## Basic Usage
 //!
 //! ```
-//! #[macro_use]
-//! extern crate serde_derive;
-//! extern crate serde_qs as qs;
+//! use serde::{Deserialize, Serialize};
 //!
 //! #[derive(Debug, PartialEq, Deserialize, Serialize)]
 //! struct Address {
@@ -45,7 +43,7 @@
 //!     },
 //!     user_ids: vec![1, 2, 3, 4],
 //! };
-//! let rec_params: QueryParams = qs::from_str("\
+//! let rec_params: QueryParams = serde_qs::from_str("\
 //!     name=Acme&id=42&phone=12345&address[postcode]=12345&\
 //!     address[city]=Carrot+City&user_ids[0]=1&user_ids[1]=2&\
 //!     user_ids[2]=3&user_ids[3]=4")
@@ -228,12 +226,7 @@
 //! We suggest the following workaround:
 //!
 //! ```
-//! extern crate serde;
-//! #[macro_use]
-//! extern crate serde_derive;
-//! extern crate serde_qs as qs;
-//! extern crate serde_with;
-//!
+//! use serde::{Deserialize, Serialize};
 //! use serde_with::{serde_as, DisplayFromStr};
 //!
 //! #[derive(Deserialize, Serialize, Debug, PartialEq)]
@@ -257,7 +250,7 @@
 //! fn main() {
 //!     let params = "a=1&limit=100&offset=50&remaining=true";
 //!     let query = Query { a: 1, common: CommonParams { limit: 100, offset: 50, remaining: true } };
-//!     let rec_query: Result<Query, _> = qs::from_str(params);
+//!     let rec_query: Result<Query, _> = serde_qs::from_str(params);
 //!     assert_eq!(rec_query.unwrap(), query);
 //! }
 //! ```
@@ -290,9 +283,6 @@
 //!     .recover(serde_qs::warp::recover_fn);
 //! ```
 //!
-
-#[macro_use]
-extern crate serde;
 
 #[cfg(any(feature = "actix4", feature = "actix3"))]
 pub mod actix;

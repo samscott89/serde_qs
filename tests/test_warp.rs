@@ -1,13 +1,8 @@
 #![cfg(feature = "warp")]
 
-extern crate serde;
-
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_qs as qs;
-extern crate warp_framework as warp;
-
-use qs::Config as QsConfig;
+use serde::{Deserialize, Serialize};
+use serde_qs::Config as QsConfig;
+use warp_framework as warp;
 use serde::de::Error;
 use warp::{http::StatusCode, Filter};
 
@@ -41,9 +36,9 @@ struct CommonParams {
 #[test]
 fn test_default_error_handler() {
     futures::executor::block_on(async {
-        let filter = qs::warp::query::<Query>(QsConfig::default())
+        let filter = serde_qs::warp::query::<Query>(QsConfig::default())
             .map(|_| "")
-            .recover(qs::warp::recover_fn);
+            .recover(serde_qs::warp::recover_fn);
 
         let resp = warp::test::request().path("/test").reply(&filter).await;
 
@@ -54,7 +49,7 @@ fn test_default_error_handler() {
 #[test]
 fn test_composite_querystring_extractor() {
     futures::executor::block_on(async {
-        let filter = qs::warp::query::<Query>(QsConfig::default());
+        let filter = serde_qs::warp::query::<Query>(QsConfig::default());
         let s = warp::test::request()
             .path("/test?foo=1&bars[]=0&bars[]=1&limit=100&offset=50&remaining=true")
             .filter(&filter)
@@ -72,9 +67,9 @@ fn test_composite_querystring_extractor() {
 #[test]
 fn test_default_qs_config() {
     futures::executor::block_on(async {
-        let filter = qs::warp::query::<Query>(QsConfig::default())
+        let filter = serde_qs::warp::query::<Query>(QsConfig::default())
             .map(|_| "")
-            .recover(qs::warp::recover_fn);
+            .recover(serde_qs::warp::recover_fn);
 
         let resp = warp::test::request()
             .path("/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true")
@@ -88,7 +83,7 @@ fn test_default_qs_config() {
 #[test]
 fn test_custom_qs_config() {
     futures::executor::block_on(async {
-        let filter = qs::warp::query::<Query>(QsConfig::new().use_form_encoding(true));
+        let filter = serde_qs::warp::query::<Query>(QsConfig::new().use_form_encoding(true));
         let s = warp::test::request()
             .path("/test?foo=1&bars%5B%5D=3&limit=100&offset=50&remaining=true")
             .filter(&filter)

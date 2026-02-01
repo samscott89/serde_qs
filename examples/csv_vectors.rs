@@ -1,8 +1,5 @@
-extern crate csv;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_qs as qs;
+use serde::{Deserialize, Serialize};
+use serde_qs as qs;
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 struct Query {

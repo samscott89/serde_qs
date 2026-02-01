@@ -2,7 +2,7 @@
 //!
 //! Enable with the `warp` feature.
 
-extern crate warp_framework as warp;
+use warp_framework as warp;
 
 use crate::error;
 use serde::de;
@@ -16,8 +16,8 @@ impl Reject for error::Error {}
 /// ## Example
 ///
 /// ```rust
-/// # extern crate warp_framework as warp;
-/// # #[macro_use] extern crate serde_derive;
+/// # use warp_framework as warp;
+/// use serde::Deserialize;
 /// use warp::Filter;
 /// use serde_qs::Config;
 ///
