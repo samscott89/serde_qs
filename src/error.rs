@@ -93,7 +93,7 @@ impl Error {
     /// Generate error to show top-level type cannot be deserialized.
     pub fn top_level(object: &'static str) -> Self {
         Error::Custom(format!(
-            "cannot deserialize {object at the top level.\
+            "cannot deserialize {object} at the top level.\
              Try deserializing into a struct.",
         ))
     }

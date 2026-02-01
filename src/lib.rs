@@ -247,12 +247,10 @@
 //!     remaining: bool,
 //! }
 //!
-//! fn main() {
-//!     let params = "a=1&limit=100&offset=50&remaining=true";
-//!     let query = Query { a: 1, common: CommonParams { limit: 100, offset: 50, remaining: true } };
-//!     let rec_query: Result<Query, _> = serde_qs::from_str(params);
-//!     assert_eq!(rec_query.unwrap(), query);
-//! }
+//! let params = "a=1&limit=100&offset=50&remaining=true";
+//! let query = Query { a: 1, common: CommonParams { limit: 100, offset: 50, remaining: true } };
+//! let rec_query: Result<Query, _> = serde_qs::from_str(params);
+//! assert_eq!(rec_query.unwrap(), query);
 //! ```
 //!
 //! ## Use with `actix_web` extractors
