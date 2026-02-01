@@ -222,6 +222,8 @@ pub mod space_delimited {
 #[cfg(test)]
 mod test {
     use super::*;
+    use serde::{Deserialize, Serialize};
+
     #[test]
     fn test_empty() {
         #[derive(Debug, PartialEq, Deserialize, Serialize)]

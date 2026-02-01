@@ -16,9 +16,7 @@
 //! ## Basic Usage
 //!
 //! ```
-//! #[macro_use]
-//! extern crate serde_derive;
-//! extern crate serde_qs as qs;
+//! use serde::{Deserialize, Serialize};
 //!
 //! #[derive(Debug, PartialEq, Deserialize, Serialize)]
 //! struct Address {
@@ -45,7 +43,7 @@
 //!     },
 //!     user_ids: vec![1, 2, 3, 4],
 //! };
-//! let rec_params: QueryParams = qs::from_str("\
+//! let rec_params: QueryParams = serde_qs::from_str("\
 //!     name=Acme&id=42&phone=12345&address[postcode]=12345&\
 //!     address[city]=Carrot+City&user_ids[0]=1&user_ids[1]=2&\
 //!     user_ids[2]=3&user_ids[3]=4")
@@ -228,12 +226,7 @@
 //! We suggest the following workaround:
 //!
 //! ```
-//! extern crate serde;
-//! #[macro_use]
-//! extern crate serde_derive;
-//! extern crate serde_qs as qs;
-//! extern crate serde_with;
-//!
+//! use serde::{Deserialize, Serialize};
 //! use serde_with::{serde_as, DisplayFromStr};
 //!
 //! #[derive(Deserialize, Serialize, Debug, PartialEq)]
@@ -254,12 +247,10 @@
 //!     remaining: bool,
 //! }
 //!
-//! fn main() {
-//!     let params = "a=1&limit=100&offset=50&remaining=true";
-//!     let query = Query { a: 1, common: CommonParams { limit: 100, offset: 50, remaining: true } };
-//!     let rec_query: Result<Query, _> = qs::from_str(params);
-//!     assert_eq!(rec_query.unwrap(), query);
-//! }
+//! let params = "a=1&limit=100&offset=50&remaining=true";
+//! let query = Query { a: 1, common: CommonParams { limit: 100, offset: 50, remaining: true } };
+//! let rec_query: Result<Query, _> = serde_qs::from_str(params);
+//! assert_eq!(rec_query.unwrap(), query);
 //! ```
 //!
 //! ## Use with `actix_web` extractors
@@ -290,9 +281,6 @@
 //!     .recover(serde_qs::warp::recover_fn);
 //! ```
 //!
-
-#[macro_use]
-extern crate serde;
 
 #[cfg(any(feature = "actix4", feature = "actix3"))]
 pub mod actix;
@@ -329,7 +317,7 @@ pub use de::{from_bytes, from_str};
 
 pub use error::Error;
 #[doc(inline)]
-pub use ser::{to_string, to_writer, QsSerializer as Serializer};
+pub use ser::{QsSerializer as Serializer, to_string, to_writer};
 
 #[cfg(feature = "axum")]
 pub mod axum;
@@ -344,8 +332,8 @@ pub mod web;
 mod indexmap {
     use std::borrow::Borrow;
 
-    pub use indexmap::map::Entry;
     pub use indexmap::IndexMap as Map;
+    pub use indexmap::map::Entry;
 
     pub fn remove<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<V>
     where
@@ -366,8 +354,8 @@ pub(crate) use crate::indexmap as map;
 #[cfg(not(feature = "indexmap"))]
 mod btree_map {
     use std::borrow::Borrow;
-    pub use std::collections::btree_map::Entry;
     pub use std::collections::BTreeMap as Map;
+    pub use std::collections::btree_map::Entry;
 
     pub fn remove<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<V>
     where

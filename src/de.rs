@@ -68,12 +68,13 @@ mod parse;
 mod string_parser;
 
 use crate::{
-    error::{Error, Result},
     Config,
+    error::{Error, Result},
 };
 
 use parse::{Key, ParsedValue};
 use serde::de;
+use serde::forward_to_deserialize_any;
 use string_parser::StringParsingDeserializer;
 
 use std::borrow::Cow;
@@ -81,9 +82,7 @@ use std::borrow::Cow;
 /// Deserializes a querystring from a `&[u8]`.
 ///
 /// ```
-/// # #[macro_use]
-/// # extern crate serde_derive;
-/// # extern crate serde_qs;
+/// # use serde::{Deserialize, Serialize};
 /// #[derive(Debug, Deserialize, PartialEq, Serialize)]
 /// struct Query {
 ///     name: String,
@@ -91,7 +90,6 @@ use std::borrow::Cow;
 ///     occupation: String,
 /// }
 ///
-/// # fn main(){
 /// let q =  Query {
 ///     name: "Alice".to_owned(),
 ///     age: 24,
@@ -102,7 +100,6 @@ use std::borrow::Cow;
 ///     serde_qs::from_bytes::<Query>(
 ///         "name=Alice&age=24&occupation=Student".as_bytes()
 ///     ).unwrap(), q);
-/// # }
 /// ```
 pub fn from_bytes<'de, T: de::Deserialize<'de>>(input: &'de [u8]) -> Result<T> {
     Config::default().deserialize_bytes(input)
@@ -111,9 +108,7 @@ pub fn from_bytes<'de, T: de::Deserialize<'de>>(input: &'de [u8]) -> Result<T> {
 /// Deserializes a querystring from a `&str`.
 ///
 /// ```
-/// # #[macro_use]
-/// # extern crate serde_derive;
-/// # extern crate serde_qs;
+/// # use serde::{Deserialize, Serialize};
 /// #[derive(Debug, Deserialize, PartialEq, Serialize)]
 /// struct Query {
 ///     name: String,
@@ -121,7 +116,6 @@ pub fn from_bytes<'de, T: de::Deserialize<'de>>(input: &'de [u8]) -> Result<T> {
 ///     occupation: String,
 /// }
 ///
-/// # fn main(){
 /// let q =  Query {
 ///     name: "Alice".to_owned(),
 ///     age: 24,
@@ -131,7 +125,6 @@ pub fn from_bytes<'de, T: de::Deserialize<'de>>(input: &'de [u8]) -> Result<T> {
 /// assert_eq!(
 ///     serde_qs::from_str::<Query>("name=Alice&age=24&occupation=Student").unwrap(),
 ///     q);
-/// # }
 /// ```
 pub fn from_str<'de, T: de::Deserialize<'de>>(input: &'de str) -> Result<T> {
     from_bytes(input.as_bytes())

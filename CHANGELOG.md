@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0-rc.5](https://github.com/samscott89/serde_qs/compare/v1.0.0-rc.4...v1.0.0-rc.5) - 2026-01-09
+## [1.0.0](https://github.com/samscott89/serde_qs/compare/v1.0.0-rc.4...v1.0.0) - 2026-01-09
 
 ### Other
 

@@ -1,26 +1,24 @@
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_qs as qs;
+use serde::{Deserialize, Serialize};
 
 /// Helper function for testing serialization with default config
 #[track_caller]
-fn serialize_test<T: serde::Serialize>(data: &T, expected: &str) {
-    let serialized = qs::to_string(data).expect("serialize");
+fn serialize_test<T: Serialize>(data: &T, expected: &str) {
+    let serialized = serde_qs::to_string(data).expect("serialize");
     assert_eq!(serialized, expected);
 }
 
 /// Helper function for testing serialization with custom config
 #[track_caller]
-fn serialize_test_with_config<T: serde::Serialize>(data: &T, expected: &str, config: qs::Config) {
+fn serialize_test_with_config<T: Serialize>(data: &T, expected: &str, config: serde_qs::Config) {
     let serialized = config.serialize_string(data).expect("serialize");
     assert_eq!(serialized, expected);
 }
 
 #[track_caller]
-fn serialize_test_with_config_err<T: serde::Serialize>(
+fn serialize_test_with_config_err<T: Serialize>(
     data: &T,
     expected_err: &str,
-    config: qs::Config,
+    config: serde_qs::Config,
 ) {
     let err = config.serialize_string(data).unwrap_err();
     assert!(err.to_string().contains(expected_err), "got: {}", err);
@@ -165,7 +163,7 @@ fn serialize_map_with_unit_enum_keys() {
     map.insert(Operator::Lt, 321);
     let test = Filter { point: map };
 
-    let query = qs::to_string(&test).unwrap();
+    let query = serde_qs::to_string(&test).unwrap();
 
     assert!(query == "point[Lt]=321&point[Gt]=123" || query == "point[Gt]=123&point[Lt]=321");
 }
@@ -192,7 +190,7 @@ fn serialize_bytes() {
     };
     serialize_test(&query, "bytes=hello,+world!");
 
-    let form_config = qs::Config::new().use_form_encoding(true);
+    let form_config = serde_qs::Config::new().use_form_encoding(true);
     serialize_test_with_config(&query, "bytes=hello%2C%20world%21", form_config);
 }
 
@@ -289,7 +287,7 @@ fn formencoding() {
         ],
     };
 
-    let form_config = qs::Config::new().use_form_encoding(true);
+    let form_config = serde_qs::Config::new().use_form_encoding(true);
     serialize_test_with_config(
         &query,
         "data%5B0%5D%5Ba%5D=1&data%5B0%5D%5Bb%5D=test%21&data%5B1%5D%5Ba%5D=2&data%5B1%5D%5Bb%5D=example%3A.",
@@ -327,9 +325,9 @@ fn max_depth() {
         c: vec![vec![4]],
     };
 
-    let config_zero = qs::Config::new().max_depth(0);
-    let config_one = qs::Config::new().max_depth(1);
-    let config_two = qs::Config::new().max_depth(2);
+    let config_zero = serde_qs::Config::new().max_depth(0);
+    let config_one = serde_qs::Config::new().max_depth(1);
+    let config_two = serde_qs::Config::new().max_depth(2);
     serialize_test_with_config(&nested_none, "a=1", config_zero);
     serialize_test_with_config(&nested_none, "a=1", config_one);
     serialize_test_with_config(&nested_none, "a=1", config_two);

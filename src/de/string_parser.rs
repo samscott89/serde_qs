@@ -1,6 +1,7 @@
 use std::{borrow::Cow, fmt, marker::PhantomData, str::Utf8Error};
 
 use serde::de::{self, Unexpected};
+use serde::forward_to_deserialize_any;
 
 pub struct StringParsingDeserializer<'a, E> {
     value: Cow<'a, str>,

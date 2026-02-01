@@ -1,19 +1,14 @@
 #![cfg(feature = "axum")]
 
-extern crate serde;
-
-#[macro_use]
-extern crate serde_derive;
-extern crate axum_framework as axum;
-extern crate serde_qs as qs;
-
 use axum::{
     extract::{FromRequest, FromRequestParts},
     http::StatusCode,
     response::IntoResponse,
 };
-use qs::axum::{QsForm, QsQuery, QsQueryConfig, QsQueryRejection};
+use axum_framework as axum;
 use serde::de::Error;
+use serde::{Deserialize, Serialize};
+use serde_qs::axum::{QsForm, QsQuery, QsQueryConfig, QsQueryRejection};
 
 fn from_str<'de, D, S>(deserializer: D) -> Result<S, D::Error>
 where

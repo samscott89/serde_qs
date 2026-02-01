@@ -1,10 +1,5 @@
-extern crate rand;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_qs as qs;
-extern crate serde_urlencoded as urlencoded;
-
 use rand::seq::SliceRandom;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -51,17 +46,17 @@ fn main() {
     map.insert("user_ids[3]", "4");
 
     // Note this will be in some random order due to ordering of keys in map.
-    let encoded = qs::to_string(&map).unwrap();
+    let encoded = serde_qs::to_string(&map).unwrap();
     println!("`serde_qs` to_string for map:\n\t{}", encoded);
 
     // In this form, can also simply use `serde_urlencoded`:
-    let encoded = urlencoded::to_string(&map).unwrap();
+    let encoded = serde_urlencoded::to_string(&map).unwrap();
     println!("`serde_urlencoded` to_string for map:\n\t{}", encoded);
     println!();
 
     // Given this encoded string, you can recover the original map
     // as a list of pairs using serde_urlencoded:
-    let pairs: Vec<(String, String)> = urlencoded::from_str(&encoded).unwrap();
+    let pairs: Vec<(String, String)> = serde_urlencoded::from_str(&encoded).unwrap();
     println!("`serde_urlencoded` from_str to pairs:\n\t{:?}", pairs);
 
     // However, the best way is to use serde_qs to deserialize the entire thing
@@ -71,12 +66,12 @@ fn main() {
     println!("`serde_qs` from_str to struct:\n\t{:?}", params);
 
     // Similarly, we can serialize this structure using `serde_qs`:
-    let encoded = qs::to_string(&params).unwrap();
+    let encoded = serde_qs::to_string(&params).unwrap();
     println!("`serde_qs` to_string for struct:\n\t{:?}", encoded);
     println!();
 
     // One nice feature is that this gives deterministic encodings:
-    let encoded2 = qs::to_string(&params).unwrap();
+    let encoded2 = serde_qs::to_string(&params).unwrap();
     assert_eq!(encoded, encoded2);
 
     // An advantage of `serde_qs` for deserializing, is that it is robust
@@ -104,7 +99,7 @@ fn main() {
         }
         // remove trailing character
         acc.pop();
-        let params: QueryParams = qs::from_str(&acc).unwrap();
+        let params: QueryParams = serde_qs::from_str(&acc).unwrap();
         assert_eq!(params, example_params);
     }
 
@@ -116,7 +111,7 @@ fn main() {
                    user_ids[]=2&\
                    user_ids[]=3&\
                    user_ids[]=4";
-    let params: QueryParams = qs::from_str(encoded).unwrap();
+    let params: QueryParams = serde_qs::from_str(encoded).unwrap();
     assert_eq!(params, example_params);
 
     // Indices do not necessarily need to be continuous:
@@ -126,7 +121,7 @@ fn main() {
                    user_ids[0]=1&\
                    user_ids[12]=3&\
                    user_ids[512]=4";
-    let params: QueryParams = qs::from_str(encoded).unwrap();
+    let params: QueryParams = serde_qs::from_str(encoded).unwrap();
     assert_eq!(params, example_params);
 
     // Enums are now fully supported! Most formats should work with varying
@@ -149,9 +144,9 @@ fn main() {
     };
     // encodes as:
     //   "e[B]=false"
-    let encoded = qs::to_string(&example_params).unwrap();
+    let encoded = serde_qs::to_string(&example_params).unwrap();
     println!("`serde_qs` to_string for enum:\n\t{:?}", encoded);
-    let params: EnumQuery = qs::from_str(&encoded).unwrap();
+    let params: EnumQuery = serde_qs::from_str(&encoded).unwrap();
     println!("`serde_qs` from_str for enum:\n\t{:?}", params);
     println!();
 
@@ -160,9 +155,9 @@ fn main() {
     };
     // encodes as:
     //   "e=A"
-    let encoded = qs::to_string(&example_params).unwrap();
+    let encoded = serde_qs::to_string(&example_params).unwrap();
     println!("`serde_qs` to_string for enum:\n\t{:?}", encoded);
-    let params: EnumQuery = qs::from_str(&encoded).unwrap();
+    let params: EnumQuery = serde_qs::from_str(&encoded).unwrap();
     println!("`serde_qs` from_str for enum:\n\t{:?}", params);
     println!();
 }

@@ -13,20 +13,20 @@
 //! Actix-web's `web::Query` and `web::Form` only support flat structures.
 //! These extractors support nested objects and arrays using bracket notation.
 
-use crate::error::Error as QsError;
 use crate::Config as QsConfig;
+use crate::error::Error as QsError;
 
 #[cfg(feature = "actix3")]
 use actix_web3 as actix_web;
 #[cfg(feature = "actix4")]
 use actix_web4 as actix_web;
 
-use actix_web::dev::Payload;
 #[cfg(feature = "actix3")]
 use actix_web::HttpResponse;
-use actix_web::{web, Error as ActixError, FromRequest, HttpRequest, ResponseError};
-use futures::future::{ready, FutureExt, LocalBoxFuture, Ready};
+use actix_web::dev::Payload;
+use actix_web::{Error as ActixError, FromRequest, HttpRequest, ResponseError, web};
 use futures::StreamExt;
+use futures::future::{FutureExt, LocalBoxFuture, Ready, ready};
 use serde::de;
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
@@ -54,12 +54,12 @@ impl ResponseError for QsError {
 /// ## Example
 ///
 /// ```rust
-/// # #[macro_use] extern crate serde_derive;
 /// # #[cfg(feature = "actix4")]
 /// # use actix_web4 as actix_web;
 /// # #[cfg(feature = "actix3")]
 /// # use actix_web3 as actix_web;
 /// use actix_web::{web, App, HttpResponse};
+/// use serde::Deserialize;
 /// use serde_qs::actix::QsQuery;
 ///
 /// #[derive(Deserialize)]
@@ -123,12 +123,12 @@ where
 /// ## Example
 ///
 /// ```rust
-/// # #[macro_use] extern crate serde_derive;
 /// # #[cfg(feature = "actix4")]
 /// # use actix_web4 as actix_web;
 /// # #[cfg(feature = "actix3")]
 /// # use actix_web3 as actix_web;
 /// use actix_web::{web, App, HttpResponse};
+/// use serde::Deserialize;
 /// use serde_qs::actix::QsForm;
 ///
 /// #[derive(Debug, Deserialize)]
@@ -203,12 +203,12 @@ type ActixErrorHandler = Option<Arc<dyn Fn(QsError, &HttpRequest) -> ActixError 
 /// for both `QsQuery` and `QsForm` extractors.
 ///
 /// ```rust
-/// # #[macro_use] extern crate serde_derive;
 /// # #[cfg(feature = "actix4")]
 /// # use actix_web4 as actix_web;
 /// # #[cfg(feature = "actix3")]
 /// # use actix_web3 as actix_web;
 /// use actix_web::{error, web, App, FromRequest, HttpResponse};
+/// use serde::Deserialize;
 /// use serde_qs::actix::QsQuery;
 /// use serde_qs::Config as QsConfig;
 /// use serde_qs::actix::QsQueryConfig;

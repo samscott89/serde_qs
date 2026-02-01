@@ -32,13 +32,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # NOTE: this crate's MSRV is 1.82
+        # NOTE: this crate's MSRV is 1.85
         # However, many of the web frameworks that 
         # this provides support for have greater/missing MSRVs.
         # We attempt to test the MSRV here if it is known.
         rust:
           - stable
-          - 1.82.0
+          - 1.85.0
         feature:
           - ""
           - actix4
@@ -49,13 +49,13 @@ jobs:
         # exclude frameworks -- it has been historically
         # hard to find a reasonable MSRV for these
         exclude:
-        - rust: 1.82.0
+        - rust: 1.85.0
           feature: axum
-        - rust: 1.82.0
+        - rust: 1.85.0
           feature: actix4
-        - rust: 1.82.0
+        - rust: 1.85.0
           feature: actix3
-        - rust: 1.82.0
+        - rust: 1.85.0
           feature: warp
 
     steps:
