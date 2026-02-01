@@ -6,10 +6,10 @@ use axum::{
     response::IntoResponse,
 };
 use axum_framework as axum;
-use serde::{Deserialize, Serialize};
-use serde_qs::axum::{QsForm, QsQuery, QsQueryConfig, QsQueryRejection};
-use serde_qs::Config as QsConfig;
 use serde::de::Error;
+use serde::{Deserialize, Serialize};
+use serde_qs::Config as QsConfig;
+use serde_qs::axum::{QsForm, QsQuery, QsQueryConfig, QsQueryRejection};
 
 fn from_str<'de, D, S>(deserializer: D) -> Result<S, D::Error>
 where

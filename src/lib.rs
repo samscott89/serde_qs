@@ -319,7 +319,7 @@ pub use de::{from_bytes, from_str};
 
 pub use error::Error;
 #[doc(inline)]
-pub use ser::{to_string, to_writer, QsSerializer as Serializer};
+pub use ser::{QsSerializer as Serializer, to_string, to_writer};
 
 #[cfg(feature = "axum")]
 pub mod axum;
@@ -334,8 +334,8 @@ pub mod web;
 mod indexmap {
     use std::borrow::Borrow;
 
-    pub use indexmap::map::Entry;
     pub use indexmap::IndexMap as Map;
+    pub use indexmap::map::Entry;
 
     pub fn remove<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<V>
     where
@@ -356,8 +356,8 @@ pub(crate) use crate::indexmap as map;
 #[cfg(not(feature = "indexmap"))]
 mod btree_map {
     use std::borrow::Borrow;
-    pub use std::collections::btree_map::Entry;
     pub use std::collections::BTreeMap as Map;
+    pub use std::collections::btree_map::Entry;
 
     pub fn remove<K, V, Q>(map: &mut Map<K, V>, key: &Q) -> Option<V>
     where

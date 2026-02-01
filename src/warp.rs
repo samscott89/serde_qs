@@ -7,7 +7,7 @@ use warp_framework as warp;
 use crate::error;
 use serde::de;
 use std::sync::Arc;
-use warp::{http::StatusCode, reject::Reject, Filter, Rejection, Reply};
+use warp::{Filter, Rejection, Reply, http::StatusCode, reject::Reject};
 
 impl Reject for error::Error {}
 

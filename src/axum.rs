@@ -9,11 +9,11 @@ use std::sync::Arc;
 use crate::error::Error as QsError;
 
 use axum::{
+    BoxError, Error,
     body::Body,
     extract::{Extension, FromRequest, FromRequestParts, RawForm, Request},
     http::StatusCode,
     response::{IntoResponse, Response},
-    BoxError, Error,
 };
 
 /// Extract typed information from the request's query.

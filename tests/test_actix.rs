@@ -11,10 +11,10 @@ use actix_web::error::InternalError;
 use actix_web::http::StatusCode;
 use actix_web::test::TestRequest;
 use actix_web::{FromRequest, HttpResponse};
-use serde::{Deserialize, Serialize};
-use serde_qs::actix::{QsForm, QsQuery, QsQueryConfig};
-use serde_qs::Config as QsConfig;
 use serde::de::Error;
+use serde::{Deserialize, Serialize};
+use serde_qs::Config as QsConfig;
+use serde_qs::actix::{QsForm, QsQuery, QsQueryConfig};
 
 fn from_str<'de, D, S>(deserializer: D) -> Result<S, D::Error>
 where

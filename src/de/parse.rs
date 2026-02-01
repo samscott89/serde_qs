@@ -365,7 +365,13 @@ impl<'qs> Parser<'qs> {
                     let full_key = &self.inner[input_start..self.acc.0 - 1];
                     let key = std::str::from_utf8(full_key).unwrap_or("<invalid key>");
                     return Err(super::Error::parse_err(
-                        format!("invalid input: the key `{key}` appears in the input as both a sequence and a map (with keys {})", map.keys().map(|k| k.to_string()).collect::<Vec<_>>().join(", ")),
+                        format!(
+                            "invalid input: the key `{key}` appears in the input as both a sequence and a map (with keys {})",
+                            map.keys()
+                                .map(|k| k.to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ),
                         self.index,
                     ));
                 }
@@ -455,7 +461,9 @@ impl<'qs> Parser<'qs> {
                             _ => {
                                 let char = x as char;
                                 return Err(super::Error::parse_err(
-                                    format!("unexpected character `{char}` while parsing nested key: expected `&`, `=` or `[`"),
+                                    format!(
+                                        "unexpected character `{char}` while parsing nested key: expected `&`, `=` or `[`"
+                                    ),
                                     self.index,
                                 ));
                             }
@@ -556,9 +564,9 @@ impl<'qs> Parser<'qs> {
             }
             _ => {
                 return Err(super::Error::parse_err(
-                        "unsupported: cannot mix unindexed sequences `abc[]=...` with indexed sequences `abc[0]=...`",
-                        self.index,
-                    ));
+                    "unsupported: cannot mix unindexed sequences `abc[]=...` with indexed sequences `abc[0]=...`",
+                    self.index,
+                ));
             }
         }
         Ok(())
@@ -595,7 +603,7 @@ fn expect_map<'qs, 'a>(
 
 #[cfg(test)]
 mod test {
-    use super::{parse, ParsedMap, ParsedValue};
+    use super::{ParsedMap, ParsedValue, parse};
     use crate::Config;
     use pretty_assertions::assert_eq;
     use std::{borrow::Cow, iter::FromIterator};
@@ -622,7 +630,6 @@ mod test {
     where
         K: Into<super::super::Key<'a>>,
         V: Into<ParsedValue<'a>>,
-
         I: IntoIterator<Item = (K, V)>,
     {
         ParsedValue::map_from_iter(iter)

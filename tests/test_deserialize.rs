@@ -88,8 +88,11 @@ where
 }
 
 #[track_caller]
-fn deserialize_test_err_with_config<'a, T>(params: &'a str, expected_err: &str, config: serde_qs::Config)
-where
+fn deserialize_test_err_with_config<'a, T>(
+    params: &'a str,
+    expected_err: &str,
+    config: serde_qs::Config,
+) where
     T: serde::Deserialize<'a> + PartialEq + std::fmt::Debug,
 {
     let err = config.deserialize_str::<T>(params).unwrap_err();
@@ -567,8 +570,14 @@ fn returns_errors() {
         vec: Vec<u32>,
     }
 
-    deserialize_test_err::<Query>("vec[[]=1&vec[]=2", "invalid input: the key `vec` appears in the input as both a sequence and a map (with keys \"[\")");
-    deserialize_test_err::<Query>("vec[\x00[]=1&vec[]=2", "invalid input: the key `vec` appears in the input as both a sequence and a map (with keys \"\x00[\")");
+    deserialize_test_err::<Query>(
+        "vec[[]=1&vec[]=2",
+        "invalid input: the key `vec` appears in the input as both a sequence and a map (with keys \"[\")",
+    );
+    deserialize_test_err::<Query>(
+        "vec[\x00[]=1&vec[]=2",
+        "invalid input: the key `vec` appears in the input as both a sequence and a map (with keys \"\x00[\")",
+    );
 }
 
 #[test]

@@ -68,8 +68,8 @@ mod parse;
 mod string_parser;
 
 use crate::{
-    error::{Error, Result},
     Config,
+    error::{Error, Result},
 };
 
 use parse::{Key, ParsedValue};

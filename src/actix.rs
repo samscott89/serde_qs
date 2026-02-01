@@ -13,20 +13,20 @@
 //! Actix-web's `web::Query` and `web::Form` only support flat structures.
 //! These extractors support nested objects and arrays using bracket notation.
 
-use crate::error::Error as QsError;
 use crate::Config as QsConfig;
+use crate::error::Error as QsError;
 
 #[cfg(feature = "actix3")]
 use actix_web3 as actix_web;
 #[cfg(feature = "actix4")]
 use actix_web4 as actix_web;
 
-use actix_web::dev::Payload;
 #[cfg(feature = "actix3")]
 use actix_web::HttpResponse;
-use actix_web::{web, Error as ActixError, FromRequest, HttpRequest, ResponseError};
-use futures::future::{ready, FutureExt, LocalBoxFuture, Ready};
+use actix_web::dev::Payload;
+use actix_web::{Error as ActixError, FromRequest, HttpRequest, ResponseError, web};
 use futures::StreamExt;
+use futures::future::{FutureExt, LocalBoxFuture, Ready, ready};
 use serde::de;
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
