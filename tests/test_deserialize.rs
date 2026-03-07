@@ -941,7 +941,9 @@ fn duplicate_key_behavior_error() {
 
     // Default behavior: take the last value
     let config = Config::new();
-    let result: Data = config.deserialize_str("single=a&single=b&multi=x&multi=y").unwrap();
+    let result: Data = config
+        .deserialize_str("single=a&single=b&multi=x&multi=y")
+        .unwrap();
     assert_eq!(result.single, "b");
     assert_eq!(result.multi, vec!["x", "y"]);
 
@@ -951,10 +953,12 @@ fn duplicate_key_behavior_error() {
     // Should fail because `single` receives multiple values
     let result: Result<Data, _> = config.deserialize_str("single=a&single=b&multi=x&multi=y");
     assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("multiple values provided for non-sequence field"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("multiple values provided for non-sequence field")
+    );
 
     // Should succeed because `single` only has one value
     let result: Data = config.deserialize_str("single=a&multi=x&multi=y").unwrap();
@@ -979,8 +983,7 @@ fn duplicate_key_behavior_error_nested() {
     let config = Config::new().duplicate_key_behavior(DuplicateKeyBehavior::Error);
 
     // Should fail for nested fields too
-    let result: Result<Outer, _> =
-        config.deserialize_str("inner[field]=a&inner[field]=b");
+    let result: Result<Outer, _> = config.deserialize_str("inner[field]=a&inner[field]=b");
     assert!(result.is_err());
 
     // Should succeed with single value
@@ -1012,8 +1015,9 @@ fn duplicate_key_behavior_error_primitives() {
     assert!(result.is_err());
 
     // Should succeed with single values
-    let result: Data =
-        config.deserialize_str("int_field=42&bool_field=true&float_field=3.14").unwrap();
+    let result: Data = config
+        .deserialize_str("int_field=42&bool_field=true&float_field=3.14")
+        .unwrap();
     assert_eq!(result.int_field, 42);
     assert!(result.bool_field);
     assert!((result.float_field - 3.14).abs() < 0.001);

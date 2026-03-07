@@ -678,16 +678,14 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     {
         let s = match self.value {
             ParsedValue::String(s) => s,
-            ParsedValue::Sequence(mut seq) => {
-                match get_last_string_value(&mut seq, self.config) {
-                    Ok(Some(v)) => v,
-                    Ok(None) => {
-                        return Self::from_value(ParsedValue::Sequence(seq), self.config)
-                            .deserialize_any(visitor);
-                    }
-                    Err(e) => return Err(e),
+            ParsedValue::Sequence(mut seq) => match get_last_string_value(&mut seq, self.config) {
+                Ok(Some(v)) => v,
+                Ok(None) => {
+                    return Self::from_value(ParsedValue::Sequence(seq), self.config)
+                        .deserialize_any(visitor);
                 }
-            }
+                Err(e) => return Err(e),
+            },
             ParsedValue::Null | ParsedValue::NoValue => {
                 return visitor.visit_str("");
             }
@@ -713,16 +711,14 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     {
         let s = match self.value {
             ParsedValue::String(s) => s,
-            ParsedValue::Sequence(mut seq) => {
-                match get_last_string_value(&mut seq, self.config) {
-                    Ok(Some(v)) => v,
-                    Ok(None) => {
-                        return Self::from_value(ParsedValue::Sequence(seq), self.config)
-                            .deserialize_any(visitor);
-                    }
-                    Err(e) => return Err(e),
+            ParsedValue::Sequence(mut seq) => match get_last_string_value(&mut seq, self.config) {
+                Ok(Some(v)) => v,
+                Ok(None) => {
+                    return Self::from_value(ParsedValue::Sequence(seq), self.config)
+                        .deserialize_any(visitor);
                 }
-            }
+                Err(e) => return Err(e),
+            },
             ParsedValue::Null | ParsedValue::NoValue => {
                 return visitor.visit_bytes(&[]);
             }
