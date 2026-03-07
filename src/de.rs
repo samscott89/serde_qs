@@ -69,6 +69,7 @@ mod string_parser;
 
 use crate::{
     Config,
+    config::DuplicateKeyBehavior,
     error::{Error, Result},
 };
 
@@ -134,7 +135,10 @@ pub fn from_str<'de, T: de::Deserialize<'de>>(input: &'de str) -> Result<T> {
 ///
 /// Primarily useful if needing to use in combination with other
 /// libraries, e.g. `serde_path_to_error`.
-pub struct QsDeserializer<'a>(ParsedValue<'a>);
+pub struct QsDeserializer<'a> {
+    value: ParsedValue<'a>,
+    config: Config,
+}
 
 impl<'a> QsDeserializer<'a> {
     pub fn new(input: &'a [u8]) -> Result<Self> {
@@ -144,7 +148,15 @@ impl<'a> QsDeserializer<'a> {
     pub fn with_config(config: Config, input: &'a [u8]) -> Result<Self> {
         let parsed = parse::parse(input, config)?;
 
-        Ok(Self(parsed))
+        Ok(Self {
+            value: parsed,
+            config,
+        })
+    }
+
+    /// Creates a deserializer from a parsed value and config.
+    fn from_value(value: ParsedValue<'a>, config: Config) -> Self {
+        Self { value, config }
     }
 }
 
@@ -152,6 +164,7 @@ struct MapDeserializer<'a, 'qs: 'a> {
     parsed: &'a mut parse::ParsedMap<'qs>,
     field_order: Option<&'static [&'static str]>,
     popped_value: Option<ParsedValue<'qs>>,
+    config: Config,
 }
 
 impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
@@ -202,7 +215,7 @@ impl<'a, 'de: 'a> de::MapAccess<'de> for MapDeserializer<'a, 'de> {
         V: de::DeserializeSeed<'de>,
     {
         if let Some(v) = self.popped_value.take() {
-            seed.deserialize(QsDeserializer(v))
+            seed.deserialize(QsDeserializer::from_value(v, self.config))
         } else {
             Err(Error::custom(
                 "Somehow the map was empty after a non-empty key was returned",
@@ -248,7 +261,7 @@ impl<'a, 'de: 'a> de::VariantAccess<'de> for MapDeserializer<'a, 'de> {
         T: de::DeserializeSeed<'de>,
     {
         if let Some(value) = self.popped_value {
-            seed.deserialize(QsDeserializer(value))
+            seed.deserialize(QsDeserializer::from_value(value, self.config))
         } else {
             Err(Error::custom("no value to deserialize", &self.parsed))
         }
@@ -258,7 +271,10 @@ impl<'a, 'de: 'a> de::VariantAccess<'de> for MapDeserializer<'a, 'de> {
         V: de::Visitor<'de>,
     {
         if let Some(value) = self.popped_value {
-            de::Deserializer::deserialize_seq(QsDeserializer(value), visitor)
+            de::Deserializer::deserialize_seq(
+                QsDeserializer::from_value(value, self.config),
+                visitor,
+            )
         } else {
             Err(Error::custom("no value to deserialize", &self.parsed))
         }
@@ -268,14 +284,20 @@ impl<'a, 'de: 'a> de::VariantAccess<'de> for MapDeserializer<'a, 'de> {
         V: de::Visitor<'de>,
     {
         if let Some(value) = self.popped_value {
-            de::Deserializer::deserialize_map(QsDeserializer(value), visitor)
+            de::Deserializer::deserialize_map(
+                QsDeserializer::from_value(value, self.config),
+                visitor,
+            )
         } else {
             Err(Error::custom("no value to deserialize", &self.parsed))
         }
     }
 }
 
-struct Seq<'a, I: Iterator<Item = ParsedValue<'a>>>(I);
+struct Seq<'a, I: Iterator<Item = ParsedValue<'a>>> {
+    iter: I,
+    config: Config,
+}
 
 impl<'de, I: Iterator<Item = ParsedValue<'de>>> de::SeqAccess<'de> for Seq<'de, I> {
     type Error = Error;
@@ -283,15 +305,16 @@ impl<'de, I: Iterator<Item = ParsedValue<'de>>> de::SeqAccess<'de> for Seq<'de, 
     where
         T: de::DeserializeSeed<'de>,
     {
-        if let Some(v) = self.0.next() {
-            seed.deserialize(QsDeserializer(v)).map(Some)
+        if let Some(v) = self.iter.next() {
+            seed.deserialize(QsDeserializer::from_value(v, self.config))
+                .map(Some)
         } else {
             Ok(None)
         }
     }
 
     fn size_hint(&self) -> Option<usize> {
-        match self.0.size_hint() {
+        match self.iter.size_hint() {
             (lower, Some(upper)) if lower == upper => Some(upper),
             _ => None,
         }
@@ -303,14 +326,19 @@ where
     I: Iterator<Item = (Key<'a>, ParsedValue<'a>)>,
 {
     /// Creates a new `OrderedSeq` from an iterator.
-    pub fn new(iter: I) -> Self {
-        Self { iter, counter: 0 }
+    pub fn new(iter: I, config: Config) -> Self {
+        Self {
+            iter,
+            counter: 0,
+            config,
+        }
     }
 }
 
 struct OrderedSeq<'a, I: Iterator<Item = (Key<'a>, ParsedValue<'a>)>> {
     iter: I,
     counter: u32,
+    config: Config,
 }
 
 impl<'de, I: Iterator<Item = (Key<'de>, ParsedValue<'de>)>> de::SeqAccess<'de>
@@ -327,7 +355,8 @@ impl<'de, I: Iterator<Item = (Key<'de>, ParsedValue<'de>)>> de::SeqAccess<'de>
                     self.counter = self.counter.checked_add(1).ok_or_else(|| {
                         Error::custom("cannot deserialize more than u32::MAX elements", &(k, &v))
                     })?;
-                    seed.deserialize(QsDeserializer(v)).map(Some)
+                    seed.deserialize(QsDeserializer::from_value(v, self.config))
+                        .map(Some)
                 }
                 Key::Int(i) => Err(Error::custom(
                     format!("missing index, expected: {} got {i}", self.counter),
@@ -352,13 +381,25 @@ impl<'de, I: Iterator<Item = (Key<'de>, ParsedValue<'de>)>> de::SeqAccess<'de>
     }
 }
 
-fn get_last_string_value<'a>(seq: &mut Vec<ParsedValue<'a>>) -> Option<Cow<'a, [u8]>> {
-    match seq.last()? {
-        ParsedValue::NoValue | ParsedValue::Null => {
+fn get_last_string_value<'a>(
+    seq: &mut Vec<ParsedValue<'a>>,
+    config: Config,
+) -> Result<Option<Cow<'a, [u8]>>> {
+    // Check for duplicates if configured to error
+    if config.duplicate_key_behavior == DuplicateKeyBehavior::Error && seq.len() > 1 {
+        return Err(Error::custom(
+            "multiple values provided for non-sequence field",
+            seq,
+        ));
+    }
+
+    Ok(match seq.last() {
+        None => None,
+        Some(ParsedValue::NoValue | ParsedValue::Null) => {
             // if we have no value, we can just return an empty string
             Some(Cow::Borrowed(b""))
         }
-        ParsedValue::String(_) => {
+        Some(ParsedValue::String(_)) => {
             if let Some(ParsedValue::String(s)) = seq.pop() {
                 Some(s)
             } else {
@@ -366,27 +407,30 @@ fn get_last_string_value<'a>(seq: &mut Vec<ParsedValue<'a>>) -> Option<Cow<'a, [
                 None
             }
         }
-        _ => {
+        Some(_) => {
             // if the last value is not a string, we cannot return it as a string
             // so we just return None
             None
         }
-    }
+    })
 }
 
 macro_rules! forward_to_string_parser {
     ($($ty:ident => $meth:ident,)*) => {
         $(
             fn $meth<V>(self, visitor: V) -> Result<V::Value> where V: de::Visitor<'de> {
-                let s = match self.0 {
+                let s = match self.value {
                     ParsedValue::String(s) => {
                         s
                     }
                     ParsedValue::Sequence(mut seq) => {
-                        if let Some(v) = get_last_string_value(&mut seq) {
-                            v
-                        } else {
-                            return Self(ParsedValue::Sequence(seq)).deserialize_any(visitor);
+                        match get_last_string_value(&mut seq, self.config) {
+                            Ok(Some(v)) => v,
+                            Ok(None) => {
+                                return Self::from_value(ParsedValue::Sequence(seq), self.config)
+                                    .deserialize_any(visitor);
+                            }
+                            Err(e) => return Err(e),
                         }
                     }
                     _ => {
@@ -407,28 +451,32 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.0 {
+        match self.value {
             ParsedValue::Map(mut parsed) => {
                 // scan the map to check if all keys are integers
                 // if so, we'll treat it as a sequence
                 if parsed.keys().all(|k| matches!(k, Key::Int(_))) {
                     #[cfg(feature = "indexmap")]
                     parsed.sort_unstable_keys();
-                    visitor.visit_seq(OrderedSeq::new(parsed.into_iter()))
+                    visitor.visit_seq(OrderedSeq::new(parsed.into_iter(), self.config))
                 } else {
                     visitor.visit_map(MapDeserializer {
                         parsed: &mut parsed,
                         field_order: None,
                         popped_value: None,
+                        config: self.config,
                     })
                 }
             }
-            ParsedValue::Sequence(seq) => visitor.visit_seq(Seq(seq.into_iter())),
+            ParsedValue::Sequence(seq) => visitor.visit_seq(Seq {
+                iter: seq.into_iter(),
+                config: self.config,
+            }),
             ParsedValue::String(x) => StringParsingDeserializer::new(x)?.deserialize_any(visitor),
             ParsedValue::Uninitialized => Err(Error::custom(
                 "internal error: attempted to deserialize unitialised \
                  value",
-                &self.0,
+                &self.value,
             )),
 
             ParsedValue::Null => {
@@ -442,14 +490,18 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.0 {
-            ParsedValue::Null | ParsedValue::NoValue => visitor.visit_seq(Seq(std::iter::empty())),
+        match self.value {
+            ParsedValue::Null | ParsedValue::NoValue => visitor.visit_seq(Seq {
+                iter: std::iter::empty(),
+                config: self.config,
+            }),
             // if we have a single string key, but expect a sequence
             // we'll treat it as a sequence of one
             // this helps with cases like `a=1` where we have unindexed keys and only a single value
-            ParsedValue::String(s) => {
-                visitor.visit_seq(Seq(std::iter::once(ParsedValue::String(s))))
-            }
+            ParsedValue::String(s) => visitor.visit_seq(Seq {
+                iter: std::iter::once(ParsedValue::String(s)),
+                config: self.config,
+            }),
             _ => self.deserialize_any(visitor),
         }
     }
@@ -486,7 +538,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let mut map = match self.0 {
+        let mut map = match self.value {
             ParsedValue::Map(map) => map,
             ParsedValue::Null | ParsedValue::NoValue => {
                 // if we have no value, we can just return an empty map
@@ -499,6 +551,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
             parsed: &mut map,
             field_order: Some(fields),
             popped_value: None,
+            config: self.config,
         })
     }
 
@@ -517,11 +570,14 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.0 {
+        match self.value {
             ParsedValue::NoValue => visitor.visit_none(),
             // `foo=` is explicitly used to represent a `Some` value
             // where the inner value is empty
-            ParsedValue::Null => visitor.visit_some(QsDeserializer(ParsedValue::NoValue)),
+            ParsedValue::Null => visitor.visit_some(QsDeserializer::from_value(
+                ParsedValue::NoValue,
+                self.config,
+            )),
             _ => visitor.visit_some(self),
         }
     }
@@ -531,8 +587,8 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         // we'll tolerate `x=` as a unit value
-        if matches!(self.0, ParsedValue::Null)
-            || matches!(self.0, ParsedValue::String(ref s) if s.is_empty())
+        if matches!(self.value, ParsedValue::Null)
+            || matches!(self.value, ParsedValue::String(ref s) if s.is_empty())
         {
             visitor.visit_unit()
         } else {
@@ -560,11 +616,12 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.0 {
+        match self.value {
             ParsedValue::Map(mut parsed) => visitor.visit_enum(MapDeserializer {
                 parsed: &mut parsed,
                 field_order: None,
                 popped_value: None,
+                config: self.config,
             }),
             ParsedValue::String(s) => visitor.visit_enum(StringParsingDeserializer::new(s)?),
             _ => self.deserialize_any(visitor),
@@ -578,11 +635,12 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.0 {
+        match self.value {
             ParsedValue::Map(mut parsed) => visitor.visit_map(MapDeserializer {
                 parsed: &mut parsed,
                 field_order: None,
                 popped_value: None,
+                config: self.config,
             }),
             ParsedValue::Null | ParsedValue::NoValue => {
                 let mut empty_map = parse::ParsedMap::default();
@@ -590,6 +648,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
                     parsed: &mut empty_map,
                     field_order: None,
                     popped_value: None,
+                    config: self.config,
                 })
             }
             ParsedValue::String(s) => {
@@ -606,6 +665,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
                     parsed: &mut parsed,
                     field_order: None,
                     popped_value: None,
+                    config: self.config,
                 })
             }
             _ => self.deserialize_any(visitor),
@@ -616,13 +676,16 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let s = match self.0 {
+        let s = match self.value {
             ParsedValue::String(s) => s,
             ParsedValue::Sequence(mut seq) => {
-                if let Some(v) = get_last_string_value(&mut seq) {
-                    v
-                } else {
-                    return Self(ParsedValue::Sequence(seq)).deserialize_any(visitor);
+                match get_last_string_value(&mut seq, self.config) {
+                    Ok(Some(v)) => v,
+                    Ok(None) => {
+                        return Self::from_value(ParsedValue::Sequence(seq), self.config)
+                            .deserialize_any(visitor);
+                    }
+                    Err(e) => return Err(e),
                 }
             }
             ParsedValue::Null | ParsedValue::NoValue => {
@@ -648,13 +711,16 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let s = match self.0 {
+        let s = match self.value {
             ParsedValue::String(s) => s,
             ParsedValue::Sequence(mut seq) => {
-                if let Some(v) = get_last_string_value(&mut seq) {
-                    v
-                } else {
-                    return Self(ParsedValue::Sequence(seq)).deserialize_any(visitor);
+                match get_last_string_value(&mut seq, self.config) {
+                    Ok(Some(v)) => v,
+                    Ok(None) => {
+                        return Self::from_value(ParsedValue::Sequence(seq), self.config)
+                            .deserialize_any(visitor);
+                    }
+                    Err(e) => return Err(e),
                 }
             }
             ParsedValue::Null | ParsedValue::NoValue => {
@@ -679,7 +745,7 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.0 {
+        match self.value {
             // for ignored values, we wont attempt to parse the value
             // as a UTF8 string, but rather just pass the bytes along.
             // since the value is ignored anyway, this is great since
@@ -696,18 +762,23 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.0 {
+        match self.value {
             ParsedValue::String(s) => {
                 let deserializer = StringParsingDeserializer::new(s)?;
                 deserializer.deserialize_bool(visitor)
             }
             ParsedValue::Sequence(mut seq) => {
-                if let Some(last_value) = get_last_string_value(&mut seq) {
-                    StringParsingDeserializer::new(last_value)?.deserialize_bool(visitor)
-                } else {
-                    // if we have a sequence, but the last value is not a string,
-                    // we'll just forward to deserialize_any
-                    Self(ParsedValue::Sequence(seq)).deserialize_any(visitor)
+                match get_last_string_value(&mut seq, self.config) {
+                    Ok(Some(last_value)) => {
+                        StringParsingDeserializer::new(last_value)?.deserialize_bool(visitor)
+                    }
+                    Ok(None) => {
+                        // if we have a sequence, but the last value is not a string,
+                        // we'll just forward to deserialize_any
+                        Self::from_value(ParsedValue::Sequence(seq), self.config)
+                            .deserialize_any(visitor)
+                    }
+                    Err(e) => Err(e),
                 }
             }
             // if the field is _present_ we'll treat it as a boolean true

@@ -930,6 +930,96 @@ fn deserialize_repeat_keys() {
 }
 
 #[test]
+fn duplicate_key_behavior_error() {
+    use serde_qs::{Config, DuplicateKeyBehavior};
+
+    #[derive(Debug, PartialEq, Eq, serde::Deserialize)]
+    struct Data {
+        single: String,
+        multi: Vec<String>,
+    }
+
+    // Default behavior: take the last value
+    let config = Config::new();
+    let result: Data = config.deserialize_str("single=a&single=b&multi=x&multi=y").unwrap();
+    assert_eq!(result.single, "b");
+    assert_eq!(result.multi, vec!["x", "y"]);
+
+    // Error behavior: reject duplicates for scalar fields
+    let config = Config::new().duplicate_key_behavior(DuplicateKeyBehavior::Error);
+
+    // Should fail because `single` receives multiple values
+    let result: Result<Data, _> = config.deserialize_str("single=a&single=b&multi=x&multi=y");
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("multiple values provided for non-sequence field"));
+
+    // Should succeed because `single` only has one value
+    let result: Data = config.deserialize_str("single=a&multi=x&multi=y").unwrap();
+    assert_eq!(result.single, "a");
+    assert_eq!(result.multi, vec!["x", "y"]);
+}
+
+#[test]
+fn duplicate_key_behavior_error_nested() {
+    use serde_qs::{Config, DuplicateKeyBehavior};
+
+    #[derive(Debug, PartialEq, Eq, serde::Deserialize)]
+    struct Inner {
+        field: String,
+    }
+
+    #[derive(Debug, PartialEq, Eq, serde::Deserialize)]
+    struct Outer {
+        inner: Inner,
+    }
+
+    let config = Config::new().duplicate_key_behavior(DuplicateKeyBehavior::Error);
+
+    // Should fail for nested fields too
+    let result: Result<Outer, _> =
+        config.deserialize_str("inner[field]=a&inner[field]=b");
+    assert!(result.is_err());
+
+    // Should succeed with single value
+    let result: Outer = config.deserialize_str("inner[field]=a").unwrap();
+    assert_eq!(result.inner.field, "a");
+}
+
+#[test]
+fn duplicate_key_behavior_error_primitives() {
+    use serde_qs::{Config, DuplicateKeyBehavior};
+
+    #[derive(Debug, PartialEq, serde::Deserialize)]
+    struct Data {
+        int_field: u32,
+        bool_field: bool,
+        float_field: f64,
+    }
+
+    let config = Config::new().duplicate_key_behavior(DuplicateKeyBehavior::Error);
+
+    // Should fail for duplicate integer field
+    let result: Result<Data, _> =
+        config.deserialize_str("int_field=1&int_field=2&bool_field=true&float_field=1.5");
+    assert!(result.is_err());
+
+    // Should fail for duplicate bool field
+    let result: Result<Data, _> =
+        config.deserialize_str("int_field=1&bool_field=true&bool_field=false&float_field=1.5");
+    assert!(result.is_err());
+
+    // Should succeed with single values
+    let result: Data =
+        config.deserialize_str("int_field=42&bool_field=true&float_field=3.14").unwrap();
+    assert_eq!(result.int_field, 42);
+    assert!(result.bool_field);
+    assert!((result.float_field - 3.14).abs() < 0.001);
+}
+
+#[test]
 fn depth_one() {
     #[derive(Debug, Default, serde::Serialize, serde::Deserialize, PartialEq)]
     #[serde(default, deny_unknown_fields)]

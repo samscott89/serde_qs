@@ -39,6 +39,7 @@ pub struct Config {
     pub(crate) max_depth: usize,
     pub(crate) use_form_encoding: bool,
     pub(crate) array_format: ArrayFormat,
+    pub(crate) duplicate_key_behavior: DuplicateKeyBehavior,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -49,6 +50,38 @@ pub enum ArrayFormat {
     EmptyIndexed,
     /// Use the `a=1&a=2` format.
     Unindexed,
+}
+
+/// Controls behavior when a scalar field receives multiple values.
+///
+/// By default, `serde_qs` follows the Rails convention of taking the last value
+/// when multiple values are provided for a scalar (non-sequence) field.
+///
+/// ```
+/// use serde::Deserialize;
+/// use serde_qs::{Config, DuplicateKeyBehavior};
+///
+/// #[derive(Deserialize)]
+/// struct Query {
+///     field: String,
+/// }
+///
+/// // Default behavior: take the last value
+/// let q: Query = serde_qs::from_str("field=a&field=b").unwrap();
+/// assert_eq!(q.field, "b");
+///
+/// // With Error behavior: return an error
+/// let config = Config::new().duplicate_key_behavior(DuplicateKeyBehavior::Error);
+/// let result: Result<Query, _> = config.deserialize_str("field=a&field=b");
+/// assert!(result.is_err());
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DuplicateKeyBehavior {
+    /// Take the last value (default, matches Rails convention).
+    #[default]
+    TakeLast,
+    /// Return an error when multiple values are provided.
+    Error,
 }
 
 impl Default for Config {
@@ -63,6 +96,7 @@ impl Config {
             max_depth: 5,
             use_form_encoding: cfg!(feature = "default_to_form_encoding"),
             array_format: ArrayFormat::Indexed,
+            duplicate_key_behavior: DuplicateKeyBehavior::TakeLast,
         }
     }
 
@@ -104,6 +138,19 @@ impl Config {
     /// The default is `Indexed`, which results in keys like `a[0]=1&a[1]=2`.
     pub const fn array_format(mut self, array_format: ArrayFormat) -> Self {
         self.array_format = array_format;
+        self
+    }
+
+    /// Specifies how duplicate keys for scalar fields should be handled.
+    ///
+    /// By default, `serde_qs` takes the last value when multiple values are
+    /// provided for a scalar field (matching Rails convention). Set this to
+    /// [`DuplicateKeyBehavior::Error`] to return an error instead.
+    pub const fn duplicate_key_behavior(
+        mut self,
+        duplicate_key_behavior: DuplicateKeyBehavior,
+    ) -> Self {
+        self.duplicate_key_behavior = duplicate_key_behavior;
         self
     }
 
