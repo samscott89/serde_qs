@@ -1,3 +1,5 @@
+#![allow(clippy::approx_constant)]
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
