@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.0](https://github.com/samscott89/serde_qs/compare/v1.0.0...v1.1.0) - 2026-03-21
+
+### Added
+
+- add DuplicateKeyBehavior config option ([#162](https://github.com/samscott89/serde_qs/pull/162))
+
 ## [1.0.0](https://github.com/samscott89/serde_qs/compare/v1.0.0-rc.4...v1.0.0) - 2026-01-09
 
 ### Other
