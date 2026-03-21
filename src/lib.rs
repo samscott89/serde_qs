@@ -108,6 +108,30 @@
 //! - If the deserializer expects a primitive value, we'll take the **last** value
 //! - If the deserializer expects a sequence, we'll deserialize all values into the sequence
 //!
+//! You can configure `serde_qs` to return an error when duplicate values are
+//! provided for a scalar field using [`DuplicateKeyBehavior::Error`]:
+//!
+//! ```rust
+//! use serde::Deserialize;
+//! use serde_qs::{Config, DuplicateKeyBehavior};
+//!
+//! #[derive(Deserialize)]
+//! struct Query {
+//!     single: String,
+//!     multi: Vec<String>,
+//! }
+//!
+//! let config = Config::new().duplicate_key_behavior(DuplicateKeyBehavior::Error);
+//!
+//! // This fails because `single` receives multiple values
+//! let result: Result<Query, _> = config.deserialize_str("single=a&single=b&multi=x&multi=y");
+//! assert!(result.is_err());
+//!
+//! // This succeeds because `single` only has one value (multi can have many)
+//! let result: Result<Query, _> = config.deserialize_str("single=a&multi=x&multi=y");
+//! assert!(result.is_ok());
+//! ```
+//!
 //! ### Array Formats
 //!
 //! The `array_format` option in the `Config` struct allows you to control how arrays are serialized:
@@ -304,7 +328,7 @@ compile_error!(
 
 mod config;
 #[doc(inline)]
-pub use config::{ArrayFormat, Config};
+pub use config::{ArrayFormat, Config, DuplicateKeyBehavior};
 mod de;
 mod error;
 pub mod helpers;
