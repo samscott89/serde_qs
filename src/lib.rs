@@ -156,7 +156,7 @@
 //! struct Data {
 //!     // This field can handle raw bytes
 //!     raw_data: Vec<u8>,
-//!     
+//!
 //!     // This field requires valid UTF-8
 //!     text: String,
 //! }
@@ -279,7 +279,7 @@
 //!
 //! ## Use with `actix_web` extractors
 //!
-//! The `actix4`, `actix3` or `actix2` features enable the use of `serde_qs::actix::QsQuery`, which
+//! The `actix4` or `actix3` features enable the use of `serde_qs::actix::QsQuery`, which
 //! is a direct substitute for the `actix_web::Query` and can be used as an extractor:
 //!
 //! ```ignore
@@ -290,7 +290,6 @@
 //!
 //! Support for `actix-web 4.0` is available via the `actix4` feature.
 //! Support for `actix-web 3.0` is available via the `actix3` feature.
-//! Support for `actix-web 2.0` is available via the `actix2` feature.
 //!
 //! ## Use with `warp` filters
 //!
