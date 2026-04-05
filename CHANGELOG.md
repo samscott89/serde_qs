@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.1](https://github.com/samscott89/serde_qs/compare/v1.1.0...v1.1.1) - 2026-04-05
+
+### Other
+
+- Cargo feature / dependency cleanup ([#165](https://github.com/samscott89/serde_qs/pull/165))
+
 ## [1.1.0](https://github.com/samscott89/serde_qs/compare/v1.0.0...v1.1.0) - 2026-03-21
 
 ### Added
