@@ -750,6 +750,10 @@ impl<'de> de::Deserializer<'de> for QsDeserializer<'de> {
                 Cow::Borrowed(s) => visitor.visit_borrowed_bytes(s),
                 Cow::Owned(s) => visitor.visit_byte_buf(s),
             },
+            // for compound values that are going to be discarded, visit a
+            // unit so we don't fail validation (e.g. strict sequence index
+            // checks) on data the user has chosen to ignore.
+            ParsedValue::Map(_) | ParsedValue::Sequence(_) => visitor.visit_unit(),
             _ => self.deserialize_any(visitor),
         }
     }
