@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.2](https://github.com/samscott89/serde_qs/compare/v1.1.1...v1.1.2) - 2026-05-15
+
+### Fixed
+
+- do not strict-validate ignored compound fields ([#168](https://github.com/samscott89/serde_qs/pull/168))
+
 ## [1.1.1](https://github.com/samscott89/serde_qs/compare/v1.1.0...v1.1.1) - 2026-04-05
 
 ### Other
