@@ -3,7 +3,7 @@ use std::iter::Iterator;
 use std::slice::Iter;
 use std::{fmt, str};
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::map::{Entry, Map};
 
 use super::string_parser::StringParsingDeserializer;
