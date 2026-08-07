@@ -1625,3 +1625,55 @@ fn empty_values() {
 
     deserialize_test("a", &Query { a: "".to_string() });
 }
+
+/// Check that multiple values including null / NoValue will not cause an error
+#[test]
+fn empty_values_multi_values_take_last() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        a: String,
+    }
+
+    deserialize_test(
+        "a=&a=hello",
+        &Query {
+            a: "hello".to_string(),
+        },
+    );
+
+    deserialize_test(
+        "a&a=hello",
+        &Query {
+            a: "hello".to_string(),
+        },
+    );
+
+    deserialize_test("a=hello&a=", &Query { a: "".to_string() });
+    deserialize_test("a=hello&a", &Query { a: "".to_string() });
+}
+
+/// Check that multiple values involving null / no values cause an error
+#[test]
+fn empty_values_multi_values_error() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Query {
+        a: String,
+    }
+
+    let config =
+        serde_qs::Config::new().duplicate_key_behavior(serde_qs::DuplicateKeyBehavior::Error);
+
+    for input in ["a=&a=hello", "a&a=hello", "a=hello&a=", "a=hello&a"] {
+        deserialize_test_err_with_config::<Query>(
+            input,
+            "multiple values provided for non-sequence field",
+            config,
+        );
+
+        deserialize_test_err_with_config::<Query>(
+            input,
+            "multiple values provided for non-sequence field",
+            config,
+        );
+    }
+}

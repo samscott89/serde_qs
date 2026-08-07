@@ -3,7 +3,7 @@ use std::iter::Iterator;
 use std::slice::Iter;
 use std::{fmt, str};
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::map::{Entry, Map};
 
 use super::string_parser::StringParsingDeserializer;
@@ -511,7 +511,7 @@ impl<'qs> Parser<'qs> {
                 parsed_values.push(value);
                 return Ok(());
             }
-            ParsedValue::String(_) => {
+            ParsedValue::String(_) | ParsedValue::NoValue | ParsedValue::Null => {
                 // we'll support multiple values for the same key
                 // by converting the existing value into a sequence
                 // and pushing the new value into it
@@ -521,12 +521,6 @@ impl<'qs> Parser<'qs> {
                 let mut seq = vec![existing];
                 seq.push(value);
                 *entry = ParsedValue::Sequence(seq);
-            }
-            ParsedValue::NoValue | ParsedValue::Null => {
-                return Err(Error::parse_err(
-                    "Multiple values for the same key".to_string(),
-                    self.index,
-                ));
             }
             ParsedValue::Uninitialized => {
                 // initialize it
