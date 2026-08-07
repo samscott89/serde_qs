@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.3](https://github.com/samscott89/serde_qs/compare/v1.1.2...v1.1.3) - 2026-08-07
+
+### Fixed
+
+- percent-encode `%` in default query-string mode ([#173](https://github.com/samscott89/serde_qs/pull/173))
+
+### Other
+
+- multiple values including null return parsing error ([#172](https://github.com/samscott89/serde_qs/pull/172))
+
 ## [1.1.2](https://github.com/samscott89/serde_qs/compare/v1.1.1...v1.1.2) - 2026-05-15
 
 ### Fixed
