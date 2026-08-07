@@ -1,10 +1,12 @@
 ---
 source: tests/test_roundtrip.rs
-description: "EdgeCasePrimitives { empty_string: \"\", zero_int: 0, zero_float: 0.0, false_bool: false, space_string: \"   \", special_chars: \"!@#$%^&*()_+-=[]{}|;':,.<>?/~`\" }"
+description: "EdgeCasePrimitives { empty_string: \"\", zero_int: 0, zero_float: 0.0, false_bool: false, space_string: \"   \", special_chars: \"!@#$%^&*()_+-=[]{}|;':,.<>?/~`\", percent_escapes: \"%41 100%25 %5Bx%5D %AD0\" }"
+snapshot_kind: text
 ---
 empty_string=&
 zero_int=0&
 zero_float=0.0&
 false_bool=false&
 space_string=+++&
-special_chars=!@%23$%^%26*()_%2B-%3D%5B%5D{}|;':,.%3C%3E?/~`
+special_chars=!@%23$%25^%26*()_%2B-%3D%5B%5D{}|;':,.%3C%3E?/~`&
+percent_escapes=%2541+100%2525+%255Bx%255D+%25AD0

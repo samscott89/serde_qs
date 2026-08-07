@@ -23,6 +23,9 @@ const MINIMAL_QS_SET: &AsciiSet = &percent_encoding::CONTROLS
     .add(b'<')
     .add(b'>')
     // control characters used in querystrings
+    // `%` introduces a percent-escape, so a literal `%` must itself be
+    // escaped -- otherwise e.g. the value `%41` would decode back as `A`
+    .add(b'%')
     // `+` is used to represent a space in query strings
     .add(b'+')
     // denote nested keys

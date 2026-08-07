@@ -139,6 +139,7 @@ struct EdgeCasePrimitives {
     false_bool: bool,
     space_string: String,
     special_chars: String,
+    percent_escapes: String,
 }
 
 #[test]
@@ -150,6 +151,9 @@ fn edge_case_primitives() {
         false_bool: false,
         space_string: "   ".to_string(),
         special_chars: "!@#$%^&*()_+-=[]{}|;':,.<>?/~`".to_string(),
+        // `%` followed by hex digits: only round-trips if `%` is itself escaped.
+        // `%AD` would decode to a non-UTF-8 byte.
+        percent_escapes: "%41 100%25 %5Bx%5D %AD0".to_string(),
     });
 }
 
