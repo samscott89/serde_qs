@@ -48,12 +48,20 @@ pub fn decode(input: &[u8]) -> Cow<'_, [u8]> {
             // first attempt to decode the next two bytes
             // if this fails, we'll skip over the invalid percent-encoded character
             // this follows the same approach as the `percent-encoding` crate
-            let Some(h) = bytes_iter.next().and_then(|(_, b)| char_to_hexdigit(*b)) else {
+            //
+            // the two bytes are peeked rather than pulled out of the iterator:
+            // a failed attempt must leave them unread, otherwise a `%` that
+            // begins the next (valid) escape gets swallowed by the failed one.
+            let Some(h) = input.get(idx + 1).copied().and_then(char_to_hexdigit) else {
                 continue;
             };
-            let Some(l) = bytes_iter.next().and_then(|(_, b)| char_to_hexdigit(*b)) else {
+            let Some(l) = input.get(idx + 2).copied().and_then(char_to_hexdigit) else {
                 continue;
             };
+
+            // both digits are valid, so the escape is consumed
+            bytes_iter.next();
+            bytes_iter.next();
 
             extend_no_alloc(&mut decoded, &input[last_segment..idx]);
 

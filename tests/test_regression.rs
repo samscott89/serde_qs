@@ -107,3 +107,35 @@ fn percent_signs_roundtrip() {
         serde_qs::to_string(&map_key("%5Bx%5D")).unwrap()
     );
 }
+
+/// https://github.com/samscott89/serde_qs/issues/175
+///
+/// An escape that failed the hex-digit test used to keep the two bytes it had
+/// already pulled out of the iterator. When the byte that failed the test was
+/// itself the `%` beginning the next escape, that escape was never examined
+/// and passed through raw.
+///
+/// `decode` documents that it follows the `percent-encoding` crate, so its
+/// output is the reference here: `%4%41` decodes to `%4A`, `%%41` to `%A`.
+#[test]
+fn invalid_escape_does_not_swallow_the_next_one() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Q {
+        name: String,
+    }
+
+    for (encoded, expected) in [
+        ("name=%4%41", "%4A"),
+        ("name=%%41", "%A"),
+        ("name=%zz%41", "%zzA"),
+        // a trailing invalid escape is still passed through unchanged
+        ("name=%4", "%4"),
+        ("name=%", "%"),
+    ] {
+        let decoded: Q = serde_qs::from_str(encoded).unwrap();
+        assert_eq!(
+            decoded.name, expected,
+            "{encoded:?} did not decode as {expected:?}"
+        );
+    }
+}
