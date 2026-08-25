@@ -107,3 +107,62 @@ fn percent_signs_roundtrip() {
         serde_qs::to_string(&map_key("%5Bx%5D")).unwrap()
     );
 }
+
+/// https://github.com/samscott89/serde_qs/issues/176
+///
+/// Form-encoding mode eagerly rewrites percent-encoded brackets so that nested
+/// keys can still form structure, but it compared the two bytes after `%`
+/// against the literal uppercase `5B`/`5D`. Lowercase `%5b`/`%5d` fell through
+/// to the catch-all arm, so the key stayed flat and no error was raised.
+///
+/// The hex digits of a percent-encoding are case-insensitive (RFC 3986 section
+/// 6.2.2.1), and this crate's own `char_to_hexdigit` already accepts both
+/// cases, so the two paths disagreed.
+#[test]
+fn form_encoded_brackets_are_case_insensitive() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Outer {
+        abc: Inner,
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Inner {
+        def: String,
+    }
+
+    let config = serde_qs::Config::new().use_form_encoding(true);
+    let expected = Outer {
+        abc: Inner {
+            def: "ghi".to_string(),
+        },
+    };
+
+    for encoded in [
+        "abc%5Bdef%5D=ghi",
+        "abc%5bdef%5d=ghi",
+        // mixed case in a single key
+        "abc%5Bdef%5d=ghi",
+    ] {
+        let decoded: Outer = config
+            .deserialize_str(encoded)
+            .unwrap_or_else(|e| panic!("{encoded:?} failed to deserialize: {e}"));
+        assert_eq!(decoded, expected, "{encoded:?} did not nest correctly");
+    }
+
+    // a doubly-encoded bracket must NOT be rewritten into structure, in either
+    // case: the rewrite inspects the two bytes after `%` (`25`) and declines,
+    // so the key stays flat and keeps the literal `%5B` text
+    for (encoded, key) in [
+        ("abc%255Bdef%255D=ghi", "abc%5Bdef%5D"),
+        ("abc%255bdef%255d=ghi", "abc%5bdef%5d"),
+    ] {
+        let decoded: HashMap<String, String> = config
+            .deserialize_str(encoded)
+            .unwrap_or_else(|e| panic!("{encoded:?} failed to deserialize: {e}"));
+        assert_eq!(
+            decoded.keys().collect::<Vec<_>>(),
+            vec![key],
+            "{encoded:?} should stay flat"
+        );
+    }
+}

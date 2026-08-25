@@ -158,15 +158,18 @@ impl Parser<'_> {
             if matches!(next, Some(b'%')) {
                 let iter = self.iter.as_slice();
                 if iter.len() >= 2 {
+                    // the hex digits of a percent-encoding are case-insensitive
+                    // (RFC 3986 section 6.2.2.1), matching `char_to_hexdigit`
+                    // in the decoder
                     match &self.iter.as_slice()[..2] {
-                        b"5B" => {
+                        [b'5', b'B' | b'b'] => {
                             // skip the next two characters
                             let _ = self.iter.next();
                             let _ = self.iter.next();
                             self.index += 2;
                             next = Some(b'[');
                         }
-                        b"5D" => {
+                        [b'5', b'D' | b'd'] => {
                             // skip the next two characters
                             let _ = self.iter.next();
                             let _ = self.iter.next();
