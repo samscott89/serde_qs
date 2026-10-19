@@ -227,13 +227,13 @@ macro_rules! serialize_itoa {
     };
 }
 
-macro_rules! serialize_ryu {
+macro_rules! serialize_zmij {
     (
         $($ty:ty => $meth:ident,)*) => {
         $(
             #[allow(unused_mut)]
             fn $meth(mut self, v: $ty) -> Result<Self::Ok> {
-                let mut buffer = ryu::Buffer::new();
+                let mut buffer = zmij::Buffer::new();
                 let key = buffer.format(v);
                 self.write_value(key.as_bytes())?;
                 Ok(())
@@ -263,7 +263,7 @@ impl<'a, W: Write> ser::Serializer for &'a mut QsSerializer<W> {
         i32 => serialize_i32,
         i64 => serialize_i64,
     }
-    serialize_ryu! {
+    serialize_zmij! {
         f32 => serialize_f32,
         f64 => serialize_f64,
     }
@@ -625,13 +625,13 @@ macro_rules! serialize_key_itoa {
     };
 }
 
-macro_rules! serialize_key_ryu {
+macro_rules! serialize_key_zmij {
     (
         $($ty:ty => $meth:ident,)*) => {
         $(
             #[allow(unused_mut)]
             fn $meth(mut self, v: $ty) -> Result<Self::Ok> {
-                let mut buffer = ryu::Buffer::new();
+                let mut buffer = zmij::Buffer::new();
                 let key = buffer.format(v);
                 self.push_key(key.as_bytes())?;
                 Ok(())
@@ -676,7 +676,7 @@ impl<W: Write> ser::Serializer for KeySerializer<'_, W> {
         i32 => serialize_i32,
         i64 => serialize_i64,
     }
-    serialize_key_ryu! {
+    serialize_key_zmij! {
         f32 => serialize_f32,
         f64 => serialize_f64,
     }

@@ -20,10 +20,10 @@ futures-util = { version = "0.3", optional = true, default-features = false }
 indexmap = { version = "2.2", optional = true, features = ["serde"] }
 itoa = "1.0.15"
 percent-encoding = "2.1"
-ryu = "1.0.20"
 serde = { version = "1.0" }
 tracing = { version = "0.1", optional = true }
 warp-framework = { package = "warp", version = "0.4", default-features = false, optional = true }
+zmij = "1.0.23"
 
 # used in benchmarks
 criterion = { version = "0.5", features = ["html_reports"], optional = true }
